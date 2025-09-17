@@ -41,66 +41,91 @@ export default function Tracking() {
     }
   };
 
-  // Rafraîchir automatiquement les données au chargement de la page
+  // Rafraîchir automatiquement les données au chargement de la page (optimisé)
   useEffect(() => {
     if (authenticatedUser) {
-      refreshAllData();
+      // Invalider seulement les données critiques pour éviter trop de requêtes
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
     }
   }, [authenticatedUser]);
 
   const { data: cravingEntries, isLoading: cravingLoading } = useQuery<CravingEntry[]>({
     queryKey: ["/api/cravings"],
     queryFn: async () => {
-      const response = await fetch("/api/cravings");
+      const response = await fetch("/api/cravings?limit=50", {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch cravings");
       return response.json();
     },
     enabled: !!authenticatedUser,
     initialData: [],
+    staleTime: 2 * 60 * 1000, // 2 minutes pour les données critiques
+    gcTime: 5 * 60 * 1000, // 5 minutes de cache
   });
 
   const { data: cravingStats, isLoading: statsLoading } = useQuery<CravingStats>({
-    queryKey: ["/api/cravings/stats"],
+    queryKey: ["/api/dashboard/stats", "cravings"],
     queryFn: async () => {
-      const response = await fetch("/api/cravings/stats");
-      if (!response.ok) throw new Error("Failed to fetch craving stats");
-      return response.json();
+      const response = await fetch("/api/dashboard/stats", {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error("Failed to fetch dashboard stats");
+      const data = await response.json();
+      return {
+        average: data.avgCravingIntensity || 0,
+        trend: 0 // Calculé côté serveur si disponible
+      };
     },
     enabled: !!authenticatedUser,
     initialData: { average: 0, trend: 0 },
+    staleTime: 30 * 1000, // 30 secondes pour les stats
+    gcTime: 2 * 60 * 1000, // 2 minutes de cache
   });
 
   const { data: exerciseSessions, isLoading: sessionsLoading } = useQuery<any[]>({
-    queryKey: ["/api/exercise-sessions/detailed"],
+    queryKey: ["/api/exercise-sessions"],
     queryFn: async () => {
-      const response = await fetch("/api/exercise-sessions/detailed");
+      const response = await fetch("/api/exercise-sessions?limit=30", {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch exercise sessions");
       return response.json();
     },
     enabled: !!authenticatedUser,
     initialData: [],
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes de cache
   });
 
   const { data: userStats, isLoading: userStatsLoading } = useQuery<UserStats>({
-    queryKey: ["/api/users/stats"],
+    queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {
-      const response = await fetch("/api/users/stats");
-      if (!response.ok) throw new Error("Failed to fetch user stats");
+      const response = await fetch("/api/dashboard/stats", {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error("Failed to fetch dashboard stats");
       return response.json();
     },
     enabled: !!authenticatedUser,
     initialData: { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() },
+    staleTime: 30 * 1000, // 30 secondes pour les stats
+    gcTime: 2 * 60 * 1000, // 2 minutes de cache
   });
 
   const { data: beckAnalyses, isLoading: beckLoading } = useQuery<BeckAnalysis[]>({
     queryKey: ["/api/beck-analyses"],
     queryFn: async () => {
-      const response = await fetch("/api/beck-analyses");
+      const response = await fetch("/api/beck-analyses?limit=20", {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch beck analyses");
       return response.json();
     },
     enabled: !!authenticatedUser,
     initialData: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes pour les analyses
+    gcTime: 10 * 60 * 1000, // 10 minutes de cache
   });
 
   const { data: antiCravingStrategies, isLoading: strategiesLoading } = useQuery<AntiCravingStrategy[]>({
