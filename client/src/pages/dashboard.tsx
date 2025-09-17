@@ -102,31 +102,16 @@ export default function Dashboard() {
     <>
       <Navigation />
       <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
-        {/* Hero Section - Page d'accueil personnalisée */}
-        <section className="text-center mb-12 py-8">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-bold text-primary mb-4">
+        {/* Hero Section - Page d'accueil améliorée */}
+        <section className="text-center mb-8 py-6">
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-4">
               Bienvenue dans Apaddicto
             </h1>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <div className="flex items-center gap-2 text-lg">
-                <span className="material-icons text-primary">fitness_center</span>
-                <span>Exercices ciblés</span>
-              </div>
-              <div className="flex items-center gap-2 text-lg">
-                <span className="material-icons text-secondary">psychology</span>
-                <span>Suivi personnalisé</span>
-              </div>
-              <div className="flex items-center gap-2 text-lg">
-                <span className="material-icons text-warning">emoji_events</span>
-                <span>Motivation quotidienne</span>
-              </div>
-            </div>
             {user && (
-              <div className="mt-6 p-4 bg-primary/10 rounded-lg">
-                <p className="text-lg font-medium">Bonjour {user.firstName || 'Champion'} ! 👋</p>
-                <p className="text-muted-foreground">Prêt(e) à continuer votre parcours de rétablissement ?</p>
+              <div className="mt-4 p-6 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl border border-primary/20">
+                <p className="text-xl font-medium text-foreground">Bonjour {user.firstName || 'Champion'} ! 👋</p>
+                <p className="text-muted-foreground mt-2">Prêt(e) à continuer votre parcours de rétablissement ?</p>
               </div>
             )}
           </div>

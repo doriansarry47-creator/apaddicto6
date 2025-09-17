@@ -16,7 +16,18 @@ import TriangleBreathingExercise from '@/components/interactive-exercises/Triang
 export default function RelaxationExercises() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('heart-coherence');
+  
+  // Gestion des paramètres URL pour l'onglet initial
+  const getInitialTab = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    if (tab && ['heart_coherence', 'square_breathing', 'triangle_breathing'].includes(tab)) {
+      return tab.replace('_', '-');
+    }
+    return 'heart-coherence';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab());
   const [preExerciseRating, setPreExerciseRating] = useState<number | null>(null);
   const [postExerciseRating, setPostExerciseRating] = useState<number | null>(null);
   const [showPostEvaluation, setShowPostEvaluation] = useState(false);

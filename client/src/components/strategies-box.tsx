@@ -248,30 +248,38 @@ export function StrategiesBox({ userId, onSuccess }: StrategiesBoxProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Table Header */}
-        <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
-            {/* Headers */}
-            <div className="grid grid-cols-7 gap-2 p-2 bg-muted/50 rounded-lg text-sm font-medium">
-              <div className="text-center">Contexte</div>
-              <div className="text-center">Exercices</div>
-              <div className="text-center">Effort / Intensité</div>
-              <div className="text-center">Durée (min)</div>
-              <div className="text-center">Craving Avant</div>
-              <div className="text-center">Craving Après</div>
-              <div className="text-center">Actions</div>
-            </div>
-
-            {/* Strategy Rows */}
-            <div className="space-y-2 mt-4">
-              {strategies.map((strategy, index) => (
-                <div key={strategy.id} className="grid grid-cols-7 gap-2 p-2 border rounded-lg">
-                  {/* Context */}
-                  <div className="flex flex-col">
+        {/* Responsive Strategy Form */}
+        <div className="space-y-6">
+          {strategies.map((strategy, index) => (
+            <Card key={strategy.id} className="border-l-4 border-l-primary/50">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium">
+                    <span className="material-icons mr-2 text-primary text-sm">psychology</span>
+                    Stratégie {index + 1}
+                  </CardTitle>
+                  {strategies.length > 1 && (
+                    <Button
+                      onClick={() => removeRow(strategy.id)}
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                      data-testid={`button-remove-${index}`}
+                    >
+                      <span className="material-icons text-sm">delete</span>
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Row 1: Context and Exercise */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Contexte</label>
                     <select
                       value={strategy.context}
                       onChange={(e) => updateStrategy(strategy.id, 'context', e.target.value)}
-                      className="w-full p-2 border border-input rounded text-sm bg-background"
+                      className="w-full p-3 border border-input rounded-lg text-sm bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       data-testid={`select-context-${index}`}
                     >
                       {contexts.map(context => (
@@ -280,28 +288,31 @@ export function StrategiesBox({ userId, onSuccess }: StrategiesBoxProps) {
                         </option>
                       ))}
                     </select>
-                    <div className="text-xs text-muted-foreground mt-1 italic">
+                    <div className="text-xs text-muted-foreground italic">
                       {getExampleText(strategy.context)}
                     </div>
                   </div>
 
-                  {/* Exercise */}
-                  <div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Description de l'exercice/stratégie</label>
                     <textarea
                       value={strategy.exercise}
                       onChange={(e) => updateStrategy(strategy.id, 'exercise', e.target.value)}
-                      placeholder="Décrivez votre activité/stratégie..."
-                      className="w-full p-2 border border-input rounded text-sm resize-none h-16 bg-background"
+                      placeholder="Décrivez précisément votre activité, technique ou stratégie..."
+                      className="w-full p-3 border border-input rounded-lg text-sm resize-none h-20 bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       data-testid={`textarea-exercise-${index}`}
                     />
                   </div>
+                </div>
 
-                  {/* Effort */}
-                  <div>
+                {/* Row 2: Effort and Duration */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Niveau d'effort</label>
                     <select
                       value={strategy.effort}
                       onChange={(e) => updateStrategy(strategy.id, 'effort', e.target.value)}
-                      className="w-full p-2 border border-input rounded text-sm bg-background"
+                      className="w-full p-3 border border-input rounded-lg text-sm bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       data-testid={`select-effort-${index}`}
                     >
                       {effortLevels.map(level => (
@@ -312,83 +323,103 @@ export function StrategiesBox({ userId, onSuccess }: StrategiesBoxProps) {
                     </select>
                   </div>
 
-                  {/* Duration */}
-                  <div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Durée (minutes)</label>
                     <input
                       type="number"
                       min="1"
                       max="180"
                       value={strategy.duration}
                       onChange={(e) => updateStrategy(strategy.id, 'duration', Number(e.target.value))}
-                      className="w-full p-2 border border-input rounded text-sm bg-background"
+                      className="w-full p-3 border border-input rounded-lg text-sm bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="En minutes (1-180)"
                       data-testid={`input-duration-${index}`}
                     />
                   </div>
+                </div>
 
-                  {/* Craving Before */}
-                  <div>
-                    <select
-                      value={strategy.cravingBefore}
-                      onChange={(e) => updateStrategy(strategy.id, 'cravingBefore', Number(e.target.value))}
-                      className="w-full p-2 border border-input rounded text-sm bg-background"
-                      data-testid={`select-craving-before-${index}`}
-                    >
-                      {Array.from({length: 11}, (_, i) => (
-                        <option key={i} value={i}>{i}</option>
-                      ))}
-                    </select>
+                {/* Row 3: Cravings Before and After */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Niveau de craving AVANT (0-10)</label>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        value={strategy.cravingBefore}
+                        onChange={(e) => updateStrategy(strategy.id, 'cravingBefore', Number(e.target.value))}
+                        className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                        data-testid={`range-craving-before-${index}`}
+                      />
+                      <span className="text-lg font-bold text-destructive min-w-[2rem] text-center">
+                        {strategy.cravingBefore}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Craving After */}
-                  <div>
-                    <select
-                      value={strategy.cravingAfter}
-                      onChange={(e) => updateStrategy(strategy.id, 'cravingAfter', Number(e.target.value))}
-                      className="w-full p-2 border border-input rounded text-sm bg-background"
-                      data-testid={`select-craving-after-${index}`}
-                    >
-                      {Array.from({length: 11}, (_, i) => (
-                        <option key={i} value={i}>{i}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex justify-center">
-                    {strategies.length > 1 && (
-                      <Button
-                        onClick={() => removeRow(strategy.id)}
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        data-testid={`button-remove-${index}`}
-                      >
-                        <span className="material-icons text-sm">delete</span>
-                      </Button>
-                    )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Niveau de craving APRÈS (0-10)</label>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        value={strategy.cravingAfter}
+                        onChange={(e) => updateStrategy(strategy.id, 'cravingAfter', Number(e.target.value))}
+                        className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                        data-testid={`range-craving-after-${index}`}
+                      />
+                      <span className="text-lg font-bold text-success min-w-[2rem] text-center">
+                        {strategy.cravingAfter}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+
+                {/* Effectiveness indicator */}
+                {strategy.cravingBefore !== strategy.cravingAfter && (
+                  <div className={`p-3 rounded-lg text-sm font-medium ${
+                    strategy.cravingBefore > strategy.cravingAfter 
+                      ? 'bg-success/10 text-success border border-success/20' 
+                      : strategy.cravingBefore < strategy.cravingAfter 
+                      ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                      : 'bg-muted/50 text-muted-foreground'
+                  }`}>
+                    {strategy.cravingBefore > strategy.cravingAfter ? (
+                      <>
+                        <span className="material-icons text-sm mr-2">trending_down</span>
+                        Efficace ! Réduction de {strategy.cravingBefore - strategy.cravingAfter} point(s)
+                      </>
+                    ) : strategy.cravingBefore < strategy.cravingAfter ? (
+                      <>
+                        <span className="material-icons text-sm mr-2">trending_up</span>
+                        Attention ! Augmentation de {strategy.cravingAfter - strategy.cravingBefore} point(s)
+                      </>
+                    ) : null}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-between pt-4">
+        <div className="flex flex-col sm:flex-row gap-3 justify-between pt-6 border-t border-border">
           <Button
             onClick={addRow}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 h-12"
             data-testid="button-add-row"
           >
             <span className="material-icons text-sm">add</span>
-            Ajouter une ligne
+            Ajouter une stratégie
           </Button>
 
           <Button
             onClick={handleSave}
             disabled={saveStrategiesMutation.isPending}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-6"
             data-testid="button-save-strategies"
           >
             {saveStrategiesMutation.isPending ? (
@@ -399,7 +430,7 @@ export function StrategiesBox({ userId, onSuccess }: StrategiesBoxProps) {
             ) : (
               <>
                 <span className="material-icons mr-2 text-sm">save</span>
-                Sauvegarder dans l'onglet Suivi
+                Enregistrer dans l'onglet Suivi
               </>
             )}
           </Button>

@@ -79,16 +79,38 @@ export default function ExerciseDetail() {
     return (
       <>
         <Navigation />
-        <main className="container mx-auto px-4 py-6">
-          <Card className="shadow-material">
+        <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
+          <Card className="shadow-material max-w-2xl mx-auto">
             <CardContent className="p-8 text-center">
-              <h1 className="text-2xl font-bold mb-4">Exercice non trouvé</h1>
-              <p className="text-muted-foreground mb-4">
-                L'exercice demandé n'existe pas ou n'est plus disponible.
+              <div className="mb-6">
+                <span className="material-icons text-6xl text-muted-foreground mb-4">search_off</span>
+              </div>
+              <h1 className="text-2xl font-bold mb-4 text-foreground">Exercice introuvable</h1>
+              <p className="text-muted-foreground mb-6">
+                {error ? 
+                  "Une erreur s'est produite lors du chargement de l'exercice. Veuillez réessayer." :
+                  "L'exercice demandé n'existe pas ou n'est plus disponible."
+                }
               </p>
-              <Link to="/exercises">
-                <Button>Retour aux exercices</Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link to="/exercises">
+                  <Button className="w-full sm:w-auto">
+                    <span className="material-icons mr-2 text-sm">fitness_center</span>
+                    Voir tous les exercices
+                  </Button>
+                </Link>
+                <Link to="/relaxation-exercises">
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    <span className="material-icons mr-2 text-sm">self_improvement</span>
+                    Exercices de respiration
+                  </Button>
+                </Link>
+              </div>
+              <div className="mt-6 p-4 bg-info/10 rounded-lg">
+                <p className="text-sm text-info">
+                  <strong>Suggestion :</strong> Essayez nos exercices de respiration interactifs ou parcourez notre bibliothèque d'exercices personnalisés.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </main>
@@ -136,7 +158,7 @@ export default function ExerciseDetail() {
       exerciseId: exercise.id,
       duration: timeElapsed,
       completed: true,
-      cratingBefore: cravingBefore,
+      cravingBefore: cravingBefore,
       cravingAfter: cravingAfter,
     });
 

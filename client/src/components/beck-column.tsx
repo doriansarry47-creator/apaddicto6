@@ -95,134 +95,198 @@ export function BeckColumn({ userId, onSuccess }: BeckColumnProps) {
         </p>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
-          {/* Column 1: Situation */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground">1. Situation</label>
-            <div className="text-xs text-muted-foreground mb-2">
-              <strong>Exemples :</strong><br/>
-              • "J'ai vu mon dealer dans la rue"<br/>
-              • "Mon conjoint m'a critiqué"<br/>
-              • "Je me suis dispute avec un ami"<br/>
-              • "J'ai reçu une mauvaise nouvelle au travail"
-            </div>
-            <textarea
-              value={situation}
-              onChange={(e) => setSituation(e.target.value)}
-              className="w-full p-3 border border-input rounded-lg resize-none h-24 text-sm bg-background"
-              placeholder="Décrivez la situation déclenchante de façon factuelle et objective..."
-              data-testid="textarea-situation"
-            />
+        <div className="space-y-8">
+          {/* Étape 1 & 2: Situation et Pensées */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-l-4 border-l-blue-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center">
+                  <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">1</span>
+                  Situation déclenchante
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-xs text-muted-foreground p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                  <strong>Exemples :</strong><br/>
+                  • "J'ai vu mon dealer dans la rue"<br/>
+                  • "Mon conjoint m'a critiqué"<br/>
+                  • "Je me suis disputé avec un ami"<br/>
+                  • "J'ai reçu une mauvaise nouvelle au travail"
+                </div>
+                <textarea
+                  value={situation}
+                  onChange={(e) => setSituation(e.target.value)}
+                  className="w-full p-4 border border-input rounded-lg resize-none h-28 text-sm bg-background focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="Décrivez la situation déclenchante de façon factuelle et objective..."
+                  data-testid="textarea-situation"
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-orange-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center">
+                  <span className="bg-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">2</span>
+                  Pensées automatiques
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-xs text-muted-foreground p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg">
+                  <strong>Exemples :</strong><br/>
+                  • "Je n'y arriverai jamais"<br/>
+                  • "Personne ne me comprend"<br/>
+                  • "C'est trop dur, j'ai besoin de consommer"<br/>
+                  • "Une seule fois ne changera rien"
+                </div>
+                <textarea
+                  value={automaticThoughts}
+                  onChange={(e) => setAutomaticThoughts(e.target.value)}
+                  className="w-full p-4 border border-input rounded-lg resize-none h-28 text-sm bg-background focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  placeholder="Quelles pensées vous sont venues spontanément? (sans les censurer)"
+                  data-testid="textarea-thoughts"
+                />
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Column 2: Automatic Thoughts */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground">2. Pensées Automatiques</label>
-            <div className="text-xs text-muted-foreground mb-2">
-              <strong>Exemples :</strong><br/>
-              • "Je n'y arriverai jamais"<br/>
-              • "Personne ne me comprend"<br/>
-              • "C'est trop dur, j'ai besoin de consommer"<br/>
-              • "Je suis nul(le), je mérite de souffrir"<br/>
-              • "Une seule fois ne changera rien"
-            </div>
-            <textarea
-              value={automaticThoughts}
-              onChange={(e) => setAutomaticThoughts(e.target.value)}
-              className="w-full p-3 border border-input rounded-lg resize-none h-24 text-sm bg-background"
-              placeholder="Quelles pensées vous sont venues spontanément? (sans les censurer)"
-              data-testid="textarea-thoughts"
-            />
-          </div>
-
-          {/* Column 3: Emotions */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground">3. Émotions</label>
-            <div className="text-xs text-muted-foreground mb-2">
-              <strong>Exemples :</strong><br/>
-              • "Anxiété, peur du manque"<br/>
-              • "Tristesse profonde, désespoir"<br/>
-              • "Colère contre moi-même"<br/>
-              • "Honte, culpabilité"<br/>
-              • "Vide intérieur, solitude"
-            </div>
-            <textarea
-              value={emotions}
-              onChange={(e) => setEmotions(e.target.value)}
-              className="w-full p-3 border border-input rounded-lg resize-none h-20 text-sm bg-background"
-              placeholder="Nommez les émotions ressenties avec précision..."
-              data-testid="textarea-emotions"
-            />
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-muted-foreground">Intensité:</span>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={emotionIntensity}
-                onChange={(e) => setEmotionIntensity(Number(e.target.value))}
-                className="flex-1 h-1"
-                data-testid="slider-emotion-intensity"
+          {/* Étape 3: Émotions */}
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center">
+                <span className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">3</span>
+                Émotions ressenties
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-xs text-muted-foreground p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
+                <strong>Exemples :</strong><br/>
+                • "Anxiété, peur du manque" • "Tristesse profonde, désespoir" • "Colère contre moi-même" • "Honte, culpabilité" • "Vide intérieur, solitude"
+              </div>
+              <textarea
+                value={emotions}
+                onChange={(e) => setEmotions(e.target.value)}
+                className="w-full p-4 border border-input rounded-lg resize-none h-24 text-sm bg-background focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                placeholder="Nommez les émotions ressenties avec précision..."
+                data-testid="textarea-emotions"
               />
-              <span className="text-xs font-medium text-primary" data-testid="text-emotion-intensity">
-                {emotionIntensity}
-              </span>
-            </div>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm font-medium text-muted-foreground min-w-fit">Intensité émotionnelle:</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={emotionIntensity}
+                  onChange={(e) => setEmotionIntensity(Number(e.target.value))}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  data-testid="slider-emotion-intensity"
+                />
+                <span className="text-lg font-bold text-red-500 min-w-[2rem] text-center" data-testid="text-emotion-intensity">
+                  {emotionIntensity}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Étape 4 & 5: Restructuration */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-l-4 border-l-green-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center">
+                  <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">4</span>
+                  Réponses rationnelles
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-xs text-muted-foreground p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                  <strong>Exemples :</strong><br/>
+                  • "J'ai déjà surmonté des difficultés avant"<br/>
+                  • "Cette émotion va passer, comme les autres"<br/>
+                  • "Consommer ne résoudra pas mon problème"<br/>
+                  • "Chaque jour sobre est une victoire"
+                </div>
+                <textarea
+                  value={rationalResponse}
+                  onChange={(e) => setRationalResponse(e.target.value)}
+                  className="w-full p-4 border border-input rounded-lg resize-none h-28 text-sm bg-background focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                  placeholder="Reformulez vos pensées de manière plus équilibrée et bienveillante..."
+                  data-testid="textarea-rational-response"
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-purple-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center">
+                  <span className="bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">5</span>
+                  Nouveau ressenti
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-xs text-muted-foreground p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                  <strong>Exemples :</strong><br/>
+                  • "Plus calme, moins d'urgence"<br/>
+                  • "Toujours triste mais avec de l'espoir"<br/>
+                  • "Un peu soulagé(e), plus confiant(e)"
+                </div>
+                <textarea
+                  value={newFeeling}
+                  onChange={(e) => setNewFeeling(e.target.value)}
+                  className="w-full p-4 border border-input rounded-lg resize-none h-24 text-sm bg-background focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  placeholder="Décrivez votre nouvel état émotionnel après la restructuration..."
+                  data-testid="textarea-new-feeling"
+                />
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm font-medium text-muted-foreground min-w-fit">Nouvelle intensité:</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={newIntensity}
+                    onChange={(e) => setNewIntensity(Number(e.target.value))}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                    data-testid="slider-new-intensity"
+                  />
+                  <span className="text-lg font-bold text-purple-500 min-w-[2rem] text-center" data-testid="text-new-intensity">
+                    {newIntensity}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Column 4: Rational Responses */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground">4. Réponses Rationnelles</label>
-            <div className="text-xs text-muted-foreground mb-2">
-              <strong>Exemples :</strong><br/>
-              • "J'ai déjà surmonté des difficultés avant"<br/>
-              • "Cette émotion va passer, comme les autres"<br/>
-              • "Consommer ne résoudra pas mon problème"<br/>
-              • "Je peux demander de l'aide"<br/>
-              • "Chaque jour sobre est une victoire"
-            </div>
-            <textarea
-              value={rationalResponse}
-              onChange={(e) => setRationalResponse(e.target.value)}
-              className="w-full p-3 border border-input rounded-lg resize-none h-24 text-sm bg-background"
-              placeholder="Reformulez vos pensées de manière plus équilibrée et bienveillante..."
-              data-testid="textarea-rational-response"
-            />
-          </div>
-
-          {/* Column 5: Result */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground">5. Nouveau Ressenti</label>
-            <div className="text-xs text-muted-foreground mb-2">
-              <strong>Exemples :</strong><br/>
-              • "Plus calme, moins d'urgence"<br/>
-              • "Toujours triste mais avec de l'espoir"<br/>
-              • "Moins de colère, plus de compréhension"<br/>
-              • "Un peu soulagé(e), plus confiant(e)"<br/>
-            </div>
-            <textarea
-              value={newFeeling}
-              onChange={(e) => setNewFeeling(e.target.value)}
-              className="w-full p-3 border border-input rounded-lg resize-none h-20 text-sm bg-background"
-              placeholder="Décrivez votre nouvel état émotionnel après la restructuration..."
-              data-testid="textarea-new-feeling"
-            />
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-muted-foreground">Nouvelle intensité:</span>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={newIntensity}
-                onChange={(e) => setNewIntensity(Number(e.target.value))}
-                className="flex-1 h-1"
-                data-testid="slider-new-intensity"
-              />
-              <span className="text-xs font-medium text-secondary" data-testid="text-new-intensity">
-                {newIntensity}
-              </span>
-            </div>
-          </div>
+          {/* Comparaison des intensités */}
+          {emotionIntensity !== newIntensity && emotions.trim() && newFeeling.trim() && (
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-center space-x-6">
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground mb-1">Émotion initiale</div>
+                    <div className="text-2xl font-bold text-red-500">{emotionIntensity}/10</div>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="material-icons text-3xl text-primary">arrow_forward</span>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground mb-1">Après restructuration</div>
+                    <div className="text-2xl font-bold text-purple-500">{newIntensity}/10</div>
+                  </div>
+                  <div className="text-center">
+                    {emotionIntensity > newIntensity ? (
+                      <div className="text-success font-medium">
+                        <span className="material-icons text-sm">trending_down</span>
+                        Amélioration de {emotionIntensity - newIntensity} point(s)
+                      </div>
+                    ) : emotionIntensity < newIntensity ? (
+                      <div className="text-warning font-medium">
+                        <span className="material-icons text-sm">trending_up</span>
+                        Augmentation de {newIntensity - emotionIntensity} point(s)
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="flex justify-between">

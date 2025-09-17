@@ -44,6 +44,49 @@ const categoryMapping: Record<string, keyof typeof categories> = {
   'debutant': 'debutant'
 };
 
+// Exercices de respiration interactifs intégrés
+const interactiveBreathingExercises = [
+  {
+    id: 'heart-coherence-interactive',
+    title: 'Cohérence Cardiaque Interactive',
+    description: 'Exercice de cohérence cardiaque avec animation guidée pour synchroniser votre respiration et votre rythme cardiaque.',
+    category: 'respiration' as keyof typeof categories,
+    level: 'beginner' as const,
+    duration: 5,
+    intensity: 'gentle' as const,
+    type: 'breathing' as const,
+    imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: ['Suivez le mouvement de la balle qui grandit et rétrécit', 'Inspirez quand elle grandit, expirez quand elle rétrécit', 'Maintenez un rythme régulier de 5 secondes'],
+    benefits: ['Réduction du stress et de l\'anxiété', 'Synchronisation du rythme cardiaque', 'Amélioration de la variabilité cardiaque', 'Activation du système nerveux parasympathique']
+  },
+  {
+    id: 'square-breathing-interactive',
+    title: 'Respiration Carrée Interactive',
+    description: 'Technique de respiration carrée avec visualisation animée pour calmer l\'esprit et réduire le stress.',
+    category: 'respiration' as keyof typeof categories,
+    level: 'beginner' as const,
+    duration: 4,
+    intensity: 'gentle' as const,
+    type: 'breathing' as const,
+    imageUrl: 'https://images.unsplash.com/photo-1545389336-cf090694435e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: ['Suivez la balle le long du carré', 'Inspirez sur le côté gauche, retenez en haut', 'Expirez sur le côté droit, pausez en bas', 'Maintenez 4 temps pour chaque phase'],
+    benefits: ['Amélioration du contrôle respiratoire', 'Stabilisation de l\'humeur', 'Réduction de l\'anxiété', 'Amélioration de la concentration']
+  },
+  {
+    id: 'triangle-breathing-interactive',
+    title: 'Respiration Triangle Interactive',
+    description: 'Exercice de respiration triangulaire avec guide visuel pour équilibrer votre système nerveux et favoriser la relaxation.',
+    category: 'respiration' as keyof typeof categories,
+    level: 'beginner' as const,
+    duration: 6,
+    intensity: 'gentle' as const,
+    type: 'breathing' as const,
+    imageUrl: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: ['Suivez la balle le long du triangle', 'Inspirez en montant, retenez sur le côté', 'Expirez en descendant', 'Adaptez le rythme selon votre confort'],
+    benefits: ['Équilibrage du système nerveux', 'Amélioration de la qualité du sommeil', 'Réduction du stress', 'Harmonisation des énergies']
+  }
+];
+
 // Fonction pour convertir les exercices API en format frontend
 const convertAPIExerciseToFrontend = (apiExercise: APIExercise): Exercise => {
   const mappedCategory = categoryMapping[apiExercise.category] || apiExercise.category as Exercise['category'];
@@ -104,8 +147,9 @@ export default function Exercises() {
     cacheTime: 300000, // 5 minutes de cache
   });
 
-  // Conversion des exercices API vers le format frontend
-  const exercises = apiExercises.map(convertAPIExerciseToFrontend);
+  // Conversion des exercices API vers le format frontend et ajout des exercices interactifs
+  const apiConvertedExercises = apiExercises.map(convertAPIExerciseToFrontend);
+  const exercises = [...apiConvertedExercises, ...interactiveBreathingExercises];
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -157,11 +201,19 @@ export default function Exercises() {
   }
 
   const handleStartExercise = (exercise: Exercise) => {
+    // Vérifier s'il s'agit d'un exercice de respiration interactif
+    if (exercise.id.includes('interactive')) {
+      // Rediriger vers la page des exercices de relaxation avec l'onglet approprié
+      const exerciseType = exercise.id.replace('-interactive', '').replace('-', '_');
+      window.location.href = `/relaxation-exercises?tab=${exerciseType}`;
+      return;
+    }
+    
     toast({
       title: "Exercice démarré",
       description: `Vous avez commencé "${exercise.title}". Bonne séance !`,
     });
-    // Here you would typically navigate to the exercise detail page or start a timer
+    // Navigation vers la page de détail de l'exercice
     window.location.href = `/exercise/${exercise.id}`;
   };
 
