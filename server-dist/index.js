@@ -16,7 +16,7 @@ import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 
 // server/storage.ts
-import { eq, desc, count, avg, and } from "drizzle-orm";
+import { eq, desc, count, avg, and, sql as sql2 } from "drizzle-orm";
 
 // server/db.ts
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -482,7 +482,12 @@ var Storage = class {
   }
   // === CRAVING ENTRIES ===
   async createCravingEntry(cravingData) {
-    const result = await this.db.insert(cravingEntries).values(cravingData).returning();
+    const insertData = {
+      ...cravingData,
+      triggers: cravingData.triggers || [],
+      emotions: cravingData.emotions || []
+    };
+    const result = await this.db.insert(cravingEntries).values(insertData).returning();
     return result[0];
   }
   async getCravingEntriesByUser(userId) {
@@ -660,6 +665,54 @@ var Storage = class {
     } catch (error) {
       console.error("Error in debugGetAllTables:", error);
       return {};
+    }
+  }
+  // === ADMIN METHODS ===
+  async getAllUsersWithStats() {
+    try {
+      const allUsers = await this.db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        createdAt: users.createdAt,
+        lastLoginAt: users.lastLoginAt,
+        isActive: users.isActive
+      }).from(users).orderBy(desc(users.createdAt));
+      const usersWithStats = await Promise.all(
+        allUsers.map(async (user) => {
+          const exerciseCount = await this.db.select({ count: sql2`count(*)` }).from(exerciseSessions).where(eq(exerciseSessions.userId, user.id));
+          const cravingCount = await this.db.select({ count: sql2`count(*)` }).from(cravingEntries).where(eq(cravingEntries.userId, user.id));
+          return {
+            ...user,
+            exerciseCount: exerciseCount[0]?.count || 0,
+            cravingCount: cravingCount[0]?.count || 0
+          };
+        })
+      );
+      return usersWithStats;
+    } catch (error) {
+      console.error("Error fetching users with stats:", error);
+      return [];
+    }
+  }
+  async getUserById(userId) {
+    try {
+      const result = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching user by id:", error);
+      return null;
+    }
+  }
+  async deleteUser(userId) {
+    try {
+      const result = await this.db.delete(users).where(eq(users.id, userId)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return false;
     }
   }
 };
@@ -861,6 +914,31 @@ function registerRoutes(app2) {
   app2.get("/api/auth/me", requireAuth, (req, res) => {
     res.json({ user: req.session.user });
   });
+  app2.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email requis" });
+      }
+      console.log("\u{1F511} Forgot password request for:", email);
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.json({ message: "Si cet email existe, le mot de passe sera envoy\xE9 par email." });
+      }
+      console.log("\u{1F4E7} Simulated email sent to:", email);
+      console.log("\u{1F4E7} Password would be sent to user email:", user.email);
+      res.json({
+        message: "Un email contenant votre mot de passe a \xE9t\xE9 envoy\xE9 \xE0 votre adresse email.",
+        // En production, ne jamais renvoyer le mot de passe dans la réponse
+        demo_note: "Dans cette d\xE9mo, votre mot de passe a \xE9t\xE9 envoy\xE9 par email."
+      });
+    } catch (error) {
+      console.error("\u274C Forgot password error:", error);
+      res.status(500).json({
+        message: "Erreur lors de l'envoi de l'email"
+      });
+    }
+  });
   app2.put("/api/auth/profile", requireAuth, async (req, res) => {
     try {
       const { firstName, lastName, email } = req.body;
@@ -933,13 +1011,13 @@ function registerRoutes(app2) {
   });
   app2.post("/api/cravings", requireAuth, async (req, res) => {
     try {
-      const { intensity, triggers, notes, strategy } = req.body;
+      const { intensity, triggers, emotions, notes } = req.body;
       const craving = await storage.createCravingEntry({
         userId: req.session.user.id,
         intensity: intensity || 1,
-        triggers: triggers || null,
-        notes: notes || null,
-        strategy: strategy || null
+        triggers: triggers || [],
+        emotions: emotions || [],
+        notes: notes || null
       });
       res.json(craving);
     } catch (error) {
@@ -1010,18 +1088,19 @@ function registerRoutes(app2) {
   });
   app2.post("/api/beck-analyses", requireAuth, async (req, res) => {
     try {
-      const { situation, automaticThought, emotion, behavior, alternativeThought, notes } = req.body;
-      if (!situation || !automaticThought) {
-        return res.status(400).json({ message: "Situation et pens\xE9e automatique requises" });
+      const { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity } = req.body;
+      if (!situation || !automaticThoughts || !emotions) {
+        return res.status(400).json({ message: "Situation, pens\xE9es automatiques et \xE9motions requises" });
       }
       const analysis = await storage.createBeckAnalysis({
         userId: req.session.user.id,
         situation,
-        automaticThought,
-        emotion: emotion || null,
-        behavior: behavior || null,
-        alternativeThought: alternativeThought || null,
-        notes: notes || null
+        automaticThoughts,
+        emotions,
+        emotionIntensity: emotionIntensity || null,
+        rationalResponse: rationalResponse || null,
+        newFeeling: newFeeling || null,
+        newIntensity: newIntensity || null
       });
       res.json(analysis);
     } catch (error) {
@@ -1040,21 +1119,32 @@ function registerRoutes(app2) {
   });
   app2.post("/api/strategies", requireAuth, async (req, res) => {
     try {
-      const { title, description, category, effectiveness } = req.body;
-      if (!title || !description) {
-        return res.status(400).json({ message: "Titre et description requis" });
+      const { strategies } = req.body;
+      if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+        return res.status(400).json({ message: "Au moins une strat\xE9gie requise" });
       }
-      const strategy = await storage.createStrategy({
-        userId: req.session.user.id,
-        title,
-        description,
-        category: category || "general",
-        effectiveness: effectiveness || null
-      });
-      res.json(strategy);
+      console.log("Received strategies:", strategies);
+      const savedStrategies = [];
+      for (const strategyData of strategies) {
+        const { context, exercise, effort, duration, cravingBefore, cravingAfter } = strategyData;
+        if (!context || !exercise || !effort || duration === void 0 || cravingBefore === void 0 || cravingAfter === void 0) {
+          return res.status(400).json({ message: "Tous les champs requis: context, exercise, effort, duration, cravingBefore, cravingAfter" });
+        }
+        const strategy = await storage.createStrategy({
+          userId: req.session.user.id,
+          context,
+          exercise,
+          effort,
+          duration: Number(duration),
+          cravingBefore: Number(cravingBefore),
+          cravingAfter: Number(cravingAfter)
+        });
+        savedStrategies.push(strategy);
+      }
+      res.json({ strategies: savedStrategies, message: `${savedStrategies.length} strat\xE9gies sauvegard\xE9es avec succ\xE8s` });
     } catch (error) {
-      console.error("Error creating strategy:", error);
-      res.status(500).json({ message: "Erreur lors de la cr\xE9ation de la strat\xE9gie" });
+      console.error("Error creating strategies:", error);
+      res.status(500).json({ message: "Erreur lors de la cr\xE9ation des strat\xE9gies" });
     }
   });
   app2.get("/api/strategies", requireAuth, async (req, res) => {
@@ -1114,6 +1204,32 @@ function registerRoutes(app2) {
     } catch (error) {
       console.error("Error fetching relaxation exercises:", error);
       res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des exercices de relaxation" });
+    }
+  });
+  app2.get("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const users2 = await storage.getAllUsersWithStats();
+      res.json(users2);
+    } catch (error) {
+      console.error("Error fetching admin users:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des utilisateurs" });
+    }
+  });
+  app2.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userToDelete = await storage.getUserById(id);
+      if (userToDelete?.role === "admin") {
+        return res.status(403).json({ message: "Impossible de supprimer un administrateur" });
+      }
+      const success = await storage.deleteUser(id);
+      if (!success) {
+        return res.status(404).json({ message: "Utilisateur non trouv\xE9" });
+      }
+      res.json({ message: "Utilisateur supprim\xE9 avec succ\xE8s" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Erreur lors de la suppression de l'utilisateur" });
     }
   });
   console.log("\u2705 All routes registered successfully");

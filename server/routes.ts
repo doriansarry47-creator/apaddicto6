@@ -93,6 +93,50 @@ export function registerRoutes(app: Application) {
     res.json({ user: req.session.user });
   });
 
+  // POST /api/auth/forgot-password - Mot de passe oublié
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email requis" });
+      }
+
+      console.log('🔑 Forgot password request for:', email);
+
+      // Récupérer l'utilisateur de la base de données
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        // Ne pas révéler si l'email existe ou non pour des raisons de sécurité
+        return res.json({ message: "Si cet email existe, le mot de passe sera envoyé par email." });
+      }
+
+      // Pour cette implémentation simple, on renvoie directement le mot de passe
+      // Dans un environnement de production, il faudrait:
+      // 1. Générer un token de réinitialisation
+      // 2. Envoyer un email avec un lien de réinitialisation
+      // 3. Permettre à l'utilisateur de définir un nouveau mot de passe
+      
+      // Simulation d'envoi d'email (affichage console pour démonstration)
+      console.log('📧 Simulated email sent to:', email);
+      console.log('📧 Password would be sent to user email:', user.email);
+      
+      // Pour les besoins de démonstration, on suppose que le mot de passe est envoyé
+      res.json({ 
+        message: "Un email contenant votre mot de passe a été envoyé à votre adresse email.",
+        // En production, ne jamais renvoyer le mot de passe dans la réponse
+        demo_note: "Dans cette démo, votre mot de passe a été envoyé par email."
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Forgot password error:', error);
+      res.status(500).json({ 
+        message: "Erreur lors de l'envoi de l'email" 
+      });
+    }
+  });
+
   // PUT /api/auth/profile - Mise à jour du profil
   app.put('/api/auth/profile', requireAuth, async (req, res) => {
     try {
@@ -190,13 +234,13 @@ export function registerRoutes(app: Application) {
   // POST /api/cravings - Enregistrer une envie
   app.post('/api/cravings', requireAuth, async (req, res) => {
     try {
-      const { intensity, triggers, notes, strategy } = req.body;
+      const { intensity, triggers, emotions, notes } = req.body;
       
       const craving = await storage.createCravingEntry({
         userId: req.session.user.id,
         intensity: intensity || 1,
         triggers: triggers || [],
-        emotions: [],
+        emotions: emotions || [],
         notes: notes || null
       });
 
@@ -292,20 +336,21 @@ export function registerRoutes(app: Application) {
   // POST /api/beck-analyses - Créer une analyse Beck
   app.post('/api/beck-analyses', requireAuth, async (req, res) => {
     try {
-      const { situation, automaticThought, emotion, behavior, alternativeThought, notes } = req.body;
+      const { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity } = req.body;
       
-      if (!situation || !automaticThought) {
-        return res.status(400).json({ message: 'Situation et pensée automatique requises' });
+      if (!situation || !automaticThoughts || !emotions) {
+        return res.status(400).json({ message: 'Situation, pensées automatiques et émotions requises' });
       }
 
       const analysis = await storage.createBeckAnalysis({
         userId: req.session.user.id,
         situation,
-        automaticThought,
-        emotion: emotion || null,
-        behavior: behavior || null,
-        alternativeThought: alternativeThought || null,
-        notes: notes || null
+        automaticThoughts,
+        emotions,
+        emotionIntensity: emotionIntensity || null,
+        rationalResponse: rationalResponse || null,
+        newFeeling: newFeeling || null,
+        newIntensity: newIntensity || null
       });
 
       res.json(analysis);
@@ -328,27 +373,43 @@ export function registerRoutes(app: Application) {
 
   // === ROUTES DES STRATÉGIES ===
   
-  // POST /api/strategies - Sauvegarder une stratégie
+  // POST /api/strategies - Sauvegarder des stratégies anti-craving
   app.post('/api/strategies', requireAuth, async (req, res) => {
     try {
-      const { title, description, category, effectiveness } = req.body;
+      const { strategies } = req.body;
       
-      if (!title || !description) {
-        return res.status(400).json({ message: 'Titre et description requis' });
+      if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+        return res.status(400).json({ message: 'Au moins une stratégie requise' });
       }
 
-      const strategy = await storage.createStrategy({
-        userId: req.session.user.id,
-        title,
-        description,
-        category: category || 'general',
-        effectiveness: effectiveness || null
-      });
+      console.log('Received strategies:', strategies);
+      
+      const savedStrategies = [];
+      
+      for (const strategyData of strategies) {
+        const { context, exercise, effort, duration, cravingBefore, cravingAfter } = strategyData;
+        
+        if (!context || !exercise || !effort || duration === undefined || cravingBefore === undefined || cravingAfter === undefined) {
+          return res.status(400).json({ message: 'Tous les champs requis: context, exercise, effort, duration, cravingBefore, cravingAfter' });
+        }
+        
+        const strategy = await storage.createStrategy({
+          userId: req.session.user.id,
+          context,
+          exercise,
+          effort,
+          duration: Number(duration),
+          cravingBefore: Number(cravingBefore),
+          cravingAfter: Number(cravingAfter)
+        });
+        
+        savedStrategies.push(strategy);
+      }
 
-      res.json(strategy);
+      res.json({ strategies: savedStrategies, message: `${savedStrategies.length} stratégies sauvegardées avec succès` });
     } catch (error: any) {
-      console.error('Error creating strategy:', error);
-      res.status(500).json({ message: 'Erreur lors de la création de la stratégie' });
+      console.error('Error creating strategies:', error);
+      res.status(500).json({ message: 'Erreur lors de la création des stratégies' });
     }
   });
 
@@ -428,6 +489,43 @@ export function registerRoutes(app: Application) {
     } catch (error: any) {
       console.error('Error fetching relaxation exercises:', error);
       res.status(500).json({ message: 'Erreur lors de la récupération des exercices de relaxation' });
+    }
+  });
+
+  // === ROUTES D'ADMINISTRATION ===
+  
+  // GET /api/admin/users - Liste de tous les utilisateurs (admin uniquement)
+  app.get('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsersWithStats();
+      res.json(users);
+    } catch (error: any) {
+      console.error('Error fetching admin users:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des utilisateurs' });
+    }
+  });
+
+  // DELETE /api/admin/users/:id - Supprimer un utilisateur (admin uniquement)
+  app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Empêcher la suppression d'un admin par un autre admin
+      const userToDelete = await storage.getUserById(id);
+      if (userToDelete?.role === 'admin') {
+        return res.status(403).json({ message: 'Impossible de supprimer un administrateur' });
+      }
+      
+      const success = await storage.deleteUser(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      }
+
+      res.json({ message: 'Utilisateur supprimé avec succès' });
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ message: 'Erreur lors de la suppression de l\'utilisateur' });
     }
   });
 

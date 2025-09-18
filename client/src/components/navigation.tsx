@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuthQuery } from "@/hooks/use-auth";
+import logoImage from "@/assets/apaddicto-logo.png";
 
 export function Navigation() {
   const [location] = useLocation();
@@ -19,12 +20,12 @@ export function Navigation() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center space-x-3" data-testid="link-home">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                <span className="material-icons text-white text-lg">fitness_center</span>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                <img src={logoImage} alt="APAddicto Logo" className="w-10 h-10 object-contain rounded-full" />
               </div>
               <div>
-                <h1 className="text-xl font-medium text-foreground">Activité Physique Adaptée</h1>
-                <p className="text-sm text-muted-foreground">Gestion des cravings par le mouvement</p>
+                <h1 className="text-xl font-medium text-foreground">APAddicto</h1>
+                <p className="text-sm text-muted-foreground">Gestion des craving par l'AP</p>
               </div>
             </Link>
             

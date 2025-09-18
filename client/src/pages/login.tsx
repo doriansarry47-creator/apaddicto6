@@ -81,7 +81,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Apaddicto</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">APAddicto</h1>
           <p className="text-gray-600">Votre parcours de bien-être commence ici</p>
         </div>
 
@@ -130,6 +130,46 @@ export default function Login() {
                   <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
                     {loginMutation.isPending ? "Connexion..." : "Se connecter"}
                   </Button>
+                  
+                  <div className="text-center mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const email = loginForm.email;
+                        if (!email) {
+                          toast({
+                            title: "Email requis",
+                            description: "Veuillez saisir votre email avant de demander votre mot de passe.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        fetch("/api/auth/forgot-password", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ email })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                          toast({
+                            title: "Email envoyé",
+                            description: data.message || "Votre mot de passe a été envoyé par email.",
+                          });
+                        })
+                        .catch(() => {
+                          toast({
+                            title: "Erreur",
+                            description: "Impossible d'envoyer l'email. Veuillez réessayer.",
+                            variant: "destructive",
+                          });
+                        });
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </div>
                 </form>
               </TabsContent>
 

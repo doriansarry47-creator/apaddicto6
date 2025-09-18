@@ -1,4 +1,4 @@
-import { eq, desc, count, avg, and } from 'drizzle-orm';
+import { eq, desc, count, avg, and, sql } from 'drizzle-orm';
 import { getDB } from './db.js';
 import type { 
   User, 
@@ -430,6 +430,78 @@ class Storage {
     } catch (error) {
       console.error('Error in debugGetAllTables:', error);
       return {};
+    }
+  }
+
+  // === ADMIN METHODS ===
+  async getAllUsersWithStats(): Promise<any[]> {
+    try {
+      const allUsers = await this.db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role,
+          createdAt: users.createdAt,
+          lastLoginAt: users.lastLoginAt,
+          isActive: users.isActive
+        })
+        .from(users)
+        .orderBy(desc(users.createdAt));
+
+      // Ajouter les statistiques d'activité pour chaque utilisateur
+      const usersWithStats = await Promise.all(
+        allUsers.map(async (user) => {
+          const exerciseCount = await this.db
+            .select({ count: sql<number>`count(*)` })
+            .from(exerciseSessions)
+            .where(eq(exerciseSessions.userId, user.id));
+
+          const cravingCount = await this.db
+            .select({ count: sql<number>`count(*)` })
+            .from(cravingEntries)
+            .where(eq(cravingEntries.userId, user.id));
+
+          return {
+            ...user,
+            exerciseCount: exerciseCount[0]?.count || 0,
+            cravingCount: cravingCount[0]?.count || 0
+          };
+        })
+      );
+
+      return usersWithStats;
+    } catch (error) {
+      console.error('Error fetching users with stats:', error);
+      return [];
+    }
+  }
+
+  async getUserById(userId: string): Promise<User | null> {
+    try {
+      const result = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching user by id:', error);
+      return null;
+    }
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .delete(users)
+        .where(eq(users.id, userId))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
     }
   }
 }
