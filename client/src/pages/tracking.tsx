@@ -49,19 +49,25 @@ export default function Tracking() {
     }
   }, [authenticatedUser]);
 
-  const { data: cravingEntries, isLoading: cravingLoading } = useQuery<CravingEntry[]>({
+  const { data: cravingEntries, isLoading: cravingLoading, error: cravingError } = useQuery<CravingEntry[]>({
     queryKey: ["/api/cravings"],
     queryFn: async () => {
       const response = await fetch("/api/cravings?limit=50", {
         credentials: 'include'
       });
-      if (!response.ok) throw new Error("Failed to fetch cravings");
-      return response.json();
+      if (!response.ok) {
+        console.error(`Erreur API cravings: ${response.status} ${response.statusText}`);
+        throw new Error("Failed to fetch cravings");
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!authenticatedUser,
     initialData: [],
     staleTime: 2 * 60 * 1000, // 2 minutes pour les données critiques
     gcTime: 5 * 60 * 1000, // 5 minutes de cache
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
   const { data: cravingStats, isLoading: statsLoading } = useQuery<CravingStats>({
@@ -83,19 +89,25 @@ export default function Tracking() {
     gcTime: 2 * 60 * 1000, // 2 minutes de cache
   });
 
-  const { data: exerciseSessions, isLoading: sessionsLoading } = useQuery<any[]>({
+  const { data: exerciseSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<any[]>({
     queryKey: ["/api/exercise-sessions"],
     queryFn: async () => {
       const response = await fetch("/api/exercise-sessions?limit=30", {
         credentials: 'include'
       });
-      if (!response.ok) throw new Error("Failed to fetch exercise sessions");
-      return response.json();
+      if (!response.ok) {
+        console.error(`Erreur API exercise-sessions: ${response.status} ${response.statusText}`);
+        throw new Error("Failed to fetch exercise sessions");
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!authenticatedUser,
     initialData: [],
     staleTime: 1 * 60 * 1000, // 1 minute
     gcTime: 5 * 60 * 1000, // 5 minutes de cache
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
   const { data: userStats, isLoading: userStatsLoading } = useQuery<UserStats>({
@@ -113,22 +125,28 @@ export default function Tracking() {
     gcTime: 2 * 60 * 1000, // 2 minutes de cache
   });
 
-  const { data: beckAnalyses, isLoading: beckLoading } = useQuery<BeckAnalysis[]>({
+  const { data: beckAnalyses, isLoading: beckLoading, error: beckError } = useQuery<BeckAnalysis[]>({
     queryKey: ["/api/beck-analyses"],
     queryFn: async () => {
       const response = await fetch("/api/beck-analyses?limit=20", {
         credentials: 'include'
       });
-      if (!response.ok) throw new Error("Failed to fetch beck analyses");
-      return response.json();
+      if (!response.ok) {
+        console.error(`Erreur API beck-analyses: ${response.status} ${response.statusText}`);
+        throw new Error("Failed to fetch beck analyses");
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!authenticatedUser,
     initialData: [],
     staleTime: 5 * 60 * 1000, // 5 minutes pour les analyses
     gcTime: 10 * 60 * 1000, // 10 minutes de cache
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
-  const { data: antiCravingStrategies, isLoading: strategiesLoading } = useQuery<AntiCravingStrategy[]>({
+  const { data: antiCravingStrategies, isLoading: strategiesLoading, error: strategiesError } = useQuery<AntiCravingStrategy[]>({
     queryKey: ["/api/strategies"],
     queryFn: async () => {
       const response = await fetch("/api/strategies", {
@@ -141,10 +159,13 @@ export default function Tracking() {
         console.error(`Erreur API strategies: ${response.status} ${response.statusText}`);
         throw new Error("Failed to fetch strategies");
       }
-      return response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!authenticatedUser,
     initialData: [],
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
   const isLoading = userLoading || cravingLoading || statsLoading || sessionsLoading || userStatsLoading || beckLoading || strategiesLoading;
@@ -352,18 +373,20 @@ export default function Tracking() {
                 <CardContent>
                   <div className="space-y-3">
                     {/* Recent exercise sessions */}
-                    {exerciseSessions?.slice(0, 3).map((session: any) => (
+                    {exerciseSessions && exerciseSessions.length > 0 && exerciseSessions.slice(0, 3).map((session: any) => (
                       <div key={`session-${session.id}`} className="flex items-center justify-between p-2 bg-secondary/5 rounded">
                         <div className="flex items-center gap-2">
                           <span className="material-icons text-secondary text-sm">fitness_center</span>
-                          <span className="text-sm">{session.exerciseTitle || 'Exercice'} complété</span>
+                          <span className="text-sm">
+                            {session.exerciseTitle || session.exerciseId || 'Exercice'} complété
+                          </span>
                         </div>
                         <div className="text-xs text-muted-foreground">{formatDate(session.createdAt)}</div>
                       </div>
                     ))}
                     
                     {/* Recent craving entries */}
-                    {cravingEntries?.slice(0, 3).map((entry: CravingEntry) => (
+                    {cravingEntries && cravingEntries.length > 0 && cravingEntries.slice(0, 3).map((entry: CravingEntry) => (
                       <div key={`craving-${entry.id}`} className="flex items-center justify-between p-2 bg-primary/5 rounded">
                         <div className="flex items-center gap-2">
                           <span className="material-icons text-primary text-sm">psychology</span>

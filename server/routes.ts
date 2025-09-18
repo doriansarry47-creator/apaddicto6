@@ -204,6 +204,23 @@ export function registerRoutes(app: Application) {
     }
   });
 
+  // GET /api/exercises/:id - Récupérer un exercice spécifique
+  app.get('/api/exercises/:id', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const exercise = await storage.getExerciseById(id);
+      
+      if (!exercise) {
+        return res.status(404).json({ message: 'Exercice non trouvé' });
+      }
+      
+      res.json(exercise);
+    } catch (error: any) {
+      console.error('Error fetching exercise:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération de l\'exercice' });
+    }
+  });
+
   // POST /api/exercises - Créer un exercice (admin)
   app.post('/api/exercises', requireAdmin, async (req, res) => {
     try {
@@ -254,7 +271,8 @@ export function registerRoutes(app: Application) {
   // GET /api/cravings - Historique des envies
   app.get('/api/cravings', requireAuth, async (req, res) => {
     try {
-      const cravings = await storage.getCravingEntriesByUser(req.session.user.id);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const cravings = await storage.getCravingEntriesByUser(req.session.user.id, limit);
       res.json(cravings);
     } catch (error: any) {
       console.error('Error fetching cravings:', error);
@@ -267,13 +285,38 @@ export function registerRoutes(app: Application) {
   // POST /api/exercise-sessions - Enregistrer une session
   app.post('/api/exercise-sessions', requireAuth, async (req, res) => {
     try {
-      const { exerciseId, duration, completed, notes } = req.body;
+      const { exerciseId, duration, completed, notes, cravingBefore, cravingAfter } = req.body;
+      
+      // Vérifier si l'exercice existe si un exerciseId est fourni
+      let validExerciseId = exerciseId;
+      if (exerciseId) {
+        const exercise = await storage.getExerciseById(exerciseId);
+        if (!exercise) {
+          // Si l'exercice n'existe pas, utiliser le premier exercice disponible
+          const exercises = await storage.getAllExercises();
+          if (exercises.length > 0) {
+            validExerciseId = exercises[0].id;
+          } else {
+            return res.status(400).json({ message: 'Aucun exercice disponible dans la base de données' });
+          }
+        }
+      } else {
+        // Si aucun exerciceId fourni, utiliser le premier exercice disponible
+        const exercises = await storage.getAllExercises();
+        if (exercises.length > 0) {
+          validExerciseId = exercises[0].id;
+        } else {
+          return res.status(400).json({ message: 'Aucun exercice disponible dans la base de données' });
+        }
+      }
       
       const session = await storage.createExerciseSession({
         userId: req.session.user.id,
-        exerciseId: exerciseId || null,
+        exerciseId: validExerciseId,
         duration: duration || 0,
         completed: completed || false,
+        cravingBefore: cravingBefore || null,
+        cravingAfter: cravingAfter || null,
         notes: notes || null
       });
 
@@ -287,7 +330,8 @@ export function registerRoutes(app: Application) {
   // GET /api/exercise-sessions - Historique des sessions
   app.get('/api/exercise-sessions', requireAuth, async (req, res) => {
     try {
-      const sessions = await storage.getExerciseSessionsByUser(req.session.user.id);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const sessions = await storage.getExerciseSessionsByUser(req.session.user.id, limit);
       res.json(sessions);
     } catch (error: any) {
       console.error('Error fetching exercise sessions:', error);
@@ -363,7 +407,8 @@ export function registerRoutes(app: Application) {
   // GET /api/beck-analyses - Historique des analyses Beck
   app.get('/api/beck-analyses', requireAuth, async (req, res) => {
     try {
-      const analyses = await storage.getBeckAnalysesByUser(req.session.user.id);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const analyses = await storage.getBeckAnalysesByUser(req.session.user.id, limit);
       res.json(analyses);
     } catch (error: any) {
       console.error('Error fetching Beck analyses:', error);

@@ -16,7 +16,7 @@ import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 
 // server/storage.ts
-import { eq, desc, count, avg, and, sql as sql2 } from "drizzle-orm";
+import { eq, desc, count, avg, and } from "drizzle-orm";
 
 // server/db.ts
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -129,7 +129,7 @@ var cravingEntries = pgTable("craving_entries", {
 var exerciseSessions = pgTable("exercise_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: "cascade" }),
+  exerciseId: varchar("exercise_id").references(() => exercises.id, { onDelete: "cascade" }),
   duration: integer("duration"),
   // in seconds
   completed: boolean("completed").default(false),
@@ -137,7 +137,9 @@ var exerciseSessions = pgTable("exercise_sessions", {
   // 0-10 scale
   cravingAfter: integer("craving_after"),
   // 0-10 scale
-  createdAt: timestamp("created_at").defaultNow()
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
 });
 var beckAnalyses = pgTable("beck_analyses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -422,6 +424,10 @@ var Storage = class {
     const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
     return result[0] || null;
   }
+  // Alias pour la compatibilité
+  async getUserById(id) {
+    return this.getUser(id);
+  }
   async updateUser(id, data) {
     const result = await this.db.update(users).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, id)).returning();
     return result[0];
@@ -451,6 +457,18 @@ var Storage = class {
     }).from(users);
     return result;
   }
+  async getAllUsersWithStats() {
+    return this.getAllUsers();
+  }
+  async deleteUser(id) {
+    try {
+      const result = await this.db.delete(users).where(eq(users.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return false;
+    }
+  }
   // === EXERCISES ===
   async getAllExercises() {
     const result = await this.db.select().from(exercises).where(eq(exercises.isActive, true)).orderBy(desc(exercises.createdAt));
@@ -463,6 +481,10 @@ var Storage = class {
   async getExercise(id) {
     const result = await this.db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
     return result[0] || null;
+  }
+  // Alias pour la compatibilité
+  async getExerciseById(id) {
+    return this.getExercise(id);
   }
   async getRelaxationExercises() {
     const result = await this.db.select().from(exercises).where(and(
@@ -490,27 +512,64 @@ var Storage = class {
     const result = await this.db.insert(cravingEntries).values(insertData).returning();
     return result[0];
   }
-  async getCravingEntriesByUser(userId) {
-    const result = await this.db.select().from(cravingEntries).where(eq(cravingEntries.userId, userId)).orderBy(desc(cravingEntries.createdAt));
-    return result;
+  async getCravingEntriesByUser(userId, limit) {
+    let query = this.db.select().from(cravingEntries).where(eq(cravingEntries.userId, userId)).orderBy(desc(cravingEntries.createdAt));
+    if (limit) {
+      query = query.limit(limit);
+    }
+    return await query;
   }
   // === EXERCISE SESSIONS ===
   async createExerciseSession(sessionData) {
     const result = await this.db.insert(exerciseSessions).values(sessionData).returning();
     return result[0];
   }
-  async getExerciseSessionsByUser(userId) {
-    const result = await this.db.select().from(exerciseSessions).where(eq(exerciseSessions.userId, userId)).orderBy(desc(exerciseSessions.createdAt));
-    return result;
+  async getExerciseSessionsByUser(userId, limit) {
+    try {
+      let query = this.db.select({
+        id: exerciseSessions.id,
+        userId: exerciseSessions.userId,
+        exerciseId: exerciseSessions.exerciseId,
+        duration: exerciseSessions.duration,
+        completed: exerciseSessions.completed,
+        cravingBefore: exerciseSessions.cravingBefore,
+        cravingAfter: exerciseSessions.cravingAfter,
+        notes: exerciseSessions.notes,
+        createdAt: exerciseSessions.createdAt,
+        updatedAt: exerciseSessions.updatedAt,
+        // Ajout des informations de l'exercice (peut être null)
+        exerciseTitle: exercises.title,
+        exerciseCategory: exercises.category
+      }).from(exerciseSessions).leftJoin(exercises, eq(exerciseSessions.exerciseId, exercises.id)).where(eq(exerciseSessions.userId, userId)).orderBy(desc(exerciseSessions.createdAt));
+      if (limit) {
+        query = query.limit(limit);
+      }
+      const result = await query;
+      return result.map((session2) => ({
+        ...session2,
+        exerciseTitle: session2.exerciseTitle || session2.exerciseId || "Exercice",
+        exerciseCategory: session2.exerciseCategory || "general"
+      }));
+    } catch (error) {
+      console.error("Error in getExerciseSessionsByUser:", error);
+      let query = this.db.select().from(exerciseSessions).where(eq(exerciseSessions.userId, userId)).orderBy(desc(exerciseSessions.createdAt));
+      if (limit) {
+        query = query.limit(limit);
+      }
+      return await query;
+    }
   }
   // === BECK ANALYSES ===
   async createBeckAnalysis(analysisData) {
     const result = await this.db.insert(beckAnalyses).values(analysisData).returning();
     return result[0];
   }
-  async getBeckAnalysesByUser(userId) {
-    const result = await this.db.select().from(beckAnalyses).where(eq(beckAnalyses.userId, userId)).orderBy(desc(beckAnalyses.createdAt));
-    return result;
+  async getBeckAnalysesByUser(userId, limit) {
+    let query = this.db.select().from(beckAnalyses).where(eq(beckAnalyses.userId, userId)).orderBy(desc(beckAnalyses.createdAt));
+    if (limit) {
+      query = query.limit(limit);
+    }
+    return await query;
   }
   // === ANTI-CRAVING STRATEGIES ===
   async createStrategy(strategyData) {
@@ -667,54 +726,7 @@ var Storage = class {
       return {};
     }
   }
-  // === ADMIN METHODS ===
-  async getAllUsersWithStats() {
-    try {
-      const allUsers = await this.db.select({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        role: users.role,
-        createdAt: users.createdAt,
-        lastLoginAt: users.lastLoginAt,
-        isActive: users.isActive
-      }).from(users).orderBy(desc(users.createdAt));
-      const usersWithStats = await Promise.all(
-        allUsers.map(async (user) => {
-          const exerciseCount = await this.db.select({ count: sql2`count(*)` }).from(exerciseSessions).where(eq(exerciseSessions.userId, user.id));
-          const cravingCount = await this.db.select({ count: sql2`count(*)` }).from(cravingEntries).where(eq(cravingEntries.userId, user.id));
-          return {
-            ...user,
-            exerciseCount: exerciseCount[0]?.count || 0,
-            cravingCount: cravingCount[0]?.count || 0
-          };
-        })
-      );
-      return usersWithStats;
-    } catch (error) {
-      console.error("Error fetching users with stats:", error);
-      return [];
-    }
-  }
-  async getUserById(userId) {
-    try {
-      const result = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
-      return result[0] || null;
-    } catch (error) {
-      console.error("Error fetching user by id:", error);
-      return null;
-    }
-  }
-  async deleteUser(userId) {
-    try {
-      const result = await this.db.delete(users).where(eq(users.id, userId)).returning();
-      return result.length > 0;
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      return false;
-    }
-  }
+  // Les méthodes getAllUsersWithStats, getUserById et deleteUser sont déjà définies plus haut
 };
 var storage = new Storage();
 
@@ -989,6 +1001,19 @@ function registerRoutes(app2) {
       res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des exercices" });
     }
   });
+  app2.get("/api/exercises/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const exercise = await storage.getExerciseById(id);
+      if (!exercise) {
+        return res.status(404).json({ message: "Exercice non trouv\xE9" });
+      }
+      res.json(exercise);
+    } catch (error) {
+      console.error("Error fetching exercise:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration de l'exercice" });
+    }
+  });
   app2.post("/api/exercises", requireAdmin, async (req, res) => {
     try {
       const { title, description, duration, difficulty, category, instructions } = req.body;
@@ -1027,7 +1052,8 @@ function registerRoutes(app2) {
   });
   app2.get("/api/cravings", requireAuth, async (req, res) => {
     try {
-      const cravings = await storage.getCravingEntriesByUser(req.session.user.id);
+      const limit = req.query.limit ? parseInt(req.query.limit) : void 0;
+      const cravings = await storage.getCravingEntriesByUser(req.session.user.id, limit);
       res.json(cravings);
     } catch (error) {
       console.error("Error fetching cravings:", error);
@@ -1036,12 +1062,33 @@ function registerRoutes(app2) {
   });
   app2.post("/api/exercise-sessions", requireAuth, async (req, res) => {
     try {
-      const { exerciseId, duration, completed, notes } = req.body;
+      const { exerciseId, duration, completed, notes, cravingBefore, cravingAfter } = req.body;
+      let validExerciseId = exerciseId;
+      if (exerciseId) {
+        const exercise = await storage.getExerciseById(exerciseId);
+        if (!exercise) {
+          const exercises2 = await storage.getAllExercises();
+          if (exercises2.length > 0) {
+            validExerciseId = exercises2[0].id;
+          } else {
+            return res.status(400).json({ message: "Aucun exercice disponible dans la base de donn\xE9es" });
+          }
+        }
+      } else {
+        const exercises2 = await storage.getAllExercises();
+        if (exercises2.length > 0) {
+          validExerciseId = exercises2[0].id;
+        } else {
+          return res.status(400).json({ message: "Aucun exercice disponible dans la base de donn\xE9es" });
+        }
+      }
       const session2 = await storage.createExerciseSession({
         userId: req.session.user.id,
-        exerciseId: exerciseId || null,
+        exerciseId: validExerciseId,
         duration: duration || 0,
         completed: completed || false,
+        cravingBefore: cravingBefore || null,
+        cravingAfter: cravingAfter || null,
         notes: notes || null
       });
       res.json(session2);
@@ -1052,7 +1099,8 @@ function registerRoutes(app2) {
   });
   app2.get("/api/exercise-sessions", requireAuth, async (req, res) => {
     try {
-      const sessions = await storage.getExerciseSessionsByUser(req.session.user.id);
+      const limit = req.query.limit ? parseInt(req.query.limit) : void 0;
+      const sessions = await storage.getExerciseSessionsByUser(req.session.user.id, limit);
       res.json(sessions);
     } catch (error) {
       console.error("Error fetching exercise sessions:", error);
@@ -1110,7 +1158,8 @@ function registerRoutes(app2) {
   });
   app2.get("/api/beck-analyses", requireAuth, async (req, res) => {
     try {
-      const analyses = await storage.getBeckAnalysesByUser(req.session.user.id);
+      const limit = req.query.limit ? parseInt(req.query.limit) : void 0;
+      const analyses = await storage.getBeckAnalysesByUser(req.session.user.id, limit);
       res.json(analyses);
     } catch (error) {
       console.error("Error fetching Beck analyses:", error);
@@ -1295,6 +1344,39 @@ async function ensureAntiCravingTable() {
     await client.end();
   }
 }
+async function ensureExerciseSessionsUpdates() {
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL
+  });
+  try {
+    await client.connect();
+    console.log("\u{1F527} Application des mises \xE0 jour pour exercise_sessions...");
+    await client.query(`
+      ALTER TABLE exercise_sessions ALTER COLUMN exercise_id DROP NOT NULL;
+    `);
+    await client.query(`
+      DO $$ 
+      BEGIN
+          -- Ajouter la colonne notes si elle n'existe pas
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'exercise_sessions' AND column_name = 'notes') THEN
+              ALTER TABLE exercise_sessions ADD COLUMN notes TEXT;
+          END IF;
+          
+          -- Ajouter la colonne updated_at si elle n'existe pas  
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'exercise_sessions' AND column_name = 'updated_at') THEN
+              ALTER TABLE exercise_sessions ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+          END IF;
+      END $$;
+    `);
+    console.log("\u2705 Mises \xE0 jour exercise_sessions appliqu\xE9es");
+  } catch (error) {
+    console.error("\u274C Erreur lors des mises \xE0 jour exercise_sessions:", error);
+  } finally {
+    await client.end();
+  }
+}
 async function run() {
   if (!process.env.DATABASE_URL) {
     console.error("\u274C DATABASE_URL manquant");
@@ -1311,6 +1393,7 @@ async function run() {
     await migrate(db2, { migrationsFolder: "migrations" });
     console.log("\u2705 Migrations Drizzle appliqu\xE9es (ou d\xE9j\xE0 \xE0 jour)");
     await ensureAntiCravingTable();
+    await ensureExerciseSessionsUpdates();
   } catch (e) {
     console.error("\u274C Erreur migrations:", e);
   } finally {

@@ -71,12 +71,14 @@ export const cravingEntries = pgTable("craving_entries", {
 export const exerciseSessions = pgTable("exercise_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: 'cascade' }),
+  exerciseId: varchar("exercise_id").references(() => exercises.id, { onDelete: 'cascade' }),
   duration: integer("duration"), // in seconds
   completed: boolean("completed").default(false),
   cravingBefore: integer("craving_before"), // 0-10 scale
   cravingAfter: integer("craving_after"), // 0-10 scale
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Beck column analyses

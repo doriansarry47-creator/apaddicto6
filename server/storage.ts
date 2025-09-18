@@ -48,6 +48,11 @@ class Storage {
     return result[0] || null;
   }
 
+  // Alias pour la compatibilité
+  async getUserById(id: string): Promise<User | null> {
+    return this.getUser(id);
+  }
+
   async updateUser(id: string, data: Partial<InsertUser>): Promise<User> {
     const result = await this.db
       .update(users)
@@ -91,6 +96,26 @@ class Storage {
     return result;
   }
 
+  async getAllUsersWithStats(): Promise<Omit<User, 'password'>[]> {
+    // Pour l'instant, retourner la même chose que getAllUsers
+    // Peut être étendu plus tard pour inclure des statistiques
+    return this.getAllUsers();
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .delete(users)
+        .where(eq(users.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
+  }
+
   // === EXERCISES ===
   async getAllExercises(): Promise<Exercise[]> {
     const result = await this.db
@@ -109,6 +134,11 @@ class Storage {
   async getExercise(id: string): Promise<Exercise | null> {
     const result = await this.db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
     return result[0] || null;
+  }
+
+  // Alias pour la compatibilité
+  async getExerciseById(id: string): Promise<Exercise | null> {
+    return this.getExercise(id);
   }
 
   async getRelaxationExercises(): Promise<Exercise[]> {
@@ -149,13 +179,18 @@ class Storage {
     return result[0];
   }
 
-  async getCravingEntriesByUser(userId: string): Promise<CravingEntry[]> {
-    const result = await this.db
+  async getCravingEntriesByUser(userId: string, limit?: number): Promise<CravingEntry[]> {
+    let query = this.db
       .select()
       .from(cravingEntries)
       .where(eq(cravingEntries.userId, userId))
       .orderBy(desc(cravingEntries.createdAt));
-    return result;
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query;
   }
 
   // === EXERCISE SESSIONS ===
@@ -164,13 +199,54 @@ class Storage {
     return result[0];
   }
 
-  async getExerciseSessionsByUser(userId: string): Promise<ExerciseSession[]> {
-    const result = await this.db
-      .select()
-      .from(exerciseSessions)
-      .where(eq(exerciseSessions.userId, userId))
-      .orderBy(desc(exerciseSessions.createdAt));
-    return result;
+  async getExerciseSessionsByUser(userId: string, limit?: number): Promise<ExerciseSession[]> {
+    try {
+      let query = this.db
+        .select({
+          id: exerciseSessions.id,
+          userId: exerciseSessions.userId,
+          exerciseId: exerciseSessions.exerciseId,
+          duration: exerciseSessions.duration,
+          completed: exerciseSessions.completed,
+          cravingBefore: exerciseSessions.cravingBefore,
+          cravingAfter: exerciseSessions.cravingAfter,
+          notes: exerciseSessions.notes,
+          createdAt: exerciseSessions.createdAt,
+          updatedAt: exerciseSessions.updatedAt,
+          // Ajout des informations de l'exercice (peut être null)
+          exerciseTitle: exercises.title,
+          exerciseCategory: exercises.category
+        })
+        .from(exerciseSessions)
+        .leftJoin(exercises, eq(exerciseSessions.exerciseId, exercises.id))
+        .where(eq(exerciseSessions.userId, userId))
+        .orderBy(desc(exerciseSessions.createdAt));
+      
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const result = await query;
+      return result.map(session => ({
+        ...session,
+        exerciseTitle: session.exerciseTitle || session.exerciseId || 'Exercice',
+        exerciseCategory: session.exerciseCategory || 'general'
+      }));
+    } catch (error) {
+      console.error('Error in getExerciseSessionsByUser:', error);
+      // Fallback : récupérer sans jointure
+      let query = this.db
+        .select()
+        .from(exerciseSessions)
+        .where(eq(exerciseSessions.userId, userId))
+        .orderBy(desc(exerciseSessions.createdAt));
+      
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      return await query;
+    }
   }
 
   // === BECK ANALYSES ===
@@ -179,13 +255,18 @@ class Storage {
     return result[0];
   }
 
-  async getBeckAnalysesByUser(userId: string): Promise<BeckAnalysis[]> {
-    const result = await this.db
+  async getBeckAnalysesByUser(userId: string, limit?: number): Promise<BeckAnalysis[]> {
+    let query = this.db
       .select()
       .from(beckAnalyses)
       .where(eq(beckAnalyses.userId, userId))
       .orderBy(desc(beckAnalyses.createdAt));
-    return result;
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query;
   }
 
   // === ANTI-CRAVING STRATEGIES ===
@@ -433,77 +514,7 @@ class Storage {
     }
   }
 
-  // === ADMIN METHODS ===
-  async getAllUsersWithStats(): Promise<any[]> {
-    try {
-      const allUsers = await this.db
-        .select({
-          id: users.id,
-          email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          role: users.role,
-          createdAt: users.createdAt,
-          lastLoginAt: users.lastLoginAt,
-          isActive: users.isActive
-        })
-        .from(users)
-        .orderBy(desc(users.createdAt));
-
-      // Ajouter les statistiques d'activité pour chaque utilisateur
-      const usersWithStats = await Promise.all(
-        allUsers.map(async (user) => {
-          const exerciseCount = await this.db
-            .select({ count: sql<number>`count(*)` })
-            .from(exerciseSessions)
-            .where(eq(exerciseSessions.userId, user.id));
-
-          const cravingCount = await this.db
-            .select({ count: sql<number>`count(*)` })
-            .from(cravingEntries)
-            .where(eq(cravingEntries.userId, user.id));
-
-          return {
-            ...user,
-            exerciseCount: exerciseCount[0]?.count || 0,
-            cravingCount: cravingCount[0]?.count || 0
-          };
-        })
-      );
-
-      return usersWithStats;
-    } catch (error) {
-      console.error('Error fetching users with stats:', error);
-      return [];
-    }
-  }
-
-  async getUserById(userId: string): Promise<User | null> {
-    try {
-      const result = await this.db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error fetching user by id:', error);
-      return null;
-    }
-  }
-
-  async deleteUser(userId: string): Promise<boolean> {
-    try {
-      const result = await this.db
-        .delete(users)
-        .where(eq(users.id, userId))
-        .returning();
-      return result.length > 0;
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      return false;
-    }
-  }
+  // Les méthodes getAllUsersWithStats, getUserById et deleteUser sont déjà définies plus haut
 }
 
 export const storage = new Storage();

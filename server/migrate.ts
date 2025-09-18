@@ -70,6 +70,48 @@ async function ensureAntiCravingTable() {
   }
 }
 
+async function ensureExerciseSessionsUpdates() {
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL
+  });
+
+  try {
+    await client.connect();
+    
+    console.log('🔧 Application des mises à jour pour exercise_sessions...');
+    
+    // Supprimer la contrainte NOT NULL sur exercise_id
+    await client.query(`
+      ALTER TABLE exercise_sessions ALTER COLUMN exercise_id DROP NOT NULL;
+    `);
+    
+    // Ajouter les colonnes manquantes si nécessaire
+    await client.query(`
+      DO $$ 
+      BEGIN
+          -- Ajouter la colonne notes si elle n'existe pas
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'exercise_sessions' AND column_name = 'notes') THEN
+              ALTER TABLE exercise_sessions ADD COLUMN notes TEXT;
+          END IF;
+          
+          -- Ajouter la colonne updated_at si elle n'existe pas  
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'exercise_sessions' AND column_name = 'updated_at') THEN
+              ALTER TABLE exercise_sessions ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+          END IF;
+      END $$;
+    `);
+    
+    console.log('✅ Mises à jour exercise_sessions appliquées');
+    
+  } catch (error) {
+    console.error('❌ Erreur lors des mises à jour exercise_sessions:', error);
+  } finally {
+    await client.end();
+  }
+}
+
 async function run() {
   if (!process.env.DATABASE_URL) {
     console.error('❌ DATABASE_URL manquant');
@@ -88,6 +130,9 @@ async function run() {
     
     // Vérifier et créer la table anti_craving_strategies si nécessaire
     await ensureAntiCravingTable();
+    
+    // Appliquer les mises à jour pour exercise_sessions
+    await ensureExerciseSessionsUpdates();
     
   } catch (e) {
     console.error('❌ Erreur migrations:', e);
