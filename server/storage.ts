@@ -140,7 +140,12 @@ class Storage {
 
   // === CRAVING ENTRIES ===
   async createCravingEntry(cravingData: InsertCravingEntry): Promise<CravingEntry> {
-    const result = await this.db.insert(cravingEntries).values(cravingData).returning();
+    const insertData = {
+      ...cravingData,
+      triggers: cravingData.triggers || [],
+      emotions: cravingData.emotions || []
+    };
+    const result = await this.db.insert(cravingEntries).values(insertData).returning();
     return result[0];
   }
 

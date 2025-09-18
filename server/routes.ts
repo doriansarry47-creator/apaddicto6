@@ -195,9 +195,9 @@ export function registerRoutes(app: Application) {
       const craving = await storage.createCravingEntry({
         userId: req.session.user.id,
         intensity: intensity || 1,
-        triggers: triggers || null,
-        notes: notes || null,
-        strategy: strategy || null
+        triggers: triggers || [],
+        emotions: [],
+        notes: notes || null
       });
 
       res.json(craving);
