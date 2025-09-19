@@ -43,129 +43,170 @@ export default function Tracking() {
 
   // Rafraîchir automatiquement les données au chargement de la page (optimisé)
   useEffect(() => {
-    if (authenticatedUser) {
+    if (authenticatedUser && !isRefreshing) {
       // Invalider seulement les données critiques pour éviter trop de requêtes
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      const timer = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
-  }, [authenticatedUser]);
+  }, [authenticatedUser, queryClient]); // Ajout de queryClient comme dépendance mais on évite les boucles
 
   const { data: cravingEntries, isLoading: cravingLoading, error: cravingError } = useQuery<CravingEntry[]>({
     queryKey: ["/api/cravings"],
     queryFn: async () => {
-      const response = await fetch("/api/cravings?limit=50", {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        console.error(`Erreur API cravings: ${response.status} ${response.statusText}`);
-        throw new Error("Failed to fetch cravings");
+      try {
+        const response = await fetch("/api/cravings?limit=50", {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          console.error(`Erreur API cravings: ${response.status} ${response.statusText}`);
+          return [];
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error fetching cravings:', error);
+        return [];
       }
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser,
+    enabled: !!authenticatedUser && !userLoading,
     initialData: [],
-    staleTime: 2 * 60 * 1000, // 2 minutes pour les données critiques
-    gcTime: 5 * 60 * 1000, // 5 minutes de cache
-    retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    staleTime: 5 * 60 * 1000, // 5 minutes pour éviter trop de requêtes
+    gcTime: 10 * 60 * 1000, // 10 minutes de cache
+    retry: 2,
+    retryDelay: 1000
   });
 
   const { data: cravingStats, isLoading: statsLoading } = useQuery<CravingStats>({
     queryKey: ["/api/dashboard/stats", "cravings"],
     queryFn: async () => {
-      const response = await fetch("/api/dashboard/stats", {
-        credentials: 'include'
-      });
-      if (!response.ok) throw new Error("Failed to fetch dashboard stats");
-      const data = await response.json();
-      return {
-        average: data.avgCravingIntensity || 0,
-        trend: 0 // Calculé côté serveur si disponible
-      };
+      try {
+        const response = await fetch("/api/dashboard/stats", {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          console.error('Failed to fetch dashboard stats:', response.status);
+          return { average: 0, trend: 0 };
+        }
+        const data = await response.json();
+        return {
+          average: data.avgCravingIntensity || 0,
+          trend: 0 // Calculé côté serveur si disponible
+        };
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+        return { average: 0, trend: 0 };
+      }
     },
-    enabled: !!authenticatedUser,
+    enabled: !!authenticatedUser && !userLoading,
     initialData: { average: 0, trend: 0 },
-    staleTime: 30 * 1000, // 30 secondes pour les stats
-    gcTime: 2 * 60 * 1000, // 2 minutes de cache
+    staleTime: 2 * 60 * 1000, // 2 minutes pour les stats
+    gcTime: 5 * 60 * 1000, // 5 minutes de cache
+    retry: 1
   });
 
   const { data: exerciseSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<any[]>({
     queryKey: ["/api/exercise-sessions"],
     queryFn: async () => {
-      const response = await fetch("/api/exercise-sessions?limit=30", {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        console.error(`Erreur API exercise-sessions: ${response.status} ${response.statusText}`);
-        throw new Error("Failed to fetch exercise sessions");
+      try {
+        const response = await fetch("/api/exercise-sessions?limit=30", {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          console.error(`Erreur API exercise-sessions: ${response.status} ${response.statusText}`);
+          return [];
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error fetching exercise sessions:', error);
+        return [];
       }
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser,
+    enabled: !!authenticatedUser && !userLoading,
     initialData: [],
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes de cache
-    retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes de cache
+    retry: 1
   });
 
   const { data: userStats, isLoading: userStatsLoading } = useQuery<UserStats>({
     queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {
-      const response = await fetch("/api/dashboard/stats", {
-        credentials: 'include'
-      });
-      if (!response.ok) throw new Error("Failed to fetch dashboard stats");
-      return response.json();
+      try {
+        const response = await fetch("/api/dashboard/stats", {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          console.error('Failed to fetch dashboard stats:', response.status);
+          return { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() };
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching user stats:', error);
+        return { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() };
+      }
     },
-    enabled: !!authenticatedUser,
+    enabled: !!authenticatedUser && !userLoading,
     initialData: { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() },
-    staleTime: 30 * 1000, // 30 secondes pour les stats
-    gcTime: 2 * 60 * 1000, // 2 minutes de cache
+    staleTime: 2 * 60 * 1000, // 2 minutes pour les stats
+    gcTime: 5 * 60 * 1000, // 5 minutes de cache
+    retry: 1
   });
 
   const { data: beckAnalyses, isLoading: beckLoading, error: beckError } = useQuery<BeckAnalysis[]>({
     queryKey: ["/api/beck-analyses"],
     queryFn: async () => {
-      const response = await fetch("/api/beck-analyses?limit=20", {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        console.error(`Erreur API beck-analyses: ${response.status} ${response.statusText}`);
-        throw new Error("Failed to fetch beck analyses");
+      try {
+        const response = await fetch("/api/beck-analyses?limit=20", {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          console.error(`Erreur API beck-analyses: ${response.status} ${response.statusText}`);
+          return [];
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error fetching beck analyses:', error);
+        return [];
       }
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser,
+    enabled: !!authenticatedUser && !userLoading,
     initialData: [],
     staleTime: 5 * 60 * 1000, // 5 minutes pour les analyses
-    gcTime: 10 * 60 * 1000, // 10 minutes de cache
-    retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    gcTime: 15 * 60 * 1000, // 15 minutes de cache
+    retry: 1
   });
 
   const { data: antiCravingStrategies, isLoading: strategiesLoading, error: strategiesError } = useQuery<AntiCravingStrategy[]>({
     queryKey: ["/api/strategies"],
     queryFn: async () => {
-      const response = await fetch("/api/strategies", {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        console.error(`Erreur API strategies: ${response.status} ${response.statusText}`);
-        throw new Error("Failed to fetch strategies");
+      try {
+        const response = await fetch("/api/strategies", {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          console.error(`Erreur API strategies: ${response.status} ${response.statusText}`);
+          return [];
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error fetching strategies:', error);
+        return [];
       }
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser,
+    enabled: !!authenticatedUser && !userLoading,
     initialData: [],
-    retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1
   });
 
   const isLoading = userLoading || cravingLoading || statsLoading || sessionsLoading || userStatsLoading || beckLoading || strategiesLoading;

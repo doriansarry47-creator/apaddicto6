@@ -335,6 +335,150 @@ export const insertExerciseEnhancementSchema = createInsertSchema(exerciseEnhanc
   updatedAt: true,
 });
 
+// Exercise variations (simplifications et complexifications)
+export const exerciseVariations = pgTable("exercise_variations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: 'cascade' }),
+  type: varchar("type").notNull(), // 'simplification' or 'complexification'
+  title: varchar("title").notNull(),
+  description: text("description"),
+  instructions: text("instructions"),
+  duration: integer("duration"), // in minutes
+  difficultyModifier: integer("difficulty_modifier").default(0), // -1 pour simplification, +1 pour complexification
+  benefits: text("benefits"),
+  imageUrl: varchar("image_url"),
+  videoUrl: varchar("video_url"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Séances personnalisées (collections d'exercices avec configuration)
+export const customSessions = pgTable("custom_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // admin qui crée
+  title: varchar("title").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(), // 'morning', 'evening', 'crisis', 'maintenance'
+  totalDuration: integer("total_duration"), // durée totale calculée en minutes
+  difficulty: varchar("difficulty").default("beginner"),
+  isTemplate: boolean("is_template").default(true), // template ou séance personnelle
+  isPublic: boolean("is_public").default(false), // visible pour tous les patients
+  tags: jsonb("tags").$type<string[]>().default([]),
+  imageUrl: varchar("image_url"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Éléments de séance (exercices dans une séance avec configuration)
+export const sessionElements = pgTable("session_elements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => customSessions.id, { onDelete: 'cascade' }),
+  exerciseId: varchar("exercise_id").references(() => exercises.id, { onDelete: 'cascade' }),
+  variationId: varchar("variation_id").references(() => exerciseVariations.id, { onDelete: 'cascade' }),
+  order: integer("order").notNull(), // ordre dans la séance
+  duration: integer("duration"), // durée spécifique pour cette séance (peut override l'exercice)
+  repetitions: integer("repetitions").default(1),
+  restTime: integer("rest_time").default(0), // temps de repos après en secondes
+  timerSettings: jsonb("timer_settings"), // configuration timer spécifique
+  notes: text("notes"), // notes spécifiques pour cet élément
+  isOptional: boolean("is_optional").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Instances de séances (quand un utilisateur fait une séance)
+export const sessionInstances = pgTable("session_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").notNull().references(() => customSessions.id, { onDelete: 'cascade' }),
+  status: varchar("status").default("started"), // 'started', 'paused', 'completed', 'abandoned'
+  currentElementIndex: integer("current_element_index").default(0),
+  totalDuration: integer("total_duration"), // durée réelle en secondes
+  cravingBefore: integer("craving_before"), // 0-10 scale
+  cravingAfter: integer("craving_after"), // 0-10 scale
+  moodBefore: varchar("mood_before"),
+  moodAfter: varchar("mood_after"),
+  notes: text("notes"),
+  completedElements: jsonb("completed_elements").$type<string[]>().default([]), // IDs des éléments terminés
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Bibliothèque d'exercices (métadonnées enrichies)
+export const exerciseLibrary = pgTable("exercise_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: 'cascade' }),
+  authorId: varchar("author_id").references(() => users.id), // thérapeute auteur
+  cardImageUrl: varchar("card_image_url"), // image pour la carte d'identité
+  thumbnailUrl: varchar("thumbnail_url"),
+  galleryImages: jsonb("gallery_images").$type<string[]>().default([]),
+  videos: jsonb("videos").$type<{url: string, title: string, description?: string}[]>().default([]),
+  prerequisites: jsonb("prerequisites").$type<string[]>().default([]), // exercices requis avant
+  contraindications: text("contraindications"),
+  equipment: jsonb("equipment").$type<string[]>().default([]), // matériel nécessaire
+  targetAudience: jsonb("target_audience").$type<string[]>().default([]), // 'beginners', 'athletes', 'seniors'
+  muscleGroups: jsonb("muscle_groups").$type<string[]>().default([]),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  averageRating: integer("average_rating"), // moyenne des notes /5
+  ratingCount: integer("rating_count").default(0),
+  usageCount: integer("usage_count").default(0), // nombre d'utilisations
+  lastUsed: timestamp("last_used"),
+  isVerified: boolean("is_verified").default(false), // vérifié par un professionnel
+  isFeatured: boolean("is_featured").default(false), // mis en avant
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Évaluations d'exercices par les utilisateurs
+export const exerciseRatings = pgTable("exercise_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: 'cascade' }),
+  rating: integer("rating").notNull(), // 1-5 stars
+  comment: text("comment"),
+  difficulty: varchar("difficulty"), // ressenti de difficulté par l'utilisateur
+  effectiveness: integer("effectiveness"), // efficacité ressentie 1-5
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Create insert schemas for new tables
+export const insertExerciseVariationSchema = createInsertSchema(exerciseVariations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCustomSessionSchema = createInsertSchema(customSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSessionElementSchema = createInsertSchema(sessionElements).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSessionInstanceSchema = createInsertSchema(sessionInstances).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertExerciseLibrarySchema = createInsertSchema(exerciseLibrary).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertExerciseRatingSchema = createInsertSchema(exerciseRatings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -367,3 +511,15 @@ export type AudioContent = typeof audioContent.$inferSelect;
 export type InsertAudioContent = z.infer<typeof insertAudioContentSchema>;
 export type ExerciseEnhancement = typeof exerciseEnhancements.$inferSelect;
 export type InsertExerciseEnhancement = z.infer<typeof insertExerciseEnhancementSchema>;
+export type ExerciseVariation = typeof exerciseVariations.$inferSelect;
+export type InsertExerciseVariation = z.infer<typeof insertExerciseVariationSchema>;
+export type CustomSession = typeof customSessions.$inferSelect;
+export type InsertCustomSession = z.infer<typeof insertCustomSessionSchema>;
+export type SessionElement = typeof sessionElements.$inferSelect;
+export type InsertSessionElement = z.infer<typeof insertSessionElementSchema>;
+export type SessionInstance = typeof sessionInstances.$inferSelect;
+export type InsertSessionInstance = z.infer<typeof insertSessionInstanceSchema>;
+export type ExerciseLibrary = typeof exerciseLibrary.$inferSelect;
+export type InsertExerciseLibrary = z.infer<typeof insertExerciseLibrarySchema>;
+export type ExerciseRating = typeof exerciseRatings.$inferSelect;
+export type InsertExerciseRating = z.infer<typeof insertExerciseRatingSchema>;

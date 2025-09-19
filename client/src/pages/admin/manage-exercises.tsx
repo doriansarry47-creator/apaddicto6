@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertExerciseSchema } from "../../../../shared/schema";
-import type { Exercise, InsertExercise, EmergencyRoutine, InsertEmergencyRoutine } from "../../../../shared/schema";
+import type { Exercise, InsertExercise, EmergencyRoutine, InsertEmergencyRoutine, ExerciseLibrary, InsertExerciseLibrary, ExerciseVariation, InsertExerciseVariation, CustomSession, InsertCustomSession, SessionElement, InsertSessionElement } from "../../../../shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Edit, Activity, AlertTriangle, Filter, Image, Clock, Target } from "lucide-react";
+import { Plus, Trash2, Edit, Activity, AlertTriangle, Filter, Image, Clock, Target, Library, Star, Users, Play, Settings, Camera, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -46,6 +46,12 @@ export default function ManageExercises() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [emergencyRoutineSteps, setEmergencyRoutineSteps] = useState<string[]>(['']);
+  const [selectedExerciseForLibrary, setSelectedExerciseForLibrary] = useState<Exercise | null>(null);
+  const [libraryImages, setLibraryImages] = useState<File[]>([]);
+  const [libraryVideos, setLibraryVideos] = useState<{url: string, title: string, description?: string}[]>([]);
+  const [newVideoUrl, setNewVideoUrl] = useState('');
+  const [newVideoTitle, setNewVideoTitle] = useState('');
+  const [variations, setVariations] = useState<{type: 'simplification' | 'complexification', title: string, description: string, instructions: string}[]>([]);
 
   const { data: exercises, isLoading } = useQuery<Exercise[]>({
     queryKey: ["admin", "exercises"],
@@ -56,6 +62,18 @@ export default function ManageExercises() {
   const { data: emergencyRoutines, isLoading: isLoadingRoutines } = useQuery<EmergencyRoutine[]>({
     queryKey: ["admin", "emergency-routines"],
     queryFn: async () => apiRequest("GET", "/api/admin/emergency-routines").then(res => res.json()),
+    initialData: [],
+  });
+
+  const { data: exerciseLibrary, isLoading: isLoadingLibrary } = useQuery<ExerciseLibrary[]>({
+    queryKey: ["admin", "exercise-library"],
+    queryFn: async () => apiRequest("GET", "/api/admin/exercise-library").then(res => res.json()),
+    initialData: [],
+  });
+
+  const { data: exerciseVariations, isLoading: isLoadingVariations } = useQuery<ExerciseVariation[]>({
+    queryKey: ["admin", "exercise-variations"],
+    queryFn: async () => apiRequest("GET", "/api/admin/exercise-variations").then(res => res.json()),
     initialData: [],
   });
 
@@ -261,10 +279,18 @@ export default function ManageExercises() {
       </div>
 
       <Tabs defaultValue="exercises" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="exercises" className="flex items-center space-x-2">
             <Activity className="h-4 w-4" />
             <span>Exercices</span>
+          </TabsTrigger>
+          <TabsTrigger value="library" className="flex items-center space-x-2">
+            <Library className="h-4 w-4" />
+            <span>Bibliothèque</span>
+          </TabsTrigger>
+          <TabsTrigger value="sessions" className="flex items-center space-x-2">
+            <Play className="h-4 w-4" />
+            <span>Séances</span>
           </TabsTrigger>
           <TabsTrigger value="emergency-routines" className="flex items-center space-x-2">
             <AlertTriangle className="h-4 w-4" />
@@ -686,6 +712,597 @@ export default function ManageExercises() {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Onglet Bibliothèque d'exercices */}
+        <TabsContent value="library" className="mt-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold">Bibliothèque d'Exercices</h2>
+            <p className="text-sm text-muted-foreground">Créez des cartes d'identité complètes pour vos exercices</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Sélection d'exercice et création de carte */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Library className="h-5 w-5" />
+                    <span>Créer une Carte d'Identité</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Sélection d'exercice */}
+                  <div>
+                    <Label>Sélectionner un exercice</Label>
+                    <Select onValueChange={(value) => {
+                      const exercise = exercises?.find(e => e.id === value);
+                      setSelectedExerciseForLibrary(exercise || null);
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir un exercice" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {exercises?.map((exercise) => (
+                          <SelectItem key={exercise.id} value={exercise.id}>
+                            {exercise.title} ({exercise.category})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedExerciseForLibrary && (
+                    <>
+                      {/* Exercice sélectionné */}
+                      <div className="p-3 bg-primary/5 rounded-lg">
+                        <h4 className="font-semibold">{selectedExerciseForLibrary.title}</h4>
+                        <p className="text-sm text-muted-foreground">{selectedExerciseForLibrary.description}</p>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <Badge variant="outline">{selectedExerciseForLibrary.category}</Badge>
+                          <Badge variant="outline">{selectedExerciseForLibrary.difficulty}</Badge>
+                          <Badge variant="outline">{selectedExerciseForLibrary.duration} min</Badge>
+                        </div>
+                      </div>
+
+                      {/* Image principale pour la carte */}
+                      <div>
+                        <Label>Image principale de la carte</Label>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="cursor-pointer"
+                        />
+                        {imagePreview && (
+                          <div className="mt-2 relative">
+                            <img src={imagePreview} alt="Aperçu carte" className="w-full h-32 object-cover rounded-md" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Galerie d'images */}
+                      <div>
+                        <Label className="flex items-center space-x-2">
+                          <Camera className="h-4 w-4" />
+                          <span>Galerie d'images</span>
+                        </Label>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            setLibraryImages(files);
+                          }}
+                          className="cursor-pointer"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ajoutez plusieurs images pour illustrer l'exercice
+                        </p>
+                      </div>
+
+                      {/* Vidéos */}
+                      <div>
+                        <Label className="flex items-center space-x-2">
+                          <Video className="h-4 w-4" />
+                          <span>Vidéos démonstratives</span>
+                        </Label>
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="URL de la vidéo (YouTube, Vimeo...)"
+                            value={newVideoUrl}
+                            onChange={(e) => setNewVideoUrl(e.target.value)}
+                          />
+                          <Input
+                            placeholder="Titre de la vidéo"
+                            value={newVideoTitle}
+                            onChange={(e) => setNewVideoTitle(e.target.value)}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              if (newVideoUrl && newVideoTitle) {
+                                setLibraryVideos([...libraryVideos, {
+                                  url: newVideoUrl,
+                                  title: newVideoTitle,
+                                  description: ''
+                                }]);
+                                setNewVideoUrl('');
+                                setNewVideoTitle('');
+                              }
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Ajouter vidéo
+                          </Button>
+                        </div>
+                        
+                        {/* Liste des vidéos ajoutées */}
+                        {libraryVideos.length > 0 && (
+                          <div className="space-y-2 mt-3">
+                            {libraryVideos.map((video, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-secondary/10 rounded">
+                                <span className="text-sm">{video.title}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setLibraryVideos(libraryVideos.filter((_, i) => i !== index));
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Métadonnées enrichies */}
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Équipement nécessaire</Label>
+                          <Input placeholder="Tapis, haltères, élastique... (séparés par des virgules)" />
+                        </div>
+                        
+                        <div>
+                          <Label>Contre-indications</Label>
+                          <Textarea 
+                            placeholder="Blessures, conditions médicales à éviter..."
+                            rows={3}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label>Public cible</Label>
+                          <Input placeholder="Débutants, seniors, sportifs... (séparés par des virgules)" />
+                        </div>
+                        
+                        <div>
+                          <Label>Groupes musculaires</Label>
+                          <Input placeholder="Abdominaux, dorsaux, jambes... (séparés par des virgules)" />
+                        </div>
+                      </div>
+
+                      {/* Variations */}
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <Label>Variations de l'exercice</Label>
+                          <Button 
+                            type="button" 
+                            size="sm" 
+                            onClick={() => {
+                              setVariations([...variations, {
+                                type: 'simplification',
+                                title: '',
+                                description: '',
+                                instructions: ''
+                              }]);
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        {variations.map((variation, index) => (
+                          <Card key={index} className="p-3 mb-3">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Select 
+                                  value={variation.type}
+                                  onValueChange={(value: 'simplification' | 'complexification') => {
+                                    const newVariations = [...variations];
+                                    newVariations[index].type = value;
+                                    setVariations(newVariations);
+                                  }}
+                                >
+                                  <SelectTrigger className="w-40">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="simplification">Simplification</SelectItem>
+                                    <SelectItem value="complexification">Complexification</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setVariations(variations.filter((_, i) => i !== index))}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <Input
+                                placeholder="Titre de la variation"
+                                value={variation.title}
+                                onChange={(e) => {
+                                  const newVariations = [...variations];
+                                  newVariations[index].title = e.target.value;
+                                  setVariations(newVariations);
+                                }}
+                              />
+                              <Textarea
+                                placeholder="Description de la variation"
+                                value={variation.description}
+                                onChange={(e) => {
+                                  const newVariations = [...variations];
+                                  newVariations[index].description = e.target.value;
+                                  setVariations(newVariations);
+                                }}
+                                rows={2}
+                              />
+                              <Textarea
+                                placeholder="Instructions spécifiques"
+                                value={variation.instructions}
+                                onChange={(e) => {
+                                  const newVariations = [...variations];
+                                  newVariations[index].instructions = e.target.value;
+                                  setVariations(newVariations);
+                                }}
+                                rows={2}
+                              />
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+
+                      <Button 
+                        className="w-full" 
+                        onClick={() => {
+                          toast({
+                            title: "En développement",
+                            description: "La sauvegarde de la carte d'identité sera bientôt disponible.",
+                          });
+                        }}
+                      >
+                        <Library className="h-4 w-4 mr-2" />
+                        Créer la Carte d'Identité
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Liste des cartes d'identité existantes */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Library className="h-5 w-5" />
+                      <span>Cartes d'Identité Créées</span>
+                    </div>
+                    <Badge variant="outline">{exerciseLibrary?.length || 0} cartes</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingLibrary ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                      <p className="text-muted-foreground mt-2">Chargement de la bibliothèque...</p>
+                    </div>
+                  ) : exerciseLibrary && exerciseLibrary.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {exerciseLibrary.map((item) => {
+                        const exercise = exercises?.find(e => e.id === item.exerciseId);
+                        return (
+                          <Card key={item.id} className="overflow-hidden">
+                            {item.cardImageUrl && (
+                              <div className="h-32 bg-cover bg-center" style={{backgroundImage: `url(${item.cardImageUrl})`}} />
+                            )}
+                            <CardContent className="p-4">
+                              <h4 className="font-semibold mb-2">{exercise?.title}</h4>
+                              <div className="flex items-center space-x-2 mb-2">
+                                {item.averageRating && (
+                                  <div className="flex items-center">
+                                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                                    <span className="text-sm ml-1">{item.averageRating}/5</span>
+                                  </div>
+                                )}
+                                <Badge variant="outline">{item.usageCount || 0} utilisations</Badge>
+                                {item.isVerified && <Badge className="bg-green-100 text-green-800">Vérifié</Badge>}
+                                {item.isFeatured && <Badge className="bg-blue-100 text-blue-800">Mis en avant</Badge>}
+                              </div>
+                              <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-3">
+                                {item.galleryImages && item.galleryImages.length > 0 && (
+                                  <div className="flex items-center">
+                                    <Camera className="h-4 w-4 mr-1" />
+                                    <span>{item.galleryImages.length} images</span>
+                                  </div>
+                                )}
+                                {item.videos && item.videos.length > 0 && (
+                                  <div className="flex items-center">
+                                    <Video className="h-4 w-4 mr-1" />
+                                    <span>{item.videos.length} vidéos</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex justify-end space-x-2">
+                                <Button variant="outline" size="sm">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="sm">
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Library className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">Aucune carte d'identité créée</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Commencez par sélectionner un exercice et créez sa première carte d'identité complète.
+                      </p>
+                      <div className="bg-info/10 p-4 rounded-lg max-w-md mx-auto">
+                        <p className="text-sm text-info font-medium mb-2">💡 Conseil :</p>
+                        <p className="text-xs text-muted-foreground">
+                          Les cartes d'identité enrichissent vos exercices avec des images, vidéos, variations 
+                          et métadonnées détaillées pour offrir une meilleure expérience aux patients.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Onglet Séances personnalisées */}
+        <TabsContent value="sessions" className="mt-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-semibold">Créateur de Séances Personnalisées</h2>
+              <p className="text-sm text-muted-foreground">Composez des séances avec timing, répétitions et étapes fractionnées</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Créateur de séance */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Play className="h-5 w-5" />
+                    <span>Nouvelle Séance</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Informations générales */}
+                  <div>
+                    <Label>Titre de la séance</Label>
+                    <Input placeholder="Ex: Séance matinale énergisante" />
+                  </div>
+                  
+                  <div>
+                    <Label>Description</Label>
+                    <Textarea placeholder="Description de la séance et objectifs..." rows={3} />
+                  </div>
+                  
+                  <div>
+                    <Label>Catégorie</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une catégorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="morning">Séance Matinale</SelectItem>
+                        <SelectItem value="evening">Séance du Soir</SelectItem>
+                        <SelectItem value="crisis">Gestion de Crise</SelectItem>
+                        <SelectItem value="maintenance">Entretien</SelectItem>
+                        <SelectItem value="recovery">Récupération</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Difficulté</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Niveau de difficulté" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="beginner">Débutant</SelectItem>
+                        <SelectItem value="intermediate">Intermédiaire</SelectItem>
+                        <SelectItem value="advanced">Avancé</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="isPublic" className="rounded" />
+                    <Label htmlFor="isPublic">Visible pour tous les patients</Label>
+                  </div>
+
+                  {/* Sélection d'exercices */}
+                  <div className="border-t pt-4">
+                    <Label className="flex items-center space-x-2 mb-3">
+                      <Target className="h-4 w-4" />
+                      <span>Ajouter des exercices</span>
+                    </Label>
+                    
+                    <div className="space-y-3">
+                      <Select onValueChange={(value) => {
+                        // Logique pour ajouter un exercice
+                        console.log('Exercise selected:', value);
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un exercice" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {exercises?.map((exercise) => (
+                            <SelectItem key={exercise.id} value={exercise.id}>
+                              {exercise.title} ({exercise.duration} min)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Configuration d'exercice */}
+                  <div className="space-y-3 p-3 bg-secondary/5 rounded-lg">
+                    <h4 className="font-medium text-sm">Configuration de l'exercice</h4>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Durée (min)</Label>
+                        <Input type="number" placeholder="15" className="h-8" />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Répétitions</Label>
+                        <Input type="number" placeholder="1" className="h-8" />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Repos (sec)</Label>
+                        <Input type="number" placeholder="60" className="h-8" />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Timer type</Label>
+                        <Select>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="continuous">Continu</SelectItem>
+                            <SelectItem value="interval">Intervalles</SelectItem>
+                            <SelectItem value="breathing">Respiration</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Fractionnement</Label>
+                      <Input placeholder="Ex: 5min effort, 1min repos, répété 3x" className="h-8" />
+                    </div>
+
+                    <Button size="sm" className="w-full">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Ajouter à la séance
+                    </Button>
+                  </div>
+
+                  <Button className="w-full">
+                    <Play className="h-4 w-4 mr-2" />
+                    Créer la Séance
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Aperçu de la séance en cours de création */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Settings className="h-5 w-5" />
+                    <span>Aperçu de la Séance</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Play className="h-12 w-12 mx-auto mb-4" />
+                    <p className="text-sm">Ajoutez des exercices pour voir l'aperçu</p>
+                    <div className="mt-4 p-4 bg-info/10 rounded-lg">
+                      <p className="text-xs font-medium mb-2">💡 Composition :</p>
+                      <ul className="text-xs space-y-1">
+                        <li>• Sélectionnez vos exercices</li>
+                        <li>• Configurez durée et répétitions</li>
+                        <li>• Définissez les temps de repos</li>
+                        <li>• Fractionnez selon vos besoins</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  {/* Exemple d'aperçu quand des exercices sont ajoutés */}
+                  {/* 
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Durée totale estimée:</span>
+                      <Badge variant="outline">25 min</Badge>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="p-2 border rounded flex items-center justify-between">
+                        <span className="text-sm">Exercice 1</span>
+                        <div className="flex items-center space-x-2 text-xs">
+                          <Clock className="h-3 w-3" />
+                          <span>10 min</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  */}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Liste des séances créées */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Play className="h-5 w-5" />
+                      <span>Séances Créées</span>
+                    </div>
+                    <Badge variant="outline">0 séances</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <Play className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">Aucune séance créée</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Créez votre première séance personnalisée pour vos patients.
+                    </p>
+                    <div className="bg-info/10 p-4 rounded-lg">
+                      <p className="text-sm text-info font-medium mb-2">🎯 Avantages :</p>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        <li>• Séances structurées et guidées</li>
+                        <li>• Contrôle précis du timing</li>
+                        <li>• Adaptation aux besoins individuels</li>
+                        <li>• Suivi de progression intégré</li>
+                      </ul>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>

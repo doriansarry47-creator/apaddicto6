@@ -29,21 +29,31 @@ __export(schema_exports, {
   audioContent: () => audioContent,
   beckAnalyses: () => beckAnalyses,
   cravingEntries: () => cravingEntries,
+  customSessions: () => customSessions,
   emergencyRoutines: () => emergencyRoutines,
   exerciseEnhancements: () => exerciseEnhancements,
+  exerciseLibrary: () => exerciseLibrary,
+  exerciseRatings: () => exerciseRatings,
   exerciseSessions: () => exerciseSessions,
+  exerciseVariations: () => exerciseVariations,
   exercises: () => exercises,
   insertAntiCravingStrategySchema: () => insertAntiCravingStrategySchema,
   insertAudioContentSchema: () => insertAudioContentSchema,
   insertBeckAnalysisSchema: () => insertBeckAnalysisSchema,
   insertCravingEntrySchema: () => insertCravingEntrySchema,
+  insertCustomSessionSchema: () => insertCustomSessionSchema,
   insertEmergencyRoutineSchema: () => insertEmergencyRoutineSchema,
   insertExerciseEnhancementSchema: () => insertExerciseEnhancementSchema,
+  insertExerciseLibrarySchema: () => insertExerciseLibrarySchema,
+  insertExerciseRatingSchema: () => insertExerciseRatingSchema,
   insertExerciseSchema: () => insertExerciseSchema,
   insertExerciseSessionSchema: () => insertExerciseSessionSchema,
+  insertExerciseVariationSchema: () => insertExerciseVariationSchema,
   insertProfessionalReportSchema: () => insertProfessionalReportSchema,
   insertPsychoEducationContentSchema: () => insertPsychoEducationContentSchema,
   insertQuickResourceSchema: () => insertQuickResourceSchema,
+  insertSessionElementSchema: () => insertSessionElementSchema,
+  insertSessionInstanceSchema: () => insertSessionInstanceSchema,
   insertTimerSessionSchema: () => insertTimerSessionSchema,
   insertUserBadgeSchema: () => insertUserBadgeSchema,
   insertUserSchema: () => insertUserSchema,
@@ -51,6 +61,8 @@ __export(schema_exports, {
   professionalReports: () => professionalReports,
   psychoEducationContent: () => psychoEducationContent,
   quickResources: () => quickResources,
+  sessionElements: () => sessionElements,
+  sessionInstances: () => sessionInstances,
   timerSessions: () => timerSessions,
   userBadges: () => userBadges,
   userStats: () => userStats,
@@ -386,6 +398,161 @@ var insertAudioContentSchema = createInsertSchema(audioContent).omit({
   updatedAt: true
 });
 var insertExerciseEnhancementSchema = createInsertSchema(exerciseEnhancements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var exerciseVariations = pgTable("exercise_variations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: "cascade" }),
+  type: varchar("type").notNull(),
+  // 'simplification' or 'complexification'
+  title: varchar("title").notNull(),
+  description: text("description"),
+  instructions: text("instructions"),
+  duration: integer("duration"),
+  // in minutes
+  difficultyModifier: integer("difficulty_modifier").default(0),
+  // -1 pour simplification, +1 pour complexification
+  benefits: text("benefits"),
+  imageUrl: varchar("image_url"),
+  videoUrl: varchar("video_url"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var customSessions = pgTable("custom_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // admin qui crée
+  title: varchar("title").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(),
+  // 'morning', 'evening', 'crisis', 'maintenance'
+  totalDuration: integer("total_duration"),
+  // durée totale calculée en minutes
+  difficulty: varchar("difficulty").default("beginner"),
+  isTemplate: boolean("is_template").default(true),
+  // template ou séance personnelle
+  isPublic: boolean("is_public").default(false),
+  // visible pour tous les patients
+  tags: jsonb("tags").$type().default([]),
+  imageUrl: varchar("image_url"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var sessionElements = pgTable("session_elements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => customSessions.id, { onDelete: "cascade" }),
+  exerciseId: varchar("exercise_id").references(() => exercises.id, { onDelete: "cascade" }),
+  variationId: varchar("variation_id").references(() => exerciseVariations.id, { onDelete: "cascade" }),
+  order: integer("order").notNull(),
+  // ordre dans la séance
+  duration: integer("duration"),
+  // durée spécifique pour cette séance (peut override l'exercice)
+  repetitions: integer("repetitions").default(1),
+  restTime: integer("rest_time").default(0),
+  // temps de repos après en secondes
+  timerSettings: jsonb("timer_settings"),
+  // configuration timer spécifique
+  notes: text("notes"),
+  // notes spécifiques pour cet élément
+  isOptional: boolean("is_optional").default(false),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var sessionInstances = pgTable("session_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id").notNull().references(() => customSessions.id, { onDelete: "cascade" }),
+  status: varchar("status").default("started"),
+  // 'started', 'paused', 'completed', 'abandoned'
+  currentElementIndex: integer("current_element_index").default(0),
+  totalDuration: integer("total_duration"),
+  // durée réelle en secondes
+  cravingBefore: integer("craving_before"),
+  // 0-10 scale
+  cravingAfter: integer("craving_after"),
+  // 0-10 scale
+  moodBefore: varchar("mood_before"),
+  moodAfter: varchar("mood_after"),
+  notes: text("notes"),
+  completedElements: jsonb("completed_elements").$type().default([]),
+  // IDs des éléments terminés
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var exerciseLibrary = pgTable("exercise_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: "cascade" }),
+  authorId: varchar("author_id").references(() => users.id),
+  // thérapeute auteur
+  cardImageUrl: varchar("card_image_url"),
+  // image pour la carte d'identité
+  thumbnailUrl: varchar("thumbnail_url"),
+  galleryImages: jsonb("gallery_images").$type().default([]),
+  videos: jsonb("videos").$type().default([]),
+  prerequisites: jsonb("prerequisites").$type().default([]),
+  // exercices requis avant
+  contraindications: text("contraindications"),
+  equipment: jsonb("equipment").$type().default([]),
+  // matériel nécessaire
+  targetAudience: jsonb("target_audience").$type().default([]),
+  // 'beginners', 'athletes', 'seniors'
+  muscleGroups: jsonb("muscle_groups").$type().default([]),
+  tags: jsonb("tags").$type().default([]),
+  averageRating: integer("average_rating"),
+  // moyenne des notes /5
+  ratingCount: integer("rating_count").default(0),
+  usageCount: integer("usage_count").default(0),
+  // nombre d'utilisations
+  lastUsed: timestamp("last_used"),
+  isVerified: boolean("is_verified").default(false),
+  // vérifié par un professionnel
+  isFeatured: boolean("is_featured").default(false),
+  // mis en avant
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var exerciseRatings = pgTable("exercise_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  exerciseId: varchar("exercise_id").notNull().references(() => exercises.id, { onDelete: "cascade" }),
+  rating: integer("rating").notNull(),
+  // 1-5 stars
+  comment: text("comment"),
+  difficulty: varchar("difficulty"),
+  // ressenti de difficulté par l'utilisateur
+  effectiveness: integer("effectiveness"),
+  // efficacité ressentie 1-5
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var insertExerciseVariationSchema = createInsertSchema(exerciseVariations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var insertCustomSessionSchema = createInsertSchema(customSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var insertSessionElementSchema = createInsertSchema(sessionElements).omit({
+  id: true,
+  createdAt: true
+});
+var insertSessionInstanceSchema = createInsertSchema(sessionInstances).omit({
+  id: true,
+  createdAt: true
+});
+var insertExerciseLibrarySchema = createInsertSchema(exerciseLibrary).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var insertExerciseRatingSchema = createInsertSchema(exerciseRatings).omit({
   id: true,
   createdAt: true,
   updatedAt: true
