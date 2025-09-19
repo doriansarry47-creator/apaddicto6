@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import RespirationPlayer from "@/components/interactive-exercises/RespirationPlayer";
-import { Heart, Square, Triangle, Sparkles } from "lucide-react";
+
 import type { Exercise as APIExercise } from "../../../../shared/schema";
 
 // Types pour la compatibilité avec le composant ExerciseCard existant
@@ -44,48 +43,7 @@ const categoryMapping: Record<string, keyof typeof categories> = {
   'debutant': 'debutant'
 };
 
-// Exercices de respiration interactifs intégrés
-const interactiveBreathingExercises = [
-  {
-    id: 'heart-coherence-interactive',
-    title: 'Cohérence Cardiaque Interactive',
-    description: 'Exercice de cohérence cardiaque avec animation guidée pour synchroniser votre respiration et votre rythme cardiaque.',
-    category: 'respiration' as keyof typeof categories,
-    level: 'beginner' as const,
-    duration: 5,
-    intensity: 'gentle' as const,
-    type: 'breathing' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
-    instructions: ['Suivez le mouvement de la balle qui grandit et rétrécit', 'Inspirez quand elle grandit, expirez quand elle rétrécit', 'Maintenez un rythme régulier de 5 secondes'],
-    benefits: ['Réduction du stress et de l\'anxiété', 'Synchronisation du rythme cardiaque', 'Amélioration de la variabilité cardiaque', 'Activation du système nerveux parasympathique']
-  },
-  {
-    id: 'square-breathing-interactive',
-    title: 'Respiration Carrée Interactive',
-    description: 'Technique de respiration carrée avec visualisation animée pour calmer l\'esprit et réduire le stress.',
-    category: 'respiration' as keyof typeof categories,
-    level: 'beginner' as const,
-    duration: 4,
-    intensity: 'gentle' as const,
-    type: 'breathing' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1545389336-cf090694435e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
-    instructions: ['Suivez la balle le long du carré', 'Inspirez sur le côté gauche, retenez en haut', 'Expirez sur le côté droit, pausez en bas', 'Maintenez 4 temps pour chaque phase'],
-    benefits: ['Amélioration du contrôle respiratoire', 'Stabilisation de l\'humeur', 'Réduction de l\'anxiété', 'Amélioration de la concentration']
-  },
-  {
-    id: 'triangle-breathing-interactive',
-    title: 'Respiration Triangle Interactive',
-    description: 'Exercice de respiration triangulaire avec guide visuel pour équilibrer votre système nerveux et favoriser la relaxation.',
-    category: 'respiration' as keyof typeof categories,
-    level: 'beginner' as const,
-    duration: 6,
-    intensity: 'gentle' as const,
-    type: 'breathing' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
-    instructions: ['Suivez la balle le long du triangle', 'Inspirez en montant, retenez sur le côté', 'Expirez en descendant', 'Adaptez le rythme selon votre confort'],
-    benefits: ['Équilibrage du système nerveux', 'Amélioration de la qualité du sommeil', 'Réduction du stress', 'Harmonisation des énergies']
-  }
-];
+
 
 // Fonction pour convertir les exercices API en format frontend
 const convertAPIExerciseToFrontend = (apiExercise: APIExercise): Exercise => {
@@ -130,7 +88,7 @@ const levels = {
 export default function Exercises() {
   const [selectedCategory, setSelectedCategory] = useState<keyof typeof categories | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<keyof typeof levels | 'all'>('all');
-  const [showRespirationDialog, setShowRespirationDialog] = useState(false);
+
   const [location] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -147,9 +105,9 @@ export default function Exercises() {
     cacheTime: 300000, // 5 minutes de cache
   });
 
-  // Conversion des exercices API vers le format frontend et ajout des exercices interactifs
+  // Conversion des exercices API vers le format frontend
   const apiConvertedExercises = apiExercises.map(convertAPIExerciseToFrontend);
-  const exercises = [...apiConvertedExercises, ...interactiveBreathingExercises];
+  const exercises = apiConvertedExercises;
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -201,13 +159,7 @@ export default function Exercises() {
   }
 
   const handleStartExercise = (exercise: Exercise) => {
-    // Vérifier s'il s'agit d'un exercice de respiration interactif
-    if (exercise.id.includes('interactive')) {
-      // Rediriger vers la page des exercices de relaxation avec l'onglet approprié
-      const exerciseType = exercise.id.replace('-interactive', '').replace('-', '_');
-      window.location.href = `/relaxation-exercises?tab=${exerciseType}`;
-      return;
-    }
+
     
     toast({
       title: "Exercice démarré",
@@ -304,61 +256,7 @@ export default function Exercises() {
           </Card>
         </section>
 
-        {/* Interactive Breathing Exercises */}
-        <section className="mb-8">
-          <Card className="shadow-material bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Sparkles className="h-5 w-5 text-emerald-600" />
-                  <CardTitle className="text-lg text-emerald-800">Exercices de Respiration Interactifs</CardTitle>
-                </div>
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Nouveau</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-emerald-700 mb-4">
-                Découvrez nos exercices de respiration guidés avec visualisation animée et personnalisation complète des durées.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="flex items-center space-x-3 p-3 bg-white/60 rounded-lg">
-                  <Heart className="h-5 w-5 text-red-500" />
-                  <div>
-                    <h4 className="font-medium text-sm">Cohérence Cardiaque</h4>
-                    <p className="text-xs text-muted-foreground">Synchronisation respiration-cœur</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 p-3 bg-white/60 rounded-lg">
-                  <Square className="h-5 w-5 text-blue-500" />
-                  <div>
-                    <h4 className="font-medium text-sm">Respiration Carrée</h4>
-                    <p className="text-xs text-muted-foreground">4 phases équilibrées</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 p-3 bg-white/60 rounded-lg">
-                  <Triangle className="h-5 w-5 text-green-500" />
-                  <div>
-                    <h4 className="font-medium text-sm">Respiration Triangle</h4>
-                    <p className="text-xs text-muted-foreground">3 phases fluides</p>
-                  </div>
-                </div>
-              </div>
-              <Dialog open={showRespirationDialog} onOpenChange={setShowRespirationDialog}>
-                <DialogTrigger asChild>
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
-                    Ouvrir les Exercices Interactifs
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-7xl h-[90vh] p-0">
-                  <DialogHeader className="sr-only">
-                    <DialogTitle>Exercices de Respiration Interactifs</DialogTitle>
-                  </DialogHeader>
-                  <RespirationPlayer />
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
-        </section>
+
 
         {/* Results Summary */}
         <section className="mb-6">
@@ -431,14 +329,14 @@ export default function Exercises() {
                     if (emergencyExercise) {
                       handleStartExercise(emergencyExercise);
                     } else {
-                      // Rediriger vers les routines d'urgence ou exercices de respiration
-                      const breathingExercise = exercises.find(ex => ex.type === 'breathing' || ex.category === 'emotion_management');
-                      if (breathingExercise) {
-                        handleStartExercise(breathingExercise);
+                      // Rediriger vers les routines de relaxation
+                      const relaxationExercise = exercises.find(ex => ex.category === 'relaxation');
+                      if (relaxationExercise) {
+                        handleStartExercise(relaxationExercise);
                       } else {
                         toast({
                           title: "Routine d'urgence",
-                          description: "Aucune routine d'urgence spécifique disponible. Essayez les exercices de respiration ou de relaxation.",
+                          description: "Aucune routine d'urgence spécifique disponible. Essayez les exercices de relaxation.",
                         });
                       }
                     }

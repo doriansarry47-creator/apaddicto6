@@ -170,27 +170,27 @@ class Storage {
 
   // === CRAVING ENTRIES ===
   async createCravingEntry(cravingData: InsertCravingEntry): Promise<CravingEntry> {
-    const insertData = {
+    const insertData: InsertCravingEntry = {
       ...cravingData,
-      triggers: cravingData.triggers || [],
-      emotions: cravingData.emotions || []
+      triggers: (cravingData.triggers || []) as string[],
+      emotions: (cravingData.emotions || []) as string[]
     };
     const result = await this.db.insert(cravingEntries).values(insertData).returning();
     return result[0];
   }
 
   async getCravingEntriesByUser(userId: string, limit?: number): Promise<CravingEntry[]> {
-    let query = this.db
+    const baseQuery = this.db
       .select()
       .from(cravingEntries)
       .where(eq(cravingEntries.userId, userId))
       .orderBy(desc(cravingEntries.createdAt));
     
     if (limit) {
-      query = query.limit(limit);
+      return await baseQuery.limit(limit);
     }
     
-    return await query;
+    return await baseQuery;
   }
 
   // === EXERCISE SESSIONS ===
@@ -201,7 +201,7 @@ class Storage {
 
   async getExerciseSessionsByUser(userId: string, limit?: number): Promise<ExerciseSession[]> {
     try {
-      let query = this.db
+      const baseQuery = this.db
         .select({
           id: exerciseSessions.id,
           userId: exerciseSessions.userId,
@@ -222,30 +222,23 @@ class Storage {
         .where(eq(exerciseSessions.userId, userId))
         .orderBy(desc(exerciseSessions.createdAt));
       
-      if (limit) {
-        query = query.limit(limit);
-      }
+      const result = limit ? await baseQuery.limit(limit) : await baseQuery;
       
-      const result = await query;
       return result.map(session => ({
         ...session,
         exerciseTitle: session.exerciseTitle || session.exerciseId || 'Exercice',
         exerciseCategory: session.exerciseCategory || 'general'
-      }));
+      })) as ExerciseSession[];
     } catch (error) {
       console.error('Error in getExerciseSessionsByUser:', error);
       // Fallback : récupérer sans jointure
-      let query = this.db
+      const fallbackQuery = this.db
         .select()
         .from(exerciseSessions)
         .where(eq(exerciseSessions.userId, userId))
         .orderBy(desc(exerciseSessions.createdAt));
       
-      if (limit) {
-        query = query.limit(limit);
-      }
-      
-      return await query;
+      return limit ? await fallbackQuery.limit(limit) : await fallbackQuery;
     }
   }
 
@@ -256,17 +249,17 @@ class Storage {
   }
 
   async getBeckAnalysesByUser(userId: string, limit?: number): Promise<BeckAnalysis[]> {
-    let query = this.db
+    const baseQuery = this.db
       .select()
       .from(beckAnalyses)
       .where(eq(beckAnalyses.userId, userId))
       .orderBy(desc(beckAnalyses.createdAt));
     
     if (limit) {
-      query = query.limit(limit);
+      return await baseQuery.limit(limit);
     }
     
-    return await query;
+    return await baseQuery;
   }
 
   // === ANTI-CRAVING STRATEGIES ===

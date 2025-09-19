@@ -680,11 +680,11 @@ var Storage = class {
     return result[0];
   }
   async getCravingEntriesByUser(userId, limit) {
-    let query = this.db.select().from(cravingEntries).where(eq(cravingEntries.userId, userId)).orderBy(desc(cravingEntries.createdAt));
+    const baseQuery = this.db.select().from(cravingEntries).where(eq(cravingEntries.userId, userId)).orderBy(desc(cravingEntries.createdAt));
     if (limit) {
-      query = query.limit(limit);
+      return await baseQuery.limit(limit);
     }
-    return await query;
+    return await baseQuery;
   }
   // === EXERCISE SESSIONS ===
   async createExerciseSession(sessionData) {
@@ -693,7 +693,7 @@ var Storage = class {
   }
   async getExerciseSessionsByUser(userId, limit) {
     try {
-      let query = this.db.select({
+      const baseQuery = this.db.select({
         id: exerciseSessions.id,
         userId: exerciseSessions.userId,
         exerciseId: exerciseSessions.exerciseId,
@@ -708,10 +708,7 @@ var Storage = class {
         exerciseTitle: exercises.title,
         exerciseCategory: exercises.category
       }).from(exerciseSessions).leftJoin(exercises, eq(exerciseSessions.exerciseId, exercises.id)).where(eq(exerciseSessions.userId, userId)).orderBy(desc(exerciseSessions.createdAt));
-      if (limit) {
-        query = query.limit(limit);
-      }
-      const result = await query;
+      const result = limit ? await baseQuery.limit(limit) : await baseQuery;
       return result.map((session2) => ({
         ...session2,
         exerciseTitle: session2.exerciseTitle || session2.exerciseId || "Exercice",
@@ -719,11 +716,8 @@ var Storage = class {
       }));
     } catch (error) {
       console.error("Error in getExerciseSessionsByUser:", error);
-      let query = this.db.select().from(exerciseSessions).where(eq(exerciseSessions.userId, userId)).orderBy(desc(exerciseSessions.createdAt));
-      if (limit) {
-        query = query.limit(limit);
-      }
-      return await query;
+      const fallbackQuery = this.db.select().from(exerciseSessions).where(eq(exerciseSessions.userId, userId)).orderBy(desc(exerciseSessions.createdAt));
+      return limit ? await fallbackQuery.limit(limit) : await fallbackQuery;
     }
   }
   // === BECK ANALYSES ===
@@ -732,11 +726,11 @@ var Storage = class {
     return result[0];
   }
   async getBeckAnalysesByUser(userId, limit) {
-    let query = this.db.select().from(beckAnalyses).where(eq(beckAnalyses.userId, userId)).orderBy(desc(beckAnalyses.createdAt));
+    const baseQuery = this.db.select().from(beckAnalyses).where(eq(beckAnalyses.userId, userId)).orderBy(desc(beckAnalyses.createdAt));
     if (limit) {
-      query = query.limit(limit);
+      return await baseQuery.limit(limit);
     }
-    return await query;
+    return await baseQuery;
   }
   // === ANTI-CRAVING STRATEGIES ===
   async createStrategy(strategyData) {

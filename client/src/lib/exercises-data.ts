@@ -241,6 +241,155 @@ export const exercises: Exercise[] = [
       'Réduction du stress chronique',
       'Conscience corporelle accrue'
     ]
+  },
+  
+  // Additional Respiration Exercises for all levels
+  {
+    id: 'deep-breathing-beginner',
+    title: 'Respiration Profonde - Débutant',
+    description: 'Introduction à la respiration consciente pour calmer l\'esprit et réduire le stress.',
+    category: 'respiration',
+    level: 'beginner',
+    duration: 5,
+    intensity: 'gentle',
+    type: 'breathing',
+    imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: [
+      'Asseyez-vous confortablement, dos droit',
+      'Placez une main sur le ventre, l\'autre sur la poitrine',
+      'Inspirez lentement par le nez en gonflant le ventre',
+      'Expirez doucement par la bouche',
+      'Répétez pendant 5 minutes'
+    ],
+    benefits: [
+      'Initiation à la respiration consciente',
+      'Réduction du stress immédiate',
+      'Amélioration de l\'oxygénation',
+      'Base pour autres techniques respiratoires'
+    ]
+  },
+  {
+    id: '478-breathing-intermediate',
+    title: 'Respiration 4-7-8 - Intermédiaire', 
+    description: 'Technique avancée de respiration pour un apaisement profond et l\'amélioration du sommeil.',
+    category: 'respiration',
+    level: 'intermediate',
+    duration: 8,
+    intensity: 'moderate',
+    type: 'breathing',
+    imageUrl: 'https://images.unsplash.com/photo-1545389336-cf090694435e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: [
+      'Position confortable, yeux fermés ou mi-clos',
+      'Inspirez par le nez pendant 4 temps',
+      'Retenez votre respiration pendant 7 temps',
+      'Expirez par la bouche pendant 8 temps',
+      'Répétez le cycle 4 à 8 fois'
+    ],
+    benefits: [
+      'Activation du système parasympathique',
+      'Amélioration de la qualité du sommeil',
+      'Réduction de l\'anxiété profonde',
+      'Régulation du système nerveux'
+    ]
+  },
+  {
+    id: 'alternate-nostril-advanced',
+    title: 'Respiration Alternée - Avancé',
+    description: 'Technique yogique sophistiquée pour équilibrer les énergies et améliorer la concentration.',
+    category: 'respiration',
+    level: 'advanced',
+    duration: 12,
+    intensity: 'moderate',
+    type: 'breathing',
+    imageUrl: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: [
+      'Position assise stable, colonne vertébrale droite',
+      'Utilisez le pouce pour fermer la narine droite',
+      'Inspirez par la narine gauche pendant 4 temps',
+      'Fermez les deux narines, retenez 4 temps',
+      'Ouvrez la narine droite, expirez 4 temps',
+      'Inversez le processus et continuez l\'alternance'
+    ],
+    benefits: [
+      'Équilibrage des hémisphères cérébraux',
+      'Amélioration de la concentration',
+      'Harmonisation du système nerveux',
+      'Développement de la discipline respiratoire'
+    ]
+  },
+
+  // Additional Relaxation Exercises for all levels
+  {
+    id: 'body-scan-beginner',
+    title: 'Scan Corporel - Débutant',
+    description: 'Découverte guidée des sensations du corps pour développer la conscience corporelle.',
+    category: 'relaxation',
+    level: 'beginner',
+    duration: 8,
+    intensity: 'gentle',
+    type: 'relaxation',
+    imageUrl: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: [
+      'Allongez-vous confortablement sur le dos',
+      'Fermez les yeux et respirez naturellement',
+      'Portez votre attention sur vos pieds',
+      'Remontez progressivement vers la tête',
+      'Observez les sensations sans les juger'
+    ],
+    benefits: [
+      'Développement de la conscience corporelle',
+      'Réduction des tensions musculaires',
+      'Amélioration de la présence',
+      'Initiation à la méditation'
+    ]
+  },
+  {
+    id: 'visualization-intermediate',
+    title: 'Visualisation Guidée - Intermédiaire',
+    description: 'Voyage mental dans un lieu de paix pour une relaxation profonde et régénératrice.',
+    category: 'relaxation',
+    level: 'intermediate',
+    duration: 12,
+    intensity: 'gentle',
+    type: 'relaxation',
+    imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: [
+      'Position confortable, yeux fermés',
+      'Imaginez votre lieu de paix idéal',
+      'Explorez cet endroit avec tous vos sens',
+      'Laissez-vous immerger dans cette atmosphère',
+      'Ancrez cette sensation de bien-être'
+    ],
+    benefits: [
+      'Évasion mentale régénératrice',
+      'Stimulation de l\'imagination positive',
+      'Réduction du stress psychologique',
+      'Création d\'un refuge mental'
+    ]
+  },
+  {
+    id: 'meditation-advanced',
+    title: 'Méditation Pleine Conscience - Avancé',
+    description: 'Pratique approfondie de méditation pour cultiver la présence et la sérénité.',
+    category: 'relaxation',
+    level: 'advanced',
+    duration: 20,
+    intensity: 'gentle',
+    type: 'relaxation',
+    imageUrl: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200',
+    instructions: [
+      'Position de méditation stable et confortable',
+      'Concentrez-vous sur votre respiration naturelle',
+      'Observez les pensées sans vous y attacher',
+      'Revenez à l\'instant présent à chaque distraction',
+      'Maintenez cette présence attentive'
+    ],
+    benefits: [
+      'Développement de la présence attentive',
+      'Réduction de l\'agitation mentale',
+      'Amélioration de la régulation émotionnelle',
+      'Cultivation de la sérénité intérieure'
+    ]
   }
 ];
 
@@ -250,9 +399,7 @@ export const categories = {
   flexibility: 'Étirement & Flexibilité',
   mindfulness: 'Pleine Conscience & Méditation',
   relaxation: 'Relaxation',
-  respiration: 'Exercices de Respiration',
-  meditation: 'Méditation',
-  debutant: 'Exercices Débutant'
+  respiration: 'Exercices de Respiration'
 } as const;
 
 export const levels = {
