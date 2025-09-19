@@ -112,6 +112,49 @@ async function ensureExerciseSessionsUpdates() {
   }
 }
 
+async function ensureUsersUpdates() {
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL
+  });
+
+  try {
+    await client.connect();
+    
+    console.log('🔧 Application des mises à jour pour users...');
+    
+    // Ajouter les colonnes manquantes si nécessaire
+    await client.query(`
+      DO $$ 
+      BEGIN
+          -- Ajouter la colonne last_login_at si elle n'existe pas
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'users' AND column_name = 'last_login_at') THEN
+              ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP;
+          END IF;
+          
+          -- Ajouter la colonne inactivity_threshold si elle n'existe pas  
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'users' AND column_name = 'inactivity_threshold') THEN
+              ALTER TABLE users ADD COLUMN inactivity_threshold INTEGER DEFAULT 30;
+          END IF;
+          
+          -- Ajouter la colonne notes si elle n'existe pas  
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'users' AND column_name = 'notes') THEN
+              ALTER TABLE users ADD COLUMN notes TEXT;
+          END IF;
+      END $$;
+    `);
+    
+    console.log('✅ Mises à jour users appliquées');
+    
+  } catch (error) {
+    console.error('❌ Erreur lors des mises à jour users:', error);
+  } finally {
+    await client.end();
+  }
+}
+
 async function run() {
   if (!process.env.DATABASE_URL) {
     console.error('❌ DATABASE_URL manquant');
@@ -133,6 +176,9 @@ async function run() {
     
     // Appliquer les mises à jour pour exercise_sessions
     await ensureExerciseSessionsUpdates();
+    
+    // Appliquer les mises à jour pour users
+    await ensureUsersUpdates();
     
   } catch (e) {
     console.error('❌ Erreur migrations:', e);
