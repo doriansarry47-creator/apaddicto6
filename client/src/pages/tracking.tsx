@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigation } from "@/components/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,20 +17,22 @@ interface CravingStats {
 export default function Tracking() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const queryClient = useQueryClient();
   
   // Récupérer l'utilisateur authentifié
-  const { data: authenticatedUser, isLoading: userLoading } = useAuthQuery();
+  const { data: authenticatedUser, isLoading: userLoading, error: userError } = useAuthQuery();
 
-  // Fonction pour rafraîchir toutes les données
-  const refreshAllData = async () => {
+  // Fonction pour rafraîchir toutes les données avec gestion d'erreur améliorée
+  const refreshAllData = useCallback(async () => {
+    if (isRefreshing) return; // Éviter les appels multiples
+    
     setIsRefreshing(true);
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/cravings"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/cravings/stats"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/exercise-sessions/detailed"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/users/stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/exercise-sessions"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/beck-analyses"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/strategies"] }),
       ]);
@@ -39,177 +41,155 @@ export default function Tracking() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [isRefreshing, queryClient]);
 
-  // Rafraîchir automatiquement les données au chargement de la page (optimisé)
+  // Initialisation unique au premier chargement
   useEffect(() => {
-    if (authenticatedUser && !isRefreshing) {
-      // Invalider seulement les données critiques pour éviter trop de requêtes
-      const timer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      }, 100);
-      
-      return () => clearTimeout(timer);
+    if (authenticatedUser && !hasInitialized) {
+      setHasInitialized(true);
+      // Pas de refresh automatique pour éviter les boucles
     }
-  }, [authenticatedUser, queryClient]); // Ajout de queryClient comme dépendance mais on évite les boucles
+  }, [authenticatedUser, hasInitialized]);
 
   const { data: cravingEntries, isLoading: cravingLoading, error: cravingError } = useQuery<CravingEntry[]>({
     queryKey: ["/api/cravings"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/cravings?limit=50", {
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          console.error(`Erreur API cravings: ${response.status} ${response.statusText}`);
-          return [];
-        }
-        const data = await response.json();
-        return Array.isArray(data) ? data : [];
-      } catch (error) {
-        console.error('Error fetching cravings:', error);
-        return [];
+      const response = await fetch("/api/cravings?limit=50", {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`Erreur API cravings: ${response.status} ${response.statusText}`);
       }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser && !userLoading,
-    initialData: [],
-    staleTime: 5 * 60 * 1000, // 5 minutes pour éviter trop de requêtes
-    gcTime: 10 * 60 * 1000, // 10 minutes de cache
+    enabled: !!authenticatedUser && !userLoading && !userError,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 2,
-    retryDelay: 1000
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false
   });
 
   const { data: cravingStats, isLoading: statsLoading } = useQuery<CravingStats>({
     queryKey: ["/api/dashboard/stats", "cravings"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/dashboard/stats", {
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          console.error('Failed to fetch dashboard stats:', response.status);
-          return { average: 0, trend: 0 };
-        }
-        const data = await response.json();
-        return {
-          average: data.avgCravingIntensity || 0,
-          trend: 0 // Calculé côté serveur si disponible
-        };
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-        return { average: 0, trend: 0 };
+      const response = await fetch("/api/dashboard/stats", {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dashboard stats: ${response.status}`);
       }
+      const data = await response.json();
+      return {
+        average: data.avgCravingIntensity || 0,
+        trend: 0
+      };
     },
-    enabled: !!authenticatedUser && !userLoading,
-    initialData: { average: 0, trend: 0 },
-    staleTime: 2 * 60 * 1000, // 2 minutes pour les stats
-    gcTime: 5 * 60 * 1000, // 5 minutes de cache
-    retry: 1
+    enabled: !!authenticatedUser && !userLoading && !userError,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
-  const { data: exerciseSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<any[]>({
+  const { data: exerciseSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<ExerciseSession[]>({
     queryKey: ["/api/exercise-sessions"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/exercise-sessions?limit=30", {
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          console.error(`Erreur API exercise-sessions: ${response.status} ${response.statusText}`);
-          return [];
-        }
-        const data = await response.json();
-        return Array.isArray(data) ? data : [];
-      } catch (error) {
-        console.error('Error fetching exercise sessions:', error);
-        return [];
+      const response = await fetch("/api/exercise-sessions?limit=30", {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`Erreur API exercise-sessions: ${response.status} ${response.statusText}`);
       }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser && !userLoading,
-    initialData: [],
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes de cache
-    retry: 1
+    enabled: !!authenticatedUser && !userLoading && !userError,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   const { data: userStats, isLoading: userStatsLoading } = useQuery<UserStats>({
-    queryKey: ["/api/dashboard/stats"],
+    queryKey: ["/api/dashboard/stats", "userStats"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/dashboard/stats", {
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          console.error('Failed to fetch dashboard stats:', response.status);
-          return { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() };
-        }
-        return response.json();
-      } catch (error) {
-        console.error('Error fetching user stats:', error);
-        return { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() };
+      const response = await fetch("/api/dashboard/stats", {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user stats: ${response.status}`);
       }
+      return response.json();
     },
-    enabled: !!authenticatedUser && !userLoading,
-    initialData: { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() },
-    staleTime: 2 * 60 * 1000, // 2 minutes pour les stats
-    gcTime: 5 * 60 * 1000, // 5 minutes de cache
-    retry: 1
+    enabled: !!authenticatedUser && !userLoading && !userError,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   const { data: beckAnalyses, isLoading: beckLoading, error: beckError } = useQuery<BeckAnalysis[]>({
     queryKey: ["/api/beck-analyses"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/beck-analyses?limit=20", {
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          console.error(`Erreur API beck-analyses: ${response.status} ${response.statusText}`);
-          return [];
-        }
-        const data = await response.json();
-        return Array.isArray(data) ? data : [];
-      } catch (error) {
-        console.error('Error fetching beck analyses:', error);
-        return [];
+      const response = await fetch("/api/beck-analyses?limit=20", {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`Erreur API beck-analyses: ${response.status} ${response.statusText}`);
       }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser && !userLoading,
-    initialData: [],
-    staleTime: 5 * 60 * 1000, // 5 minutes pour les analyses
-    gcTime: 15 * 60 * 1000, // 15 minutes de cache
-    retry: 1
+    enabled: !!authenticatedUser && !userLoading && !userError,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   const { data: antiCravingStrategies, isLoading: strategiesLoading, error: strategiesError } = useQuery<AntiCravingStrategy[]>({
     queryKey: ["/api/strategies"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/strategies", {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) {
-          console.error(`Erreur API strategies: ${response.status} ${response.statusText}`);
-          return [];
-        }
-        const data = await response.json();
-        return Array.isArray(data) ? data : [];
-      } catch (error) {
-        console.error('Error fetching strategies:', error);
-        return [];
+      const response = await fetch("/api/strategies", {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Erreur API strategies: ${response.status} ${response.statusText}`);
       }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
-    enabled: !!authenticatedUser && !userLoading,
-    initialData: [],
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: 1
+    enabled: !!authenticatedUser && !userLoading && !userError,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
-  const isLoading = userLoading || cravingLoading || statsLoading || sessionsLoading || userStatsLoading || beckLoading || strategiesLoading;
+  const isLoading = userLoading || (cravingLoading && !cravingEntries) || (statsLoading && !cravingStats) || 
+                    (sessionsLoading && !exerciseSessions) || (userStatsLoading && !userStats) || 
+                    (beckLoading && !beckAnalyses) || (strategiesLoading && !antiCravingStrategies);
+
+  // Gestion des erreurs critiques
+  if (userError) {
+    return (
+      <>
+        <Navigation />
+        <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
+          <div className="text-center py-8">
+            <h2 className="text-xl font-bold text-destructive mb-4">Erreur d'authentification</h2>
+            <p className="text-muted-foreground">Veuillez vous reconnecter pour accéder à vos données.</p>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -256,10 +236,17 @@ export default function Tracking() {
     return colors[trigger as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
-  const averageCraving = cravingStats?.average || 0;
-  const cravingTrend = cravingStats?.trend || 0;
-  const totalExercises = userStats?.exercisesCompleted || 0;
-  const totalDuration = userStats?.totalDuration || 0;
+  // Valeurs par défaut sûres avec vérification des données
+  const averageCraving = cravingStats?.average ?? 0;
+  const cravingTrend = cravingStats?.trend ?? 0;
+  const totalExercises = userStats?.exercisesCompleted ?? 0;
+  const totalDuration = userStats?.totalDuration ?? 0;
+  
+  // Assurer que les arrays existent avec des valeurs par défaut
+  const safeCravingEntries = cravingEntries ?? [];
+  const safeExerciseSessions = exerciseSessions ?? [];
+  const safeBeckAnalyses = beckAnalyses ?? [];
+  const safeAntiCravingStrategies = antiCravingStrategies ?? [];
 
   return (
     <>
@@ -362,27 +349,27 @@ export default function Tracking() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center p-4 bg-primary/10 rounded-lg">
-                  <div className="text-2xl font-bold text-primary mb-2">{cravingEntries?.length || 0}</div>
+                  <div className="text-2xl font-bold text-primary mb-2">{safeCravingEntries.length}</div>
                   <div className="text-sm text-muted-foreground">Cravings Enregistrés</div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Dernière entrée: {cravingEntries && cravingEntries.length > 0 ? formatDate(cravingEntries[0].createdAt) : 'Aucune'}
+                    Dernière entrée: {safeCravingEntries.length > 0 ? formatDate(safeCravingEntries[0].createdAt) : 'Aucune'}
                   </div>
                 </div>
                 <div className="text-center p-4 bg-secondary/10 rounded-lg">
-                  <div className="text-2xl font-bold text-secondary mb-2">{userStats?.beckAnalysesCompleted || 0}</div>
+                  <div className="text-2xl font-bold text-secondary mb-2">{userStats?.beckAnalysesCompleted || safeBeckAnalyses.length}</div>
                   <div className="text-sm text-muted-foreground">Analyses Beck</div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Dernière analyse: {beckAnalyses && beckAnalyses.length > 0 ? formatDate(beckAnalyses[0].createdAt) : 'Aucune'}
+                    Dernière analyse: {safeBeckAnalyses.length > 0 ? formatDate(safeBeckAnalyses[0].createdAt) : 'Aucune'}
                   </div>
                 </div>
                 <div className="text-center p-4 bg-warning/10 rounded-lg">
-                  <div className="text-2xl font-bold text-warning mb-2">{antiCravingStrategies?.length || 0}</div>
+                  <div className="text-2xl font-bold text-warning mb-2">{safeAntiCravingStrategies.length}</div>
                   <div className="text-sm text-muted-foreground">Stratégies Testées</div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    {antiCravingStrategies && antiCravingStrategies.length > 0 && (() => {
-                      const avg = antiCravingStrategies.reduce((sum, s) => sum + (s.cravingBefore - s.cravingAfter), 0) / antiCravingStrategies.length;
+                    {safeAntiCravingStrategies.length > 0 ? (() => {
+                      const avg = safeAntiCravingStrategies.reduce((sum, s) => sum + (s.cravingBefore - s.cravingAfter), 0) / safeAntiCravingStrategies.length;
                       return `Efficacité moyenne: ${avg > 0 ? '+' : ''}${avg.toFixed(1)} points`;
-                    })()} 
+                    })() : 'Aucune donnée'} 
                   </div>
                 </div>
               </div>
@@ -414,7 +401,7 @@ export default function Tracking() {
                 <CardContent>
                   <div className="space-y-3">
                     {/* Recent exercise sessions */}
-                    {exerciseSessions && exerciseSessions.length > 0 && exerciseSessions.slice(0, 3).map((session: any) => (
+                    {safeExerciseSessions.slice(0, 3).map((session: ExerciseSession) => (
                       <div key={`session-${session.id}`} className="flex items-center justify-between p-2 bg-secondary/5 rounded">
                         <div className="flex items-center gap-2">
                           <span className="material-icons text-secondary text-sm">fitness_center</span>
@@ -427,7 +414,7 @@ export default function Tracking() {
                     ))}
                     
                     {/* Recent craving entries */}
-                    {cravingEntries && cravingEntries.length > 0 && cravingEntries.slice(0, 3).map((entry: CravingEntry) => (
+                    {safeCravingEntries.slice(0, 3).map((entry: CravingEntry) => (
                       <div key={`craving-${entry.id}`} className="flex items-center justify-between p-2 bg-primary/5 rounded">
                         <div className="flex items-center gap-2">
                           <span className="material-icons text-primary text-sm">psychology</span>
@@ -438,7 +425,7 @@ export default function Tracking() {
                     ))}
                     
                     {/* Recent Beck analyses */}
-                    {beckAnalyses?.slice(0, 2).map((analysis: BeckAnalysis) => (
+                    {safeBeckAnalyses.slice(0, 2).map((analysis: BeckAnalysis) => (
                       <div key={`beck-${analysis.id}`} className="flex items-center justify-between p-2 bg-info/5 rounded">
                         <div className="flex items-center gap-2">
                           <span className="material-icons text-info text-sm">psychology</span>
@@ -449,7 +436,7 @@ export default function Tracking() {
                     ))}
                     
                     {/* Recent strategies */}
-                    {antiCravingStrategies?.slice(0, 2).map((strategy: AntiCravingStrategy) => (
+                    {safeAntiCravingStrategies.slice(0, 2).map((strategy: AntiCravingStrategy) => (
                       <div key={`strategy-${strategy.id}`} className="flex items-center justify-between p-2 bg-warning/5 rounded">
                         <div className="flex items-center gap-2">
                           <span className="material-icons text-warning text-sm">fitness_center</span>
@@ -464,7 +451,7 @@ export default function Tracking() {
                       </div>
                     ))}
                     
-                    {(!cravingEntries?.length && !beckAnalyses?.length && !antiCravingStrategies?.length && !exerciseSessions?.length) && (
+                    {(safeCravingEntries.length === 0 && safeBeckAnalyses.length === 0 && safeAntiCravingStrategies.length === 0 && safeExerciseSessions.length === 0) && (
                       <div className="text-center py-4 text-muted-foreground">
                         <span className="material-icons text-4xl mb-2">analytics</span>
                         <p>Aucune activité récente</p>
@@ -484,14 +471,14 @@ export default function Tracking() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {cravingEntries && cravingEntries.length >= 2 ? (
+                  {safeCravingEntries.length >= 2 ? (
                     <div className="space-y-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-foreground">
                           {(() => {
-                            const recent = cravingEntries.slice(0, 5);
-                            const older = cravingEntries.slice(5, 10);
-                            const recentAvg = recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length;
+                            const recent = safeCravingEntries.slice(0, 5);
+                            const older = safeCravingEntries.slice(5, 10);
+                            const recentAvg = recent.length > 0 ? recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length : 0;
                             const olderAvg = older.length > 0 ? older.reduce((sum, e) => sum + e.intensity, 0) / older.length : recentAvg;
                             const improvement = olderAvg - recentAvg;
                             return improvement > 0 ? `-${improvement.toFixed(1)}` : `+${Math.abs(improvement).toFixed(1)}`;
@@ -499,9 +486,9 @@ export default function Tracking() {
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {(() => {
-                            const recent = cravingEntries.slice(0, 5);
-                            const older = cravingEntries.slice(5, 10);
-                            const recentAvg = recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length;
+                            const recent = safeCravingEntries.slice(0, 5);
+                            const older = safeCravingEntries.slice(5, 10);
+                            const recentAvg = recent.length > 0 ? recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length : 0;
                             const olderAvg = older.length > 0 ? older.reduce((sum, e) => sum + e.intensity, 0) / older.length : recentAvg;
                             const improvement = olderAvg - recentAvg;
                             return improvement > 0 ? 'Amélioration récente' : 'Stabilisation';
@@ -514,15 +501,15 @@ export default function Tracking() {
                           <span>Dernières entrées (moyenne)</span>
                           <span className="font-medium">
                             {(() => {
-                              const recent = cravingEntries.slice(0, 5);
-                              return (recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length).toFixed(1);
+                              const recent = safeCravingEntries.slice(0, 5);
+                              return recent.length > 0 ? (recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length).toFixed(1) : '0.0';
                             })()} / 10
                           </span>
                         </div>
                         <Progress 
                           value={(() => {
-                            const recent = cravingEntries.slice(0, 5);
-                            return (recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length / 10) * 100;
+                            const recent = safeCravingEntries.slice(0, 5);
+                            return recent.length > 0 ? (recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length / 10) * 100 : 0;
                           })()} 
                           className="h-2"
                         />
@@ -550,9 +537,9 @@ export default function Tracking() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {cravingEntries && cravingEntries.length > 0 ? (
+                {safeCravingEntries.length > 0 ? (
                   <div className="space-y-4">
-                    {cravingEntries.map((entry: CravingEntry) => (
+                    {safeCravingEntries.map((entry: CravingEntry) => (
                       <div key={entry.id} className="border border-border rounded-lg p-4" data-testid={`craving-entry-${entry.id}`}>
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm text-muted-foreground">
@@ -625,9 +612,9 @@ export default function Tracking() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {exerciseSessions && exerciseSessions.length > 0 ? (
+                {safeExerciseSessions.length > 0 ? (
                   <div className="space-y-4">
-                    {exerciseSessions.map((session: ExerciseSession) => (
+                    {safeExerciseSessions.map((session: ExerciseSession) => (
                       <div key={session.id} className="border border-border rounded-lg p-4" data-testid={`exercise-session-${session.id}`}>
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm text-muted-foreground">
@@ -702,9 +689,9 @@ export default function Tracking() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {beckAnalyses && beckAnalyses.length > 0 ? (
+                {safeBeckAnalyses.length > 0 ? (
                   <div className="space-y-6">
-                    {beckAnalyses.map((analysis: BeckAnalysis) => (
+                    {safeBeckAnalyses.map((analysis: BeckAnalysis) => (
                       <div key={analysis.id} className="border border-border rounded-lg p-4" data-testid={`beck-analysis-${analysis.id}`}>
                         <div className="flex items-center justify-between mb-4">
                           <span className="text-sm text-muted-foreground">
@@ -766,9 +753,9 @@ export default function Tracking() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {antiCravingStrategies && antiCravingStrategies.length > 0 ? (
+                {safeAntiCravingStrategies.length > 0 ? (
                   <div className="space-y-4">
-                    {antiCravingStrategies.map((strategy: AntiCravingStrategy) => (
+                    {safeAntiCravingStrategies.map((strategy: AntiCravingStrategy) => (
                       <div key={strategy.id} className="border border-border rounded-lg p-4" data-testid={`strategy-${strategy.id}`}>
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm text-muted-foreground">
