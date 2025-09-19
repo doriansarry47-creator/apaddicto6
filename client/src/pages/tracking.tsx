@@ -47,7 +47,8 @@ export default function Tracking() {
   useEffect(() => {
     if (authenticatedUser && !hasInitialized) {
       setHasInitialized(true);
-      // Pas de refresh automatique pour éviter les boucles
+      // Déclencher un rafraîchissement initial si les données ne sont pas encore chargées
+      refreshAllData();
     }
   }, [authenticatedUser, hasInitialized]);
 
@@ -69,7 +70,8 @@ export default function Tracking() {
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
-    refetchOnMount: false
+    refetchOnMount: false,
+    onError: (err) => console.error("Erreur de chargement des cravings:", err)
   });
 
   const { data: cravingStats, isLoading: statsLoading } = useQuery<CravingStats>({
@@ -91,7 +93,8 @@ export default function Tracking() {
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    onError: (err) => console.error("Erreur de chargement des statistiques de craving:", err)
   });
 
   const { data: exerciseSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<ExerciseSession[]>({
@@ -110,7 +113,8 @@ export default function Tracking() {
     staleTime: 3 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    onError: (err) => console.error("Erreur de chargement des sessions d'exercices:", err)
   });
 
   const { data: userStats, isLoading: userStatsLoading } = useQuery<UserStats>({
@@ -128,7 +132,8 @@ export default function Tracking() {
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    onError: (err) => console.error("Erreur de chargement des statistiques utilisateur:", err)
   });
 
   const { data: beckAnalyses, isLoading: beckLoading, error: beckError } = useQuery<BeckAnalysis[]>({
@@ -147,7 +152,8 @@ export default function Tracking() {
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    onError: (err) => console.error("Erreur de chargement des analyses Beck:", err)
   });
 
   const { data: antiCravingStrategies, isLoading: strategiesLoading, error: strategiesError } = useQuery<AntiCravingStrategy[]>({
@@ -169,7 +175,8 @@ export default function Tracking() {
     staleTime: 3 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    onError: (err) => console.error("Erreur de chargement des stratégies anti-craving:", err)
   });
 
   const isLoading = userLoading || (cravingLoading && !cravingEntries) || (statsLoading && !cravingStats) || 
@@ -284,7 +291,7 @@ export default function Tracking() {
                 <span className="material-icons text-primary">psychology</span>
               </div>
               <div className="text-2xl font-bold text-foreground" data-testid="text-avg-craving">
-                {averageCraving.toFixed(1)}/10
+                        {Number(averageCraving).toFixed(1)}/10
               </div>
               <div className="w-full mt-2">
                 <Progress value={(averageCraving / 10) * 100} className="h-2" />
@@ -384,13 +391,17 @@ export default function Tracking() {
             <TabsTrigger value="cravings" data-testid="tab-cravings">Cravings</TabsTrigger>
             <TabsTrigger value="exercises" data-testid="tab-exercises">Exercices</TabsTrigger>
             <TabsTrigger value="analyses" data-testid="tab-analyses">Analyses</TabsTrigger>
-            <TabsTrigger value="strategies" data-testid="tab-strategies">Stratégies</TabsTrigger>
+            <TabsTrigger 
+              value="strategies" 
+              data-testid="tab-strategies"
+            >
+              Stratégies
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Activities */}
               <Card className="shadow-material">
                 <CardHeader>
                   <CardTitle className="flex items-center">
@@ -399,106 +410,87 @@ export default function Tracking() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {/* Recent exercise sessions */}
-                    {safeExerciseSessions.slice(0, 3).map((session: ExerciseSession) => (
-                      <div key={`session-${session.id}`} className="flex items-center justify-between p-2 bg-secondary/5 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="material-icons text-secondary text-sm">fitness_center</span>
-                          <span className="text-sm">
-                            {session.exerciseTitle || session.exerciseId || 'Exercice'} complété
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{formatDate(session.createdAt)}</div>
-                      </div>
-                    ))}
-                    
-                    {/* Recent craving entries */}
-                    {safeCravingEntries.slice(0, 3).map((entry: CravingEntry) => (
-                      <div key={`craving-${entry.id}`} className="flex items-center justify-between p-2 bg-primary/5 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="material-icons text-primary text-sm">psychology</span>
-                          <span className="text-sm">Craving enregistré (niveau {entry.intensity})</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{formatDate(entry.createdAt)}</div>
-                      </div>
-                    ))}
-                    
-                    {/* Recent Beck analyses */}
-                    {safeBeckAnalyses.slice(0, 2).map((analysis: BeckAnalysis) => (
-                      <div key={`beck-${analysis.id}`} className="flex items-center justify-between p-2 bg-info/5 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="material-icons text-info text-sm">psychology</span>
-                          <span className="text-sm">Analyse cognitive</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{formatDate(analysis.createdAt)}</div>
-                      </div>
-                    ))}
-                    
-                    {/* Recent strategies */}
-                    {safeAntiCravingStrategies.slice(0, 2).map((strategy: AntiCravingStrategy) => (
-                      <div key={`strategy-${strategy.id}`} className="flex items-center justify-between p-2 bg-warning/5 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="material-icons text-warning text-sm">fitness_center</span>
-                          <span className="text-sm">Stratégie testée</span>
-                          {strategy.cravingBefore > strategy.cravingAfter && (
-                            <Badge className="bg-success text-success-foreground text-xs">
-                              -{strategy.cravingBefore - strategy.cravingAfter}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">{formatDate(strategy.createdAt)}</div>
-                      </div>
-                    ))}
-                    
-                    {(safeCravingEntries.length === 0 && safeBeckAnalyses.length === 0 && safeAntiCravingStrategies.length === 0 && safeExerciseSessions.length === 0) && (
-                      <div className="text-center py-4 text-muted-foreground">
-                        <span className="material-icons text-4xl mb-2">analytics</span>
-                        <p>Aucune activité récente</p>
-                        <p className="text-xs">Commencez à utiliser les outils depuis l'accueil</p>
-                      </div>
-                    )}
-                  </div>
+                  {safeCravingEntries.length === 0 && safeExerciseSessions.length === 0 && safeBeckAnalyses.length === 0 && safeAntiCravingStrategies.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <span className="material-icons text-6xl mb-4">info</span>
+                      <h3 className="text-lg font-medium mb-2">Aucune activité enregistrée</h3>
+                      <p className="text-sm">Commencez à utiliser l'application pour voir votre historique ici.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {[...safeCravingEntries, ...safeExerciseSessions, ...safeBeckAnalyses, ...safeAntiCravingStrategies]
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .slice(0, 5)
+                        .map((activity, index) => (
+                          <div key={index} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50">
+                            {('intensity' in activity) ? (
+                              <span className="material-icons text-primary">psychology</span>
+                            ) : ('exerciseTitle' in activity) ? (
+                              <span className="material-icons text-secondary">fitness_center</span>
+                            ) : ('situation' in activity) ? (
+                              <span className="material-icons text-warning">psychology</span>
+                            ) : (
+                              <span className="material-icons text-info">fitness_center</span>
+                            )}
+                            <div className="flex-grow">
+                              <p className="text-sm font-medium">
+                                {('intensity' in activity) ? (
+                                  `Craving enregistré (niveau ${activity.intensity})`
+                                ) : ('exerciseTitle' in activity) ? (
+                                  `Exercice ${activity.exerciseTitle || activity.exerciseId} complété`
+                                ) : ('situation' in activity) ? (
+                                  `Analyse cognitive`
+                                ) : (
+                                  `Stratégie testée`
+                                )}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDate(activity.createdAt)}
+                              </p>
+                            </div>
+                            {('cravingBefore' in activity && 'cravingAfter' in activity && activity.cravingBefore > activity.cravingAfter) && (
+                              <Badge className="bg-success text-success-foreground">
+                                -{activity.cravingBefore - activity.cravingAfter}
+                              </Badge>
+                            )}
+                            {('cravingBefore' in activity && 'cravingAfter' in activity && activity.cravingBefore < activity.cravingAfter) && (
+                              <Badge variant="destructive">
+                                +{activity.cravingAfter - activity.cravingBefore}
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-              
-              {/* Progress Chart */}
+
               <Card className="shadow-material">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <span className="material-icons mr-2 text-secondary">trending_down</span>
+                    <span className="material-icons mr-2 text-success">trending_down</span>
                     Évolution des Cravings
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {safeCravingEntries.length >= 2 ? (
+                  {safeCravingEntries.length > 0 ? (
                     <div className="space-y-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-foreground">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Changement moyen (5 dernières entrées)</div>
+                        <div className="text-lg font-bold text-success">
                           {(() => {
                             const recent = safeCravingEntries.slice(0, 5);
-                            const older = safeCravingEntries.slice(5, 10);
-                            const recentAvg = recent.length > 0 ? recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length : 0;
-                            const olderAvg = older.length > 0 ? older.reduce((sum, e) => sum + e.intensity, 0) / older.length : recentAvg;
-                            const improvement = olderAvg - recentAvg;
-                            return improvement > 0 ? `-${improvement.toFixed(1)}` : `+${Math.abs(improvement).toFixed(1)}`;
-                          })()} points
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {(() => {
-                            const recent = safeCravingEntries.slice(0, 5);
-                            const older = safeCravingEntries.slice(5, 10);
-                            const recentAvg = recent.length > 0 ? recent.reduce((sum, e) => sum + e.intensity, 0) / recent.length : 0;
-                            const olderAvg = older.length > 0 ? older.reduce((sum, e) => sum + e.intensity, 0) / older.length : recentAvg;
-                            const improvement = olderAvg - recentAvg;
-                            return improvement > 0 ? 'Amélioration récente' : 'Stabilisation';
+                            if (recent.length < 2) return 'N/A';
+                            const first = recent[recent.length - 1].intensity;
+                            const last = recent[0].intensity;
+                            const change = last - first;
+                            return `${change > 0 ? '+' : ''}${change.toFixed(1)} points`;
                           })()}
                         </div>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Dernières entrées (moyenne)</span>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Dernières entrées (moyenne)</div>
+                        <div className="text-lg font-bold">
                           <span className="font-medium">
                             {(() => {
                               const recent = safeCravingEntries.slice(0, 5);
@@ -826,3 +818,4 @@ export default function Tracking() {
     </>
   );
 }
+
