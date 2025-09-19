@@ -25,7 +25,15 @@ export function BeckColumn({ userId, onSuccess }: BeckColumnProps) {
 
   const createBeckAnalysisMutation = useMutation({
     mutationFn: async (data: InsertBeckAnalysis) => {
-      return await apiRequest("POST", "/api/beck-analyses", data);
+      try {
+        const response = await apiRequest("POST", "/api/beck-analyses", data);
+        const result = await response.json();
+        console.log('Beck analysis created successfully:', result);
+        return result;
+      } catch (error: any) {
+        console.error('Error creating Beck analysis:', error);
+        throw new Error(error.message || 'Erreur lors de la création de l\'analyse Beck');
+      }
     },
     onSuccess: () => {
       toast({

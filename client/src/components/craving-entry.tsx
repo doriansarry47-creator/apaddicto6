@@ -74,7 +74,15 @@ export function CravingEntry({ userId, onSuccess }: CravingEntryProps) {
 
   const createCravingMutation = useMutation({
     mutationFn: async (data: InsertCravingEntry) => {
-      return await apiRequest("POST", "/api/cravings", data);
+      try {
+        const response = await apiRequest("POST", "/api/cravings", data);
+        const result = await response.json();
+        console.log('Craving entry created successfully:', result);
+        return result;
+      } catch (error: any) {
+        console.error('Error creating craving entry:', error);
+        throw new Error(error.message || 'Erreur lors de la création du craving');
+      }
     },
     onSuccess: () => {
       toast({

@@ -53,23 +53,19 @@ export function StrategiesBox({ userId, onSuccess }: StrategiesBoxProps) {
     mutationFn: async (data: InsertAntiCravingStrategy[]) => {
       console.log('Sending strategies to API:', data);
       
-      const response = await apiRequest("POST", "/api/strategies", { strategies: data });
-      
-      if (!response.ok) {
-        let errorMessage;
-        try {
-          const errorJson = await response.json();
-          errorMessage = errorJson.message || `HTTP ${response.status}`;
-        } catch {
-          const errorText = await response.text();
-          errorMessage = errorText || `HTTP ${response.status}`;
-        }
-        throw new Error(errorMessage);
+      try {
+        const response = await apiRequest("POST", "/api/strategies", { strategies: data });
+        
+        // apiRequest already handles error checking and throws on non-ok responses
+        // So if we get here, the response is ok and already parsed
+        const result = await response.json();
+        console.log('API response:', result);
+        return result;
+      } catch (error: any) {
+        console.error('Error in saveStrategiesMutation:', error);
+        // Re-throw with better error message
+        throw new Error(error.message || 'Erreur lors de la sauvegarde des stratégies');
       }
-      
-      const result = await response.json();
-      console.log('API response:', result);
-      return result;
     },
     onSuccess: (result) => {
       const count = result.strategies?.length || result.length || 0;

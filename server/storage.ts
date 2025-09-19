@@ -170,13 +170,31 @@ class Storage {
 
   // === CRAVING ENTRIES ===
   async createCravingEntry(cravingData: InsertCravingEntry): Promise<CravingEntry> {
-    const insertData: InsertCravingEntry = {
-      ...cravingData,
-      triggers: (cravingData.triggers || []) as string[],
-      emotions: (cravingData.emotions || []) as string[]
-    };
-    const result = await this.db.insert(cravingEntries).values(insertData).returning();
-    return result[0];
+    try {
+      console.log('💾 Creating craving entry:', cravingData);
+      
+      const insertData: InsertCravingEntry = {
+        userId: cravingData.userId,
+        intensity: cravingData.intensity,
+        triggers: Array.isArray(cravingData.triggers) ? cravingData.triggers as string[] : [],
+        emotions: Array.isArray(cravingData.emotions) ? cravingData.emotions as string[] : [],
+        notes: cravingData.notes
+      };
+      
+      console.log('💾 Processed insert data:', insertData);
+      
+      const result = await this.db.insert(cravingEntries).values(insertData).returning();
+      
+      if (!result || result.length === 0) {
+        throw new Error('Aucune donnée retournée après insertion du craving');
+      }
+      
+      console.log('✅ Craving entry created in database:', result[0]);
+      return result[0];
+    } catch (error: any) {
+      console.error('❌ Database error creating craving entry:', error);
+      throw new Error(`Erreur de base de données lors de la création du craving: ${error.message}`);
+    }
   }
 
   async getCravingEntriesByUser(userId: string, limit?: number): Promise<CravingEntry[]> {
@@ -244,8 +262,21 @@ class Storage {
 
   // === BECK ANALYSES ===
   async createBeckAnalysis(analysisData: InsertBeckAnalysis): Promise<BeckAnalysis> {
-    const result = await this.db.insert(beckAnalyses).values(analysisData).returning();
-    return result[0];
+    try {
+      console.log('💾 Creating Beck analysis:', analysisData);
+      
+      const result = await this.db.insert(beckAnalyses).values(analysisData).returning();
+      
+      if (!result || result.length === 0) {
+        throw new Error('Aucune donnée retournée après insertion de l\'analyse Beck');
+      }
+      
+      console.log('✅ Beck analysis created in database:', result[0]);
+      return result[0];
+    } catch (error: any) {
+      console.error('❌ Database error creating Beck analysis:', error);
+      throw new Error(`Erreur de base de données lors de la création de l'analyse Beck: ${error.message}`);
+    }
   }
 
   async getBeckAnalysesByUser(userId: string, limit?: number): Promise<BeckAnalysis[]> {
@@ -264,8 +295,21 @@ class Storage {
 
   // === ANTI-CRAVING STRATEGIES ===
   async createStrategy(strategyData: InsertAntiCravingStrategy): Promise<AntiCravingStrategy> {
-    const result = await this.db.insert(antiCravingStrategies).values(strategyData).returning();
-    return result[0];
+    try {
+      console.log('💾 Creating anti-craving strategy:', strategyData);
+      
+      const result = await this.db.insert(antiCravingStrategies).values(strategyData).returning();
+      
+      if (!result || result.length === 0) {
+        throw new Error('Aucune donnée retournée après insertion de la stratégie');
+      }
+      
+      console.log('✅ Strategy created in database:', result[0]);
+      return result[0];
+    } catch (error: any) {
+      console.error('❌ Database error creating strategy:', error);
+      throw new Error(`Erreur de base de données lors de la création de la stratégie: ${error.message}`);
+    }
   }
 
   async getStrategiesByUser(userId: string): Promise<AntiCravingStrategy[]> {

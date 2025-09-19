@@ -253,18 +253,36 @@ export function registerRoutes(app: Application) {
     try {
       const { intensity, triggers, emotions, notes } = req.body;
       
-      const craving = await storage.createCravingEntry({
+      console.log('📝 Craving entry request for user:', req.session.user.id);
+      console.log('📝 Craving data:', { intensity, triggers, emotions, notes });
+      
+      // Validation
+      const intensityNum = Number(intensity);
+      if (isNaN(intensityNum) || intensityNum < 0 || intensityNum > 10) {
+        console.error('❌ Invalid intensity:', intensity);
+        return res.status(400).json({ message: 'Intensité invalide (0-10 requis)' });
+      }
+      
+      const cravingData = {
         userId: req.session.user.id,
-        intensity: intensity || 1,
-        triggers: triggers || [],
-        emotions: emotions || [],
-        notes: notes || null
-      });
-
+        intensity: intensityNum,
+        triggers: Array.isArray(triggers) ? triggers : [],
+        emotions: Array.isArray(emotions) ? emotions : [],
+        notes: notes && typeof notes === 'string' ? notes.trim() : null
+      };
+      
+      console.log('🔍 Processed craving data:', cravingData);
+      
+      const craving = await storage.createCravingEntry(cravingData);
+      
+      console.log('✅ Craving entry created successfully:', craving.id);
       res.json(craving);
     } catch (error: any) {
-      console.error('Error creating craving entry:', error);
-      res.status(500).json({ message: 'Erreur lors de l\'enregistrement' });
+      console.error('❌ Error creating craving entry:', error);
+      res.status(500).json({ 
+        message: 'Erreur lors de l\'enregistrement', 
+        error: error.message 
+      });
     }
   });
 
@@ -382,25 +400,67 @@ export function registerRoutes(app: Application) {
     try {
       const { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity } = req.body;
       
-      if (!situation || !automaticThoughts || !emotions) {
-        return res.status(400).json({ message: 'Situation, pensées automatiques et émotions requises' });
+      console.log('📝 Beck analysis request for user:', req.session.user.id);
+      console.log('📝 Beck analysis data:', { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity });
+      
+      // Validation des champs requis
+      if (!situation || typeof situation !== 'string' || situation.trim().length === 0) {
+        console.error('❌ Invalid situation:', situation);
+        return res.status(400).json({ message: 'Situation requise et non vide' });
       }
-
-      const analysis = await storage.createBeckAnalysis({
+      
+      if (!automaticThoughts || typeof automaticThoughts !== 'string' || automaticThoughts.trim().length === 0) {
+        console.error('❌ Invalid automaticThoughts:', automaticThoughts);
+        return res.status(400).json({ message: 'Pensées automatiques requises et non vides' });
+      }
+      
+      if (!emotions || typeof emotions !== 'string' || emotions.trim().length === 0) {
+        console.error('❌ Invalid emotions:', emotions);
+        return res.status(400).json({ message: 'Émotions requises et non vides' });
+      }
+      
+      // Validation des intensités
+      let emotionIntensityNum = null;
+      if (emotionIntensity !== null && emotionIntensity !== undefined) {
+        emotionIntensityNum = Number(emotionIntensity);
+        if (isNaN(emotionIntensityNum) || emotionIntensityNum < 1 || emotionIntensityNum > 10) {
+          console.error('❌ Invalid emotionIntensity:', emotionIntensity);
+          return res.status(400).json({ message: 'Intensité émotionnelle invalide (1-10 requis)' });
+        }
+      }
+      
+      let newIntensityNum = null;
+      if (newIntensity !== null && newIntensity !== undefined) {
+        newIntensityNum = Number(newIntensity);
+        if (isNaN(newIntensityNum) || newIntensityNum < 1 || newIntensityNum > 10) {
+          console.error('❌ Invalid newIntensity:', newIntensity);
+          return res.status(400).json({ message: 'Nouvelle intensité invalide (1-10 requis)' });
+        }
+      }
+      
+      const analysisData = {
         userId: req.session.user.id,
-        situation,
-        automaticThoughts,
-        emotions,
-        emotionIntensity: emotionIntensity || null,
-        rationalResponse: rationalResponse || null,
-        newFeeling: newFeeling || null,
-        newIntensity: newIntensity || null
-      });
+        situation: situation.trim(),
+        automaticThoughts: automaticThoughts.trim(),
+        emotions: emotions.trim(),
+        emotionIntensity: emotionIntensityNum,
+        rationalResponse: rationalResponse && typeof rationalResponse === 'string' ? rationalResponse.trim() : null,
+        newFeeling: newFeeling && typeof newFeeling === 'string' ? newFeeling.trim() : null,
+        newIntensity: newIntensityNum
+      };
+      
+      console.log('🔍 Processed Beck analysis data:', analysisData);
 
+      const analysis = await storage.createBeckAnalysis(analysisData);
+
+      console.log('✅ Beck analysis created successfully:', analysis.id);
       res.json(analysis);
     } catch (error: any) {
-      console.error('Error creating Beck analysis:', error);
-      res.status(500).json({ message: 'Erreur lors de la création de l\'analyse' });
+      console.error('❌ Error creating Beck analysis:', error);
+      res.status(500).json({ 
+        message: 'Erreur lors de la création de l\'analyse',
+        error: error.message 
+      });
     }
   });
 
@@ -423,38 +483,83 @@ export function registerRoutes(app: Application) {
     try {
       const { strategies } = req.body;
       
+      console.log('📝 Strategies save request for user:', req.session.user.id);
+      console.log('📝 Received strategies data:', strategies);
+      
       if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+        console.warn('❌ No strategies provided or invalid format');
         return res.status(400).json({ message: 'Au moins une stratégie requise' });
       }
 
-      console.log('Received strategies:', strategies);
-      
       const savedStrategies = [];
       
-      for (const strategyData of strategies) {
+      for (let i = 0; i < strategies.length; i++) {
+        const strategyData = strategies[i];
         const { context, exercise, effort, duration, cravingBefore, cravingAfter } = strategyData;
         
-        if (!context || !exercise || !effort || duration === undefined || cravingBefore === undefined || cravingAfter === undefined) {
-          return res.status(400).json({ message: 'Tous les champs requis: context, exercise, effort, duration, cravingBefore, cravingAfter' });
+        console.log(`🔍 Validating strategy ${i + 1}:`, strategyData);
+        
+        // Validation plus détaillée
+        if (!context || typeof context !== 'string') {
+          console.error(`❌ Invalid context for strategy ${i + 1}:`, context);
+          return res.status(400).json({ message: `Contexte invalide pour la stratégie ${i + 1}` });
         }
         
-        const strategy = await storage.createStrategy({
-          userId: req.session.user.id,
-          context,
-          exercise,
-          effort,
-          duration: Number(duration),
-          cravingBefore: Number(cravingBefore),
-          cravingAfter: Number(cravingAfter)
-        });
+        if (!exercise || typeof exercise !== 'string' || exercise.trim().length === 0) {
+          console.error(`❌ Invalid exercise for strategy ${i + 1}:`, exercise);
+          return res.status(400).json({ message: `Description d'exercice requise pour la stratégie ${i + 1}` });
+        }
         
-        savedStrategies.push(strategy);
+        if (!effort || typeof effort !== 'string') {
+          console.error(`❌ Invalid effort for strategy ${i + 1}:`, effort);
+          return res.status(400).json({ message: `Niveau d'effort invalide pour la stratégie ${i + 1}` });
+        }
+        
+        const durationNum = Number(duration);
+        if (isNaN(durationNum) || durationNum < 1 || durationNum > 180) {
+          console.error(`❌ Invalid duration for strategy ${i + 1}:`, duration);
+          return res.status(400).json({ message: `Durée invalide pour la stratégie ${i + 1} (1-180 min requis)` });
+        }
+        
+        const cravingBeforeNum = Number(cravingBefore);
+        if (isNaN(cravingBeforeNum) || cravingBeforeNum < 0 || cravingBeforeNum > 10) {
+          console.error(`❌ Invalid cravingBefore for strategy ${i + 1}:`, cravingBefore);
+          return res.status(400).json({ message: `Craving avant invalide pour la stratégie ${i + 1} (0-10 requis)` });
+        }
+        
+        const cravingAfterNum = Number(cravingAfter);
+        if (isNaN(cravingAfterNum) || cravingAfterNum < 0 || cravingAfterNum > 10) {
+          console.error(`❌ Invalid cravingAfter for strategy ${i + 1}:`, cravingAfter);
+          return res.status(400).json({ message: `Craving après invalide pour la stratégie ${i + 1} (0-10 requis)` });
+        }
+        
+        try {
+          const strategy = await storage.createStrategy({
+            userId: req.session.user.id,
+            context: context.trim(),
+            exercise: exercise.trim(),
+            effort: effort.trim(),
+            duration: durationNum,
+            cravingBefore: cravingBeforeNum,
+            cravingAfter: cravingAfterNum
+          });
+          
+          console.log(`✅ Strategy ${i + 1} created successfully:`, strategy.id);
+          savedStrategies.push(strategy);
+        } catch (dbError: any) {
+          console.error(`❌ Database error for strategy ${i + 1}:`, dbError);
+          return res.status(500).json({ message: `Erreur de base de données pour la stratégie ${i + 1}: ${dbError.message}` });
+        }
       }
 
+      console.log(`✅ All ${savedStrategies.length} strategies saved successfully`);
       res.json({ strategies: savedStrategies, message: `${savedStrategies.length} stratégies sauvegardées avec succès` });
     } catch (error: any) {
-      console.error('Error creating strategies:', error);
-      res.status(500).json({ message: 'Erreur lors de la création des stratégies' });
+      console.error('❌ Unexpected error creating strategies:', error);
+      res.status(500).json({ 
+        message: 'Erreur lors de la création des stratégies',
+        error: error.message 
+      });
     }
   });
 
