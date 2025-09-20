@@ -679,5 +679,77 @@ export function registerRoutes(app: Application) {
     }
   });
 
+  // === ROUTES DES ROUTINES D'URGENCE ===
+  
+  // GET /api/emergency-routines - Récupérer les routines d'urgence d'un utilisateur
+  app.get('/api/emergency-routines', requireAuth, async (req, res) => {
+    try {
+      const routines = await storage.getEmergencyRoutines(req.session.user.id);
+      res.json(routines);
+    } catch (error: any) {
+      console.error('Error fetching emergency routines:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des routines d\'urgence' });
+    }
+  });
+
+  // POST /api/emergency-routines - Créer une routine d'urgence
+  app.post('/api/emergency-routines', requireAuth, async (req, res) => {
+    try {
+      const routineData = {
+        ...req.body,
+        userId: req.session.user.id
+      };
+      const routine = await storage.createEmergencyRoutine(routineData);
+      res.json(routine);
+    } catch (error: any) {
+      console.error('Error creating emergency routine:', error);
+      res.status(500).json({ message: 'Erreur lors de la création de la routine d\'urgence' });
+    }
+  });
+
+  // PUT /api/emergency-routines/:id - Modifier une routine d'urgence
+  app.put('/api/emergency-routines/:id', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.user.id;
+      
+      // Vérifier que la routine appartient à l'utilisateur
+      const existingRoutine = await storage.getEmergencyRoutineById(id);
+      if (!existingRoutine || existingRoutine.userId !== userId) {
+        return res.status(403).json({ message: 'Routine non trouvée ou accès refusé' });
+      }
+      
+      const routine = await storage.updateEmergencyRoutine(id, req.body);
+      res.json(routine);
+    } catch (error: any) {
+      console.error('Error updating emergency routine:', error);
+      res.status(500).json({ message: 'Erreur lors de la mise à jour de la routine d\'urgence' });
+    }
+  });
+
+  // DELETE /api/emergency-routines/:id - Supprimer une routine d'urgence
+  app.delete('/api/emergency-routines/:id', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.user.id;
+      
+      // Vérifier que la routine appartient à l'utilisateur
+      const existingRoutine = await storage.getEmergencyRoutineById(id);
+      if (!existingRoutine || existingRoutine.userId !== userId) {
+        return res.status(403).json({ message: 'Routine non trouvée ou accès refusé' });
+      }
+      
+      const success = await storage.deleteEmergencyRoutine(id);
+      if (success) {
+        res.json({ message: 'Routine d\'urgence supprimée avec succès' });
+      } else {
+        res.status(500).json({ message: 'Erreur lors de la suppression' });
+      }
+    } catch (error: any) {
+      console.error('Error deleting emergency routine:', error);
+      res.status(500).json({ message: 'Erreur lors de la suppression de la routine d\'urgence' });
+    }
+  });
+
   console.log('✅ All routes registered successfully');
 }

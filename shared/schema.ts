@@ -523,3 +523,35 @@ export type ExerciseLibrary = typeof exerciseLibrary.$inferSelect;
 export type InsertExerciseLibrary = z.infer<typeof insertExerciseLibrarySchema>;
 export type ExerciseRating = typeof exerciseRatings.$inferSelect;
 export type InsertExerciseRating = z.infer<typeof insertExerciseRatingSchema>;
+
+// User emergency routines (personalised routines by users)
+export const userEmergencyRoutines = pgTable("user_emergency_routines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  totalDuration: integer("total_duration").notNull(), // in seconds
+  exercises: jsonb("exercises").$type<{
+    id: string;
+    exerciseId: string;
+    title: string;
+    duration: number;
+    repetitions?: number;
+    restTime?: number;
+    intensity?: 'low' | 'medium' | 'high';
+    notes?: string;
+    order: number;
+  }[]>().notNull(),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserEmergencyRoutineSchema = createInsertSchema(userEmergencyRoutines).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type UserEmergencyRoutine = typeof userEmergencyRoutines.$inferSelect;
+export type InsertUserEmergencyRoutine = z.infer<typeof insertUserEmergencyRoutineSchema>;
