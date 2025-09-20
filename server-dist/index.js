@@ -671,13 +671,26 @@ var Storage = class {
   }
   // === CRAVING ENTRIES ===
   async createCravingEntry(cravingData) {
-    const insertData = {
-      ...cravingData,
-      triggers: cravingData.triggers || [],
-      emotions: cravingData.emotions || []
-    };
-    const result = await this.db.insert(cravingEntries).values(insertData).returning();
-    return result[0];
+    try {
+      console.log("\u{1F4BE} Creating craving entry:", cravingData);
+      const insertData = {
+        userId: cravingData.userId,
+        intensity: cravingData.intensity,
+        triggers: Array.isArray(cravingData.triggers) ? cravingData.triggers : [],
+        emotions: Array.isArray(cravingData.emotions) ? cravingData.emotions : [],
+        notes: cravingData.notes
+      };
+      console.log("\u{1F4BE} Processed insert data:", insertData);
+      const result = await this.db.insert(cravingEntries).values(insertData).returning();
+      if (!result || result.length === 0) {
+        throw new Error("Aucune donn\xE9e retourn\xE9e apr\xE8s insertion du craving");
+      }
+      console.log("\u2705 Craving entry created in database:", result[0]);
+      return result[0];
+    } catch (error) {
+      console.error("\u274C Database error creating craving entry:", error);
+      throw new Error(`Erreur de base de donn\xE9es lors de la cr\xE9ation du craving: ${error.message}`);
+    }
   }
   async getCravingEntriesByUser(userId, limit) {
     const baseQuery = this.db.select().from(cravingEntries).where(eq(cravingEntries.userId, userId)).orderBy(desc(cravingEntries.createdAt));
@@ -722,8 +735,18 @@ var Storage = class {
   }
   // === BECK ANALYSES ===
   async createBeckAnalysis(analysisData) {
-    const result = await this.db.insert(beckAnalyses).values(analysisData).returning();
-    return result[0];
+    try {
+      console.log("\u{1F4BE} Creating Beck analysis:", analysisData);
+      const result = await this.db.insert(beckAnalyses).values(analysisData).returning();
+      if (!result || result.length === 0) {
+        throw new Error("Aucune donn\xE9e retourn\xE9e apr\xE8s insertion de l'analyse Beck");
+      }
+      console.log("\u2705 Beck analysis created in database:", result[0]);
+      return result[0];
+    } catch (error) {
+      console.error("\u274C Database error creating Beck analysis:", error);
+      throw new Error(`Erreur de base de donn\xE9es lors de la cr\xE9ation de l'analyse Beck: ${error.message}`);
+    }
   }
   async getBeckAnalysesByUser(userId, limit) {
     const baseQuery = this.db.select().from(beckAnalyses).where(eq(beckAnalyses.userId, userId)).orderBy(desc(beckAnalyses.createdAt));
@@ -734,8 +757,18 @@ var Storage = class {
   }
   // === ANTI-CRAVING STRATEGIES ===
   async createStrategy(strategyData) {
-    const result = await this.db.insert(antiCravingStrategies).values(strategyData).returning();
-    return result[0];
+    try {
+      console.log("\u{1F4BE} Creating anti-craving strategy:", strategyData);
+      const result = await this.db.insert(antiCravingStrategies).values(strategyData).returning();
+      if (!result || result.length === 0) {
+        throw new Error("Aucune donn\xE9e retourn\xE9e apr\xE8s insertion de la strat\xE9gie");
+      }
+      console.log("\u2705 Strategy created in database:", result[0]);
+      return result[0];
+    } catch (error) {
+      console.error("\u274C Database error creating strategy:", error);
+      throw new Error(`Erreur de base de donn\xE9es lors de la cr\xE9ation de la strat\xE9gie: ${error.message}`);
+    }
   }
   async getStrategiesByUser(userId) {
     const result = await this.db.select().from(antiCravingStrategies).where(eq(antiCravingStrategies.userId, userId)).orderBy(desc(antiCravingStrategies.createdAt));
@@ -1198,17 +1231,30 @@ function registerRoutes(app2) {
   app2.post("/api/cravings", requireAuth, async (req, res) => {
     try {
       const { intensity, triggers, emotions, notes } = req.body;
-      const craving = await storage.createCravingEntry({
+      console.log("\u{1F4DD} Craving entry request for user:", req.session.user.id);
+      console.log("\u{1F4DD} Craving data:", { intensity, triggers, emotions, notes });
+      const intensityNum = Number(intensity);
+      if (isNaN(intensityNum) || intensityNum < 0 || intensityNum > 10) {
+        console.error("\u274C Invalid intensity:", intensity);
+        return res.status(400).json({ message: "Intensit\xE9 invalide (0-10 requis)" });
+      }
+      const cravingData = {
         userId: req.session.user.id,
-        intensity: intensity || 1,
-        triggers: triggers || [],
-        emotions: emotions || [],
-        notes: notes || null
-      });
+        intensity: intensityNum,
+        triggers: Array.isArray(triggers) ? triggers : [],
+        emotions: Array.isArray(emotions) ? emotions : [],
+        notes: notes && typeof notes === "string" ? notes.trim() : null
+      };
+      console.log("\u{1F50D} Processed craving data:", cravingData);
+      const craving = await storage.createCravingEntry(cravingData);
+      console.log("\u2705 Craving entry created successfully:", craving.id);
       res.json(craving);
     } catch (error) {
-      console.error("Error creating craving entry:", error);
-      res.status(500).json({ message: "Erreur lors de l'enregistrement" });
+      console.error("\u274C Error creating craving entry:", error);
+      res.status(500).json({
+        message: "Erreur lors de l'enregistrement",
+        error: error.message
+      });
     }
   });
   app2.get("/api/cravings", requireAuth, async (req, res) => {
@@ -1298,23 +1344,56 @@ function registerRoutes(app2) {
   app2.post("/api/beck-analyses", requireAuth, async (req, res) => {
     try {
       const { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity } = req.body;
-      if (!situation || !automaticThoughts || !emotions) {
-        return res.status(400).json({ message: "Situation, pens\xE9es automatiques et \xE9motions requises" });
+      console.log("\u{1F4DD} Beck analysis request for user:", req.session.user.id);
+      console.log("\u{1F4DD} Beck analysis data:", { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity });
+      if (!situation || typeof situation !== "string" || situation.trim().length === 0) {
+        console.error("\u274C Invalid situation:", situation);
+        return res.status(400).json({ message: "Situation requise et non vide" });
       }
-      const analysis = await storage.createBeckAnalysis({
+      if (!automaticThoughts || typeof automaticThoughts !== "string" || automaticThoughts.trim().length === 0) {
+        console.error("\u274C Invalid automaticThoughts:", automaticThoughts);
+        return res.status(400).json({ message: "Pens\xE9es automatiques requises et non vides" });
+      }
+      if (!emotions || typeof emotions !== "string" || emotions.trim().length === 0) {
+        console.error("\u274C Invalid emotions:", emotions);
+        return res.status(400).json({ message: "\xC9motions requises et non vides" });
+      }
+      let emotionIntensityNum = null;
+      if (emotionIntensity !== null && emotionIntensity !== void 0) {
+        emotionIntensityNum = Number(emotionIntensity);
+        if (isNaN(emotionIntensityNum) || emotionIntensityNum < 1 || emotionIntensityNum > 10) {
+          console.error("\u274C Invalid emotionIntensity:", emotionIntensity);
+          return res.status(400).json({ message: "Intensit\xE9 \xE9motionnelle invalide (1-10 requis)" });
+        }
+      }
+      let newIntensityNum = null;
+      if (newIntensity !== null && newIntensity !== void 0) {
+        newIntensityNum = Number(newIntensity);
+        if (isNaN(newIntensityNum) || newIntensityNum < 1 || newIntensityNum > 10) {
+          console.error("\u274C Invalid newIntensity:", newIntensity);
+          return res.status(400).json({ message: "Nouvelle intensit\xE9 invalide (1-10 requis)" });
+        }
+      }
+      const analysisData = {
         userId: req.session.user.id,
-        situation,
-        automaticThoughts,
-        emotions,
-        emotionIntensity: emotionIntensity || null,
-        rationalResponse: rationalResponse || null,
-        newFeeling: newFeeling || null,
-        newIntensity: newIntensity || null
-      });
+        situation: situation.trim(),
+        automaticThoughts: automaticThoughts.trim(),
+        emotions: emotions.trim(),
+        emotionIntensity: emotionIntensityNum,
+        rationalResponse: rationalResponse && typeof rationalResponse === "string" ? rationalResponse.trim() : null,
+        newFeeling: newFeeling && typeof newFeeling === "string" ? newFeeling.trim() : null,
+        newIntensity: newIntensityNum
+      };
+      console.log("\u{1F50D} Processed Beck analysis data:", analysisData);
+      const analysis = await storage.createBeckAnalysis(analysisData);
+      console.log("\u2705 Beck analysis created successfully:", analysis.id);
       res.json(analysis);
     } catch (error) {
-      console.error("Error creating Beck analysis:", error);
-      res.status(500).json({ message: "Erreur lors de la cr\xE9ation de l'analyse" });
+      console.error("\u274C Error creating Beck analysis:", error);
+      res.status(500).json({
+        message: "Erreur lors de la cr\xE9ation de l'analyse",
+        error: error.message
+      });
     }
   });
   app2.get("/api/beck-analyses", requireAuth, async (req, res) => {
@@ -1330,31 +1409,69 @@ function registerRoutes(app2) {
   app2.post("/api/strategies", requireAuth, async (req, res) => {
     try {
       const { strategies } = req.body;
+      console.log("\u{1F4DD} Strategies save request for user:", req.session.user.id);
+      console.log("\u{1F4DD} Received strategies data:", strategies);
       if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+        console.warn("\u274C No strategies provided or invalid format");
         return res.status(400).json({ message: "Au moins une strat\xE9gie requise" });
       }
-      console.log("Received strategies:", strategies);
       const savedStrategies = [];
-      for (const strategyData of strategies) {
+      for (let i = 0; i < strategies.length; i++) {
+        const strategyData = strategies[i];
         const { context, exercise, effort, duration, cravingBefore, cravingAfter } = strategyData;
-        if (!context || !exercise || !effort || duration === void 0 || cravingBefore === void 0 || cravingAfter === void 0) {
-          return res.status(400).json({ message: "Tous les champs requis: context, exercise, effort, duration, cravingBefore, cravingAfter" });
+        console.log(`\u{1F50D} Validating strategy ${i + 1}:`, strategyData);
+        if (!context || typeof context !== "string") {
+          console.error(`\u274C Invalid context for strategy ${i + 1}:`, context);
+          return res.status(400).json({ message: `Contexte invalide pour la strat\xE9gie ${i + 1}` });
         }
-        const strategy = await storage.createStrategy({
-          userId: req.session.user.id,
-          context,
-          exercise,
-          effort,
-          duration: Number(duration),
-          cravingBefore: Number(cravingBefore),
-          cravingAfter: Number(cravingAfter)
-        });
-        savedStrategies.push(strategy);
+        if (!exercise || typeof exercise !== "string" || exercise.trim().length === 0) {
+          console.error(`\u274C Invalid exercise for strategy ${i + 1}:`, exercise);
+          return res.status(400).json({ message: `Description d'exercice requise pour la strat\xE9gie ${i + 1}` });
+        }
+        if (!effort || typeof effort !== "string") {
+          console.error(`\u274C Invalid effort for strategy ${i + 1}:`, effort);
+          return res.status(400).json({ message: `Niveau d'effort invalide pour la strat\xE9gie ${i + 1}` });
+        }
+        const durationNum = Number(duration);
+        if (isNaN(durationNum) || durationNum < 1 || durationNum > 180) {
+          console.error(`\u274C Invalid duration for strategy ${i + 1}:`, duration);
+          return res.status(400).json({ message: `Dur\xE9e invalide pour la strat\xE9gie ${i + 1} (1-180 min requis)` });
+        }
+        const cravingBeforeNum = Number(cravingBefore);
+        if (isNaN(cravingBeforeNum) || cravingBeforeNum < 0 || cravingBeforeNum > 10) {
+          console.error(`\u274C Invalid cravingBefore for strategy ${i + 1}:`, cravingBefore);
+          return res.status(400).json({ message: `Craving avant invalide pour la strat\xE9gie ${i + 1} (0-10 requis)` });
+        }
+        const cravingAfterNum = Number(cravingAfter);
+        if (isNaN(cravingAfterNum) || cravingAfterNum < 0 || cravingAfterNum > 10) {
+          console.error(`\u274C Invalid cravingAfter for strategy ${i + 1}:`, cravingAfter);
+          return res.status(400).json({ message: `Craving apr\xE8s invalide pour la strat\xE9gie ${i + 1} (0-10 requis)` });
+        }
+        try {
+          const strategy = await storage.createStrategy({
+            userId: req.session.user.id,
+            context: context.trim(),
+            exercise: exercise.trim(),
+            effort: effort.trim(),
+            duration: durationNum,
+            cravingBefore: cravingBeforeNum,
+            cravingAfter: cravingAfterNum
+          });
+          console.log(`\u2705 Strategy ${i + 1} created successfully:`, strategy.id);
+          savedStrategies.push(strategy);
+        } catch (dbError) {
+          console.error(`\u274C Database error for strategy ${i + 1}:`, dbError);
+          return res.status(500).json({ message: `Erreur de base de donn\xE9es pour la strat\xE9gie ${i + 1}: ${dbError.message}` });
+        }
       }
+      console.log(`\u2705 All ${savedStrategies.length} strategies saved successfully`);
       res.json({ strategies: savedStrategies, message: `${savedStrategies.length} strat\xE9gies sauvegard\xE9es avec succ\xE8s` });
     } catch (error) {
-      console.error("Error creating strategies:", error);
-      res.status(500).json({ message: "Erreur lors de la cr\xE9ation des strat\xE9gies" });
+      console.error("\u274C Unexpected error creating strategies:", error);
+      res.status(500).json({
+        message: "Erreur lors de la cr\xE9ation des strat\xE9gies",
+        error: error.message
+      });
     }
   });
   app2.get("/api/strategies", requireAuth, async (req, res) => {
@@ -1538,6 +1655,42 @@ async function ensureExerciseSessionsUpdates() {
     await client.end();
   }
 }
+async function ensureUsersUpdates() {
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL
+  });
+  try {
+    await client.connect();
+    console.log("\u{1F527} Application des mises \xE0 jour pour users...");
+    await client.query(`
+      DO $$ 
+      BEGIN
+          -- Ajouter la colonne last_login_at si elle n'existe pas
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'users' AND column_name = 'last_login_at') THEN
+              ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP;
+          END IF;
+          
+          -- Ajouter la colonne inactivity_threshold si elle n'existe pas  
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'users' AND column_name = 'inactivity_threshold') THEN
+              ALTER TABLE users ADD COLUMN inactivity_threshold INTEGER DEFAULT 30;
+          END IF;
+          
+          -- Ajouter la colonne notes si elle n'existe pas  
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                         WHERE table_name = 'users' AND column_name = 'notes') THEN
+              ALTER TABLE users ADD COLUMN notes TEXT;
+          END IF;
+      END $$;
+    `);
+    console.log("\u2705 Mises \xE0 jour users appliqu\xE9es");
+  } catch (error) {
+    console.error("\u274C Erreur lors des mises \xE0 jour users:", error);
+  } finally {
+    await client.end();
+  }
+}
 async function run() {
   if (!process.env.DATABASE_URL) {
     console.error("\u274C DATABASE_URL manquant");
@@ -1555,6 +1708,7 @@ async function run() {
     console.log("\u2705 Migrations Drizzle appliqu\xE9es (ou d\xE9j\xE0 \xE0 jour)");
     await ensureAntiCravingTable();
     await ensureExerciseSessionsUpdates();
+    await ensureUsersUpdates();
   } catch (e) {
     console.error("\u274C Erreur migrations:", e);
   } finally {
@@ -1659,7 +1813,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     maxAge: 1e3 * 60 * 60 * 24 * 7
   }
 }));

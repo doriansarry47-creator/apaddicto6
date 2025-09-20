@@ -312,40 +312,51 @@ export default function Exercises() {
         <section className="mt-12">
           <Card className="bg-gradient-to-r from-destructive to-red-600 shadow-material text-destructive-foreground" data-testid="card-emergency-section">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-medium mb-2 flex items-center">
                     <span className="material-icons mr-2">emergency</span>
                     Besoin d'aide immédiate ?
                   </h3>
-                  <p className="opacity-90">
-                    Accédez rapidement à nos routines d'urgence de 3 minutes pour gérer un craving intense.
+                  <p className="opacity-90 mb-4 md:mb-0">
+                    Accédez rapidement à nos routines d'urgence ou créez vos propres séquences personnalisées.
                   </p>
                 </div>
-                <Button
-                  onClick={() => {
-                    // Chercher d'abord un exercice d'urgence
-                    const emergencyExercise = exercises.find(ex => ex.type === 'emergency');
-                    if (emergencyExercise) {
-                      handleStartExercise(emergencyExercise);
-                    } else {
-                      // Rediriger vers les routines de relaxation
-                      const relaxationExercise = exercises.find(ex => ex.category === 'relaxation');
-                      if (relaxationExercise) {
-                        handleStartExercise(relaxationExercise);
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    onClick={() => {
+                      // Chercher d'abord un exercice d'urgence
+                      const emergencyExercise = exercises.find(ex => ex.type === 'emergency');
+                      if (emergencyExercise) {
+                        handleStartExercise(emergencyExercise);
                       } else {
-                        toast({
-                          title: "Routine d'urgence",
-                          description: "Aucune routine d'urgence spécifique disponible. Essayez les exercices de relaxation.",
-                        });
+                        // Rediriger vers les routines de relaxation
+                        const relaxationExercise = exercises.find(ex => ex.category === 'relaxation');
+                        if (relaxationExercise) {
+                          handleStartExercise(relaxationExercise);
+                        } else {
+                          toast({
+                            title: "Routine d'urgence",
+                            description: "Aucune routine d'urgence spécifique disponible. Essayez les exercices de relaxation.",
+                          });
+                        }
                       }
-                    }
-                  }}
-                  className="bg-white text-destructive hover:bg-gray-50 ml-4"
-                  data-testid="button-emergency-access"
-                >
-                  Routine d'Urgence
-                </Button>
+                    }}
+                    className="bg-white text-destructive hover:bg-gray-50"
+                    data-testid="button-emergency-access"
+                  >
+                    <span className="material-icons mr-1">play_arrow</span>
+                    Routine Rapide
+                  </Button>
+                  <Button
+                    onClick={() => window.location.href = "/emergency-routines"}
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    variant="outline"
+                  >
+                    <span className="material-icons mr-1">tune</span>
+                    Mes Routines
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

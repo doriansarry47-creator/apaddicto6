@@ -15,7 +15,9 @@ import type {
   InsertBeckAnalysis,
   AntiCravingStrategy,
   InsertAntiCravingStrategy,
-  UserStats
+  UserStats,
+  UserEmergencyRoutine,
+  InsertUserEmergencyRoutine
 } from '../shared/schema.js';
 import { 
   users, 
@@ -26,7 +28,8 @@ import {
   beckAnalyses,
   antiCravingStrategies,
   userStats,
-  userBadges
+  userBadges,
+  userEmergencyRoutines
 } from '../shared/schema.js';
 
 class Storage {
@@ -358,13 +361,26 @@ class Storage {
         .where(eq(userStats.userId, userId))
         .limit(1);
 
-      // Récupérer les données additionnelles
+      // Calculs des dates pour les statistiques temporelles
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - 7);
+
+      // Récupérer les données additionnelles avec des calculs temporels améliorés
       const [
         totalCravings,
         totalExerciseSessions,
         totalBeckAnalyses,
         totalStrategies,
         avgCravingIntensity,
+        todaysCravings,
+        yesterdaysCravings,
+        weeklyExercises,
+        weeklyBeckAnalyses,
+        weeklyStrategies,
         recentCravings,
         recentSessions,
         recentAnalyses,
@@ -394,11 +410,67 @@ class Storage {
           .from(antiCravingStrategies)
           .where(eq(antiCravingStrategies.userId, userId)),
         
-        // Intensité moyenne des cravings
+        // Intensité moyenne des cravings (tous)
         this.db
           .select({ avg: avg(cravingEntries.intensity) })
           .from(cravingEntries)
           .where(eq(cravingEntries.userId, userId)),
+
+        // Cravings d'aujourd'hui (moyenne d'intensité)
+        this.db
+          .select({ avg: avg(cravingEntries.intensity), count: count() })
+          .from(cravingEntries)
+          .where(
+            and(
+              eq(cravingEntries.userId, userId),
+              sql`${cravingEntries.createdAt} >= ${todayStart}`
+            )
+          ),
+
+        // Cravings d'hier (moyenne d'intensité pour comparaison)
+        this.db
+          .select({ avg: avg(cravingEntries.intensity) })
+          .from(cravingEntries)
+          .where(
+            and(
+              eq(cravingEntries.userId, userId),
+              sql`${cravingEntries.createdAt} >= ${yesterdayStart}`,
+              sql`${cravingEntries.createdAt} < ${todayStart}`
+            )
+          ),
+
+        // Exercices de la semaine
+        this.db
+          .select({ count: count() })
+          .from(exerciseSessions)
+          .where(
+            and(
+              eq(exerciseSessions.userId, userId),
+              sql`${exerciseSessions.createdAt} >= ${weekStart}`
+            )
+          ),
+
+        // Analyses Beck de la semaine
+        this.db
+          .select({ count: count() })
+          .from(beckAnalyses)
+          .where(
+            and(
+              eq(beckAnalyses.userId, userId),
+              sql`${beckAnalyses.createdAt} >= ${weekStart}`
+            )
+          ),
+
+        // Stratégies de la semaine
+        this.db
+          .select({ count: count() })
+          .from(antiCravingStrategies)
+          .where(
+            and(
+              eq(antiCravingStrategies.userId, userId),
+              sql`${antiCravingStrategies.createdAt} >= ${weekStart}`
+            )
+          ),
         
         // Cravings récents (7 derniers jours)
         this.db
@@ -442,13 +514,43 @@ class Storage {
         beckAnalysesCompleted: 0
       };
 
+      // Calculs des statistiques améliorées
+      const todayAvgCraving = todaysCravings[0]?.avg || 0;
+      const yesterdayAvgCraving = yesterdaysCravings[0]?.avg || 0;
+      const todaysCravingCount = todaysCravings[0]?.count || 0;
+      
+      // Calcul de la tendance (comparaison aujourd'hui vs hier)
+      let cravingTrend = 0;
+      if (yesterdayAvgCraving > 0) {
+        cravingTrend = ((todayAvgCraving - yesterdayAvgCraving) / yesterdayAvgCraving) * 100;
+      }
+
+      // Calcul des progrès de la semaine
+      const weeklyProgress = {
+        exercisesCompleted: weeklyExercises[0]?.count || 0,
+        beckAnalysesCompleted: weeklyBeckAnalyses[0]?.count || 0,
+        strategiesUsed: weeklyStrategies[0]?.count || 0,
+        totalActivities: (weeklyExercises[0]?.count || 0) + (weeklyBeckAnalyses[0]?.count || 0) + (weeklyStrategies[0]?.count || 0)
+      };
+
       return {
         ...stats,
+        // Totaux généraux
         totalCravings: totalCravings[0]?.count || 0,
         totalExerciseSessions: totalExerciseSessions[0]?.count || 0,
         totalBeckAnalyses: totalBeckAnalyses[0]?.count || 0,
         totalStrategies: totalStrategies[0]?.count || 0,
         avgCravingIntensity: avgCravingIntensity[0]?.avg || 0,
+        
+        // Statistiques temporelles corrigées
+        todayCravingLevel: Number(todayAvgCraving) || 0,
+        todayCravingCount: todaysCravingCount,
+        cravingTrend: Number(cravingTrend) || 0,
+        
+        // Progrès hebdomadaire détaillé
+        weeklyProgress,
+        
+        // Données récentes
         recentData: {
           cravings: recentCravings,
           sessions: recentSessions,
@@ -470,6 +572,15 @@ class Storage {
         totalBeckAnalyses: 0,
         totalStrategies: 0,
         avgCravingIntensity: 0,
+        todayCravingLevel: 0,
+        todayCravingCount: 0,
+        cravingTrend: 0,
+        weeklyProgress: {
+          exercisesCompleted: 0,
+          beckAnalysesCompleted: 0,
+          strategiesUsed: 0,
+          totalActivities: 0
+        },
         recentData: {
           cravings: [],
           sessions: [],
@@ -548,6 +659,81 @@ class Storage {
     } catch (error) {
       console.error('Error in debugGetAllTables:', error);
       return {};
+    }
+  }
+
+  // === USER EMERGENCY ROUTINES ===
+  async getEmergencyRoutines(userId: string) {
+    try {
+      const result = await this.db
+        .select()
+        .from(userEmergencyRoutines)
+        .where(eq(userEmergencyRoutines.userId, userId))
+        .orderBy(desc(userEmergencyRoutines.updatedAt));
+      return result;
+    } catch (error) {
+      console.error('Error fetching emergency routines:', error);
+      return [];
+    }
+  }
+
+  async getEmergencyRoutineById(routineId: string) {
+    try {
+      const result = await this.db
+        .select()
+        .from(userEmergencyRoutines)
+        .where(eq(userEmergencyRoutines.id, routineId))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching emergency routine by ID:', error);
+      return null;
+    }
+  }
+
+  async createEmergencyRoutine(routineData: InsertUserEmergencyRoutine) {
+    try {
+      const result = await this.db
+        .insert(userEmergencyRoutines)
+        .values({
+          ...routineData,
+          updatedAt: new Date()
+        })
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating emergency routine:', error);
+      throw new Error('Failed to create emergency routine');
+    }
+  }
+
+  async updateEmergencyRoutine(routineId: string, updateData: Partial<InsertUserEmergencyRoutine>) {
+    try {
+      const result = await this.db
+        .update(userEmergencyRoutines)
+        .set({
+          ...updateData,
+          updatedAt: new Date()
+        })
+        .where(eq(userEmergencyRoutines.id, routineId))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating emergency routine:', error);
+      throw new Error('Failed to update emergency routine');
+    }
+  }
+
+  async deleteEmergencyRoutine(routineId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .delete(userEmergencyRoutines)
+        .where(eq(userEmergencyRoutines.id, routineId))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting emergency routine:', error);
+      return false;
     }
   }
 

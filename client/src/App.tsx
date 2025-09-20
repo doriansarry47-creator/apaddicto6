@@ -19,6 +19,12 @@ import Profile from "@/pages/profile";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
+// New Dedicated Pages
+import CravingEntryPage from "@/pages/craving-entry-page";
+import BeckAnalysisPage from "@/pages/beck-analysis-page";
+import StrategiesPage from "@/pages/strategies-page";
+import EmergencyRoutinePage from "@/pages/emergency-routine-page";
+
 // Admin Page Imports
 import AdminDashboard from "@/pages/admin/dashboard";
 import ManageExercises from "@/pages/admin/manage-exercises";
@@ -76,6 +82,28 @@ function AppContent() {
       <Route path="/profile">
         <ProtectedRoute>
           <Profile />
+        </ProtectedRoute>
+      </Route>
+      
+      {/* New Dedicated Input Pages */}
+      <Route path="/craving-entry">
+        <ProtectedRoute>
+          <CravingEntryPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/beck-analysis">
+        <ProtectedRoute>
+          <BeckAnalysisPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/strategies">
+        <ProtectedRoute>
+          <StrategiesPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/emergency-routines">
+        <ProtectedRoute>
+          <EmergencyRoutinePage />
         </ProtectedRoute>
       </Route>
 

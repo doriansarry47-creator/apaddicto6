@@ -20,35 +20,38 @@ interface CravingStats {
 }
 
 export default function Dashboard() {
-  const [showCravingEntry, setShowCravingEntry] = useState(false);
-  const [showBeckColumn, setShowBeckColumn] = useState(false);
-  const [showStrategiesBox, setShowStrategiesBox] = useState(false);
   const [showEmergencyStrategies, setShowEmergencyStrategies] = useState(false);
   const { toast } = useToast();
   
   // Récupérer l'utilisateur authentifié
   const { data: authenticatedUser, isLoading } = useAuthQuery();
 
-  const { data: cravingStats } = useQuery<CravingStats>({
-    queryKey: ["/api/cravings/stats"],
+  const { data: dashboardStats } = useQuery({
+    queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {
-      const response = await fetch("/api/cravings/stats");
-      if (!response.ok) throw new Error("Failed to fetch craving stats");
+      const response = await fetch("/api/dashboard/stats", {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error("Failed to fetch dashboard stats");
       return response.json();
     },
     enabled: !!authenticatedUser,
-    initialData: { average: 0, trend: 0 },
-  });
-
-  const { data: userStats } = useQuery<UserStats>({
-    queryKey: ["/api/users/stats"],
-    queryFn: async () => {
-      const response = await fetch("/api/users/stats");
-      if (!response.ok) throw new Error("Failed to fetch user stats");
-      return response.json();
+    initialData: { 
+      exercisesCompleted: 0, 
+      totalDuration: 0, 
+      currentStreak: 0, 
+      longestStreak: 0, 
+      averageCraving: 0, 
+      todayCravingLevel: 0,
+      todayCravingCount: 0,
+      cravingTrend: 0,
+      weeklyProgress: {
+        exercisesCompleted: 0,
+        beckAnalysesCompleted: 0,
+        strategiesUsed: 0,
+        totalActivities: 0
+      }
     },
-    enabled: !!authenticatedUser,
-    initialData: { exercisesCompleted: 0, totalDuration: 0, currentStreak: 0, longestStreak: 0, averageCraving: 0, id: '', userId: '', updatedAt: new Date() },
   });
 
   const { data: exerciseSessions } = useQuery<any[]>({
@@ -84,9 +87,9 @@ export default function Dashboard() {
     }
   };
 
-  const todayCravingLevel = cravingStats?.average || 0;
-  const cravingTrend = cravingStats?.trend || 0;
-  const exercisesCompleted = userStats?.exercisesCompleted || 0;
+  const todayCravingLevel = dashboardStats?.todayCravingLevel || 0;
+  const cravingTrend = dashboardStats?.cravingTrend || 0;
+  const exercisesCompleted = dashboardStats?.weeklyProgress?.totalActivities || 0;
   const userLevel = 1; // Par défaut niveau 1, peut être étendu avec la gamification
 
   // Loading state
@@ -129,7 +132,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-3xl font-bold text-foreground" data-testid="text-today-craving">
-                    {Math.round(todayCravingLevel)}
+                    {todayCravingLevel > 0 ? Number(todayCravingLevel).toFixed(1) : '0.0'}
                   </span>
                   <span className="text-sm text-muted-foreground">/10</span>
                 </div>
@@ -140,8 +143,11 @@ export default function Dashboard() {
                     data-testid="progress-craving-level"
                   ></div>
                 </div>
-                <p className={`text-sm font-medium ${cravingTrend < 0 ? 'text-success' : 'text-warning'}`}>
-                  {cravingTrend < 0 ? '↓' : '↑'} {Math.abs(Math.round(cravingTrend))}% depuis hier
+                <p className={`text-sm font-medium ${cravingTrend < 0 ? 'text-success' : cravingTrend > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                  {cravingTrend === 0 ? 
+                    (dashboardStats?.todayCravingCount > 0 ? 'Stable par rapport à hier' : 'Aucune donnée aujourd\'hui') : 
+                    `${cravingTrend < 0 ? '↓' : '↑'} ${Math.abs(Number(cravingTrend)).toFixed(1)}% depuis hier`
+                  }
                 </p>
               </div>
             </CardContent>
@@ -159,12 +165,17 @@ export default function Dashboard() {
                   <div className="text-3xl font-bold text-secondary" data-testid="text-exercises-completed">
                     {exercisesCompleted}
                   </div>
-                  <div className="text-sm text-muted-foreground">exercices complétés</div>
+                  <div className="text-sm text-muted-foreground">activités cette semaine</div>
                 </div>
-                <div className="flex items-center justify-center space-x-2">
-                  <span className="material-icons text-warning text-lg">emoji_events</span>
-                  <span className="text-sm font-medium text-foreground">
-                    Niveau {userLevel}
+                <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+                  <span className="px-2 py-1 bg-secondary/10 rounded-full">
+                    💪 {dashboardStats?.weeklyProgress?.exercisesCompleted || 0} exercices
+                  </span>
+                  <span className="px-2 py-1 bg-primary/10 rounded-full">
+                    🧠 {dashboardStats?.weeklyProgress?.beckAnalysesCompleted || 0} analyses
+                  </span>
+                  <span className="px-2 py-1 bg-warning/10 rounded-full">
+                    🎯 {dashboardStats?.weeklyProgress?.strategiesUsed || 0} stratégies
                   </span>
                 </div>
               </div>
@@ -216,11 +227,11 @@ export default function Dashboard() {
                 Comment vous sentez-vous maintenant ?
               </p>
               <Button 
-                onClick={() => setShowCravingEntry(!showCravingEntry)}
+                onClick={() => window.location.href = "/craving-entry"}
                 className="w-full"
                 data-testid="button-toggle-craving"
               >
-                {showCravingEntry ? "Masquer" : "Enregistrer un Craving"}
+                Saisir un Craving
               </Button>
             </CardContent>
           </Card>
@@ -237,12 +248,12 @@ export default function Dashboard() {
                 Analysez une situation difficile
               </p>
               <Button 
-                onClick={() => setShowBeckColumn(!showBeckColumn)}
+                onClick={() => window.location.href = "/beck-analysis"}
                 variant="secondary"
                 className="w-full"
                 data-testid="button-toggle-beck"
               >
-                {showBeckColumn ? "Masquer" : "Démarrer Analyse Beck"}
+                Démarrer Analyse Beck
               </Button>
             </CardContent>
           </Card>
@@ -259,12 +270,12 @@ export default function Dashboard() {
                 Testez et évaluez vos stratégies anti-craving
               </p>
               <Button 
-                onClick={() => setShowStrategiesBox(!showStrategiesBox)}
+                onClick={() => window.location.href = "/strategies"}
                 variant="outline"
                 className="w-full"
                 data-testid="button-toggle-strategies"
               >
-                {showStrategiesBox ? "Masquer" : "Ouvrir Boîte à Stratégies"}
+                Ouvrir Boîte à Stratégies
               </Button>
             </CardContent>
           </Card>
@@ -320,51 +331,7 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* Conditional Forms */}
-        {showCravingEntry && authenticatedUser && (
-          <section className="mb-8">
-            <CravingEntry 
-              userId={authenticatedUser.id} 
-              onSuccess={() => {
-                setShowCravingEntry(false);
-                toast({
-                  title: "Craving enregistré",
-                  description: "Merci d'avoir partagé votre ressenti.",
-                });
-              }}
-            />
-          </section>
-        )}
 
-        {showBeckColumn && authenticatedUser && (
-          <section className="mb-8">
-            <BeckColumn 
-              userId={authenticatedUser.id}
-              onSuccess={() => {
-                setShowBeckColumn(false);
-                toast({
-                  title: "Analyse sauvegardée",
-                  description: "Votre réflexion a été enregistrée.",
-                });
-              }}
-            />
-          </section>
-        )}
-
-        {showStrategiesBox && authenticatedUser && (
-          <section className="mb-8">
-            <StrategiesBox 
-              userId={authenticatedUser.id}
-              onSuccess={() => {
-                setShowStrategiesBox(false);
-                toast({
-                  title: "Stratégies sauvegardées",
-                  description: "Vos stratégies anti-craving ont été enregistrées dans l'onglet Suivi.",
-                });
-              }}
-            />
-          </section>
-        )}
 
         {/* Quick Access to Exercises */}
         <section className="mb-8">
