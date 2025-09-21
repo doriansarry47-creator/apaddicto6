@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Edit, Activity, AlertTriangle, Filter, Image, Clock, Target, Library, Star, Users, Play, Settings, Camera, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { ExerciseVariationsManager } from "@/components/admin/exercise-variations-manager";
 
 type FormData = InsertExercise;
 
@@ -279,7 +280,7 @@ export default function ManageExercises() {
       </div>
 
       <Tabs defaultValue="exercises" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="exercises" className="flex items-center space-x-2">
             <Activity className="h-4 w-4" />
             <span>Exercices</span>
@@ -287,6 +288,10 @@ export default function ManageExercises() {
           <TabsTrigger value="library" className="flex items-center space-x-2">
             <Library className="h-4 w-4" />
             <span>Bibliothèque</span>
+          </TabsTrigger>
+          <TabsTrigger value="variations" className="flex items-center space-x-2">
+            <Target className="h-4 w-4" />
+            <span>Variations</span>
           </TabsTrigger>
           <TabsTrigger value="sessions" className="flex items-center space-x-2">
             <Play className="h-4 w-4" />
@@ -1079,6 +1084,11 @@ export default function ManageExercises() {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        {/* Onglet Variations d'Exercices */}
+        <TabsContent value="variations" className="mt-6">
+          <ExerciseVariationsManager />
         </TabsContent>
 
         {/* Onglet Séances personnalisées */}

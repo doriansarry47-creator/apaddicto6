@@ -59,6 +59,13 @@ export function Navigation() {
               )} data-testid="nav-education">
                 Éducation
               </Link>
+              <Link to="/my-sessions" className={cn("px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                isActive("/my-sessions") 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )} data-testid="nav-my-sessions">
+                Mes Sessions
+              </Link>
               {user?.role === 'admin' && (
                 <Link to="/admin" className={cn("px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive("/admin")
@@ -84,7 +91,7 @@ export function Navigation() {
 
       {/* Bottom navigation for mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-40">
-        <div className={cn("grid h-16", user?.role === 'admin' ? 'grid-cols-6' : 'grid-cols-5')}>
+        <div className={cn("grid h-16", user?.role === 'admin' ? 'grid-cols-7' : 'grid-cols-6')}>
           <Link to="/" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
             isActive("/") ? "text-primary" : "text-muted-foreground hover:text-primary"
           )} data-testid="nav-mobile-home">
@@ -96,6 +103,12 @@ export function Navigation() {
           )} data-testid="nav-mobile-exercises">
             <span className="material-icons text-lg">fitness_center</span>
             <span className="text-xs">Exercices</span>
+          </Link>
+          <Link to="/my-sessions" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
+            isActive("/my-sessions") ? "text-primary" : "text-muted-foreground hover:text-primary"
+          )} data-testid="nav-mobile-my-sessions">
+            <span className="material-icons text-lg">playlist_play</span>
+            <span className="text-xs">Sessions</span>
           </Link>
           <Link to="/tracking" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
             isActive("/tracking") ? "text-primary" : "text-muted-foreground hover:text-primary"
