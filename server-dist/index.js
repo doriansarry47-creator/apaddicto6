@@ -16,7 +16,7 @@ import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 
 // server/storage.ts
-import { eq, desc, count, avg, and } from "drizzle-orm";
+import { eq, desc, count, avg, and, sql as sql2 } from "drizzle-orm";
 
 // server/db.ts
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -56,6 +56,7 @@ __export(schema_exports, {
   insertSessionInstanceSchema: () => insertSessionInstanceSchema,
   insertTimerSessionSchema: () => insertTimerSessionSchema,
   insertUserBadgeSchema: () => insertUserBadgeSchema,
+  insertUserEmergencyRoutineSchema: () => insertUserEmergencyRoutineSchema,
   insertUserSchema: () => insertUserSchema,
   insertVisualizationContentSchema: () => insertVisualizationContentSchema,
   professionalReports: () => professionalReports,
@@ -65,6 +66,7 @@ __export(schema_exports, {
   sessionInstances: () => sessionInstances,
   timerSessions: () => timerSessions,
   userBadges: () => userBadges,
+  userEmergencyRoutines: () => userEmergencyRoutines,
   userStats: () => userStats,
   users: () => users,
   visualizationContent: () => visualizationContent
@@ -557,6 +559,23 @@ var insertExerciseRatingSchema = createInsertSchema(exerciseRatings).omit({
   createdAt: true,
   updatedAt: true
 });
+var userEmergencyRoutines = pgTable("user_emergency_routines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  totalDuration: integer("total_duration").notNull(),
+  // in seconds
+  exercises: jsonb("exercises").$type().notNull(),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var insertUserEmergencyRoutineSchema = createInsertSchema(userEmergencyRoutines).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
 
 // server/db.ts
 var { Pool } = pkg;
@@ -792,12 +811,23 @@ var Storage = class {
   async getUserStats(userId) {
     try {
       const userStatsResult = await this.db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1);
+      const now = /* @__PURE__ */ new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - 7);
       const [
         totalCravings,
         totalExerciseSessions,
         totalBeckAnalyses,
         totalStrategies,
         avgCravingIntensity,
+        todaysCravings,
+        yesterdaysCravings,
+        weeklyExercises,
+        weeklyBeckAnalyses,
+        weeklyStrategies,
         recentCravings,
         recentSessions,
         recentAnalyses,
@@ -811,8 +841,44 @@ var Storage = class {
         this.db.select({ count: count() }).from(beckAnalyses).where(eq(beckAnalyses.userId, userId)),
         // Total de stratégies
         this.db.select({ count: count() }).from(antiCravingStrategies).where(eq(antiCravingStrategies.userId, userId)),
-        // Intensité moyenne des cravings
+        // Intensité moyenne des cravings (tous)
         this.db.select({ avg: avg(cravingEntries.intensity) }).from(cravingEntries).where(eq(cravingEntries.userId, userId)),
+        // Cravings d'aujourd'hui (moyenne d'intensité)
+        this.db.select({ avg: avg(cravingEntries.intensity), count: count() }).from(cravingEntries).where(
+          and(
+            eq(cravingEntries.userId, userId),
+            sql2`${cravingEntries.createdAt} >= ${todayStart}`
+          )
+        ),
+        // Cravings d'hier (moyenne d'intensité pour comparaison)
+        this.db.select({ avg: avg(cravingEntries.intensity) }).from(cravingEntries).where(
+          and(
+            eq(cravingEntries.userId, userId),
+            sql2`${cravingEntries.createdAt} >= ${yesterdayStart}`,
+            sql2`${cravingEntries.createdAt} < ${todayStart}`
+          )
+        ),
+        // Exercices de la semaine
+        this.db.select({ count: count() }).from(exerciseSessions).where(
+          and(
+            eq(exerciseSessions.userId, userId),
+            sql2`${exerciseSessions.createdAt} >= ${weekStart}`
+          )
+        ),
+        // Analyses Beck de la semaine
+        this.db.select({ count: count() }).from(beckAnalyses).where(
+          and(
+            eq(beckAnalyses.userId, userId),
+            sql2`${beckAnalyses.createdAt} >= ${weekStart}`
+          )
+        ),
+        // Stratégies de la semaine
+        this.db.select({ count: count() }).from(antiCravingStrategies).where(
+          and(
+            eq(antiCravingStrategies.userId, userId),
+            sql2`${antiCravingStrategies.createdAt} >= ${weekStart}`
+          )
+        ),
         // Cravings récents (7 derniers jours)
         this.db.select().from(cravingEntries).where(eq(cravingEntries.userId, userId)).orderBy(desc(cravingEntries.createdAt)).limit(10),
         // Sessions récentes
@@ -830,13 +896,34 @@ var Storage = class {
         averageCraving: 0,
         beckAnalysesCompleted: 0
       };
+      const todayAvgCraving = todaysCravings[0]?.avg || 0;
+      const yesterdayAvgCraving = yesterdaysCravings[0]?.avg || 0;
+      const todaysCravingCount = todaysCravings[0]?.count || 0;
+      let cravingTrend = 0;
+      if (yesterdayAvgCraving > 0) {
+        cravingTrend = (todayAvgCraving - yesterdayAvgCraving) / yesterdayAvgCraving * 100;
+      }
+      const weeklyProgress = {
+        exercisesCompleted: weeklyExercises[0]?.count || 0,
+        beckAnalysesCompleted: weeklyBeckAnalyses[0]?.count || 0,
+        strategiesUsed: weeklyStrategies[0]?.count || 0,
+        totalActivities: (weeklyExercises[0]?.count || 0) + (weeklyBeckAnalyses[0]?.count || 0) + (weeklyStrategies[0]?.count || 0)
+      };
       return {
         ...stats,
+        // Totaux généraux
         totalCravings: totalCravings[0]?.count || 0,
         totalExerciseSessions: totalExerciseSessions[0]?.count || 0,
         totalBeckAnalyses: totalBeckAnalyses[0]?.count || 0,
         totalStrategies: totalStrategies[0]?.count || 0,
         avgCravingIntensity: avgCravingIntensity[0]?.avg || 0,
+        // Statistiques temporelles corrigées
+        todayCravingLevel: Number(todayAvgCraving) || 0,
+        todayCravingCount: todaysCravingCount,
+        cravingTrend: Number(cravingTrend) || 0,
+        // Progrès hebdomadaire détaillé
+        weeklyProgress,
+        // Données récentes
         recentData: {
           cravings: recentCravings,
           sessions: recentSessions,
@@ -858,6 +945,15 @@ var Storage = class {
         totalBeckAnalyses: 0,
         totalStrategies: 0,
         avgCravingIntensity: 0,
+        todayCravingLevel: 0,
+        todayCravingCount: 0,
+        cravingTrend: 0,
+        weeklyProgress: {
+          exercisesCompleted: 0,
+          beckAnalysesCompleted: 0,
+          strategiesUsed: 0,
+          totalActivities: 0
+        },
         recentData: {
           cravings: [],
           sessions: [],
@@ -918,6 +1014,58 @@ var Storage = class {
     } catch (error) {
       console.error("Error in debugGetAllTables:", error);
       return {};
+    }
+  }
+  // === USER EMERGENCY ROUTINES ===
+  async getEmergencyRoutines(userId) {
+    try {
+      const result = await this.db.select().from(userEmergencyRoutines).where(eq(userEmergencyRoutines.userId, userId)).orderBy(desc(userEmergencyRoutines.updatedAt));
+      return result;
+    } catch (error) {
+      console.error("Error fetching emergency routines:", error);
+      return [];
+    }
+  }
+  async getEmergencyRoutineById(routineId) {
+    try {
+      const result = await this.db.select().from(userEmergencyRoutines).where(eq(userEmergencyRoutines.id, routineId)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching emergency routine by ID:", error);
+      return null;
+    }
+  }
+  async createEmergencyRoutine(routineData) {
+    try {
+      const result = await this.db.insert(userEmergencyRoutines).values({
+        ...routineData,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating emergency routine:", error);
+      throw new Error("Failed to create emergency routine");
+    }
+  }
+  async updateEmergencyRoutine(routineId, updateData) {
+    try {
+      const result = await this.db.update(userEmergencyRoutines).set({
+        ...updateData,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(userEmergencyRoutines.id, routineId)).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error updating emergency routine:", error);
+      throw new Error("Failed to update emergency routine");
+    }
+  }
+  async deleteEmergencyRoutine(routineId) {
+    try {
+      const result = await this.db.delete(userEmergencyRoutines).where(eq(userEmergencyRoutines.id, routineId)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting emergency routine:", error);
+      return false;
     }
   }
   // Les méthodes getAllUsersWithStats, getUserById et deleteUser sont déjà définies plus haut
@@ -1557,6 +1705,62 @@ function registerRoutes(app2) {
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Erreur lors de la suppression de l'utilisateur" });
+    }
+  });
+  app2.get("/api/emergency-routines", requireAuth, async (req, res) => {
+    try {
+      const routines = await storage.getEmergencyRoutines(req.session.user.id);
+      res.json(routines);
+    } catch (error) {
+      console.error("Error fetching emergency routines:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des routines d'urgence" });
+    }
+  });
+  app2.post("/api/emergency-routines", requireAuth, async (req, res) => {
+    try {
+      const routineData = {
+        ...req.body,
+        userId: req.session.user.id
+      };
+      const routine = await storage.createEmergencyRoutine(routineData);
+      res.json(routine);
+    } catch (error) {
+      console.error("Error creating emergency routine:", error);
+      res.status(500).json({ message: "Erreur lors de la cr\xE9ation de la routine d'urgence" });
+    }
+  });
+  app2.put("/api/emergency-routines/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.user.id;
+      const existingRoutine = await storage.getEmergencyRoutineById(id);
+      if (!existingRoutine || existingRoutine.userId !== userId) {
+        return res.status(403).json({ message: "Routine non trouv\xE9e ou acc\xE8s refus\xE9" });
+      }
+      const routine = await storage.updateEmergencyRoutine(id, req.body);
+      res.json(routine);
+    } catch (error) {
+      console.error("Error updating emergency routine:", error);
+      res.status(500).json({ message: "Erreur lors de la mise \xE0 jour de la routine d'urgence" });
+    }
+  });
+  app2.delete("/api/emergency-routines/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.user.id;
+      const existingRoutine = await storage.getEmergencyRoutineById(id);
+      if (!existingRoutine || existingRoutine.userId !== userId) {
+        return res.status(403).json({ message: "Routine non trouv\xE9e ou acc\xE8s refus\xE9" });
+      }
+      const success = await storage.deleteEmergencyRoutine(id);
+      if (success) {
+        res.json({ message: "Routine d'urgence supprim\xE9e avec succ\xE8s" });
+      } else {
+        res.status(500).json({ message: "Erreur lors de la suppression" });
+      }
+    } catch (error) {
+      console.error("Error deleting emergency routine:", error);
+      res.status(500).json({ message: "Erreur lors de la suppression de la routine d'urgence" });
     }
   });
   console.log("\u2705 All routes registered successfully");
