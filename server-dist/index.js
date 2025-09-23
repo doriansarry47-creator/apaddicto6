@@ -49,6 +49,7 @@ __export(schema_exports, {
   insertExerciseSchema: () => insertExerciseSchema,
   insertExerciseSessionSchema: () => insertExerciseSessionSchema,
   insertExerciseVariationSchema: () => insertExerciseVariationSchema,
+  insertPatientSessionSchema: () => insertPatientSessionSchema,
   insertProfessionalReportSchema: () => insertProfessionalReportSchema,
   insertPsychoEducationContentSchema: () => insertPsychoEducationContentSchema,
   insertQuickResourceSchema: () => insertQuickResourceSchema,
@@ -59,6 +60,7 @@ __export(schema_exports, {
   insertUserEmergencyRoutineSchema: () => insertUserEmergencyRoutineSchema,
   insertUserSchema: () => insertUserSchema,
   insertVisualizationContentSchema: () => insertVisualizationContentSchema,
+  patientSessions: () => patientSessions,
   professionalReports: () => professionalReports,
   psychoEducationContent: () => psychoEducationContent,
   quickResources: () => quickResources,
@@ -108,6 +110,16 @@ var exercises = pgTable("exercises", {
   benefits: text("benefits"),
   imageUrl: varchar("image_url"),
   videoUrl: varchar("video_url"),
+  mediaUrl: varchar("media_url"),
+  // URL pour média associé (image/vidéo supplémentaire)
+  tags: jsonb("tags").$type().default([]),
+  // tags pour catégorisation
+  variable1: text("variable_1"),
+  // variable dynamique 1
+  variable2: text("variable_2"),
+  // variable dynamique 2  
+  variable3: text("variable_3"),
+  // variable dynamique 3
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
@@ -434,6 +446,8 @@ var customSessions = pgTable("custom_sessions", {
   totalDuration: integer("total_duration"),
   // durée totale calculée en minutes
   difficulty: varchar("difficulty").default("beginner"),
+  status: varchar("status").default("draft"),
+  // 'draft', 'published', 'archived'
   isTemplate: boolean("is_template").default(true),
   // template ou séance personnelle
   isPublic: boolean("is_public").default(false),
@@ -484,6 +498,23 @@ var sessionInstances = pgTable("session_instances", {
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow()
+});
+var patientSessions = pgTable("patient_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id").notNull().references(() => customSessions.id, { onDelete: "cascade" }),
+  status: varchar("status").default("assigned"),
+  // 'assigned', 'done', 'skipped'
+  feedback: text("feedback"),
+  // feedback du patient après la séance
+  effort: integer("effort"),
+  // effort ressenti 1-10
+  duration: integer("duration"),
+  // durée réelle en minutes
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
 });
 var exerciseLibrary = pgTable("exercise_library", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -554,6 +585,11 @@ var insertSessionElementSchema = createInsertSchema(sessionElements).omit({
 var insertSessionInstanceSchema = createInsertSchema(sessionInstances).omit({
   id: true,
   createdAt: true
+});
+var insertPatientSessionSchema = createInsertSchema(patientSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
 });
 var insertExerciseLibrarySchema = createInsertSchema(exerciseLibrary).omit({
   id: true,
@@ -1074,6 +1110,148 @@ var Storage = class {
       return false;
     }
   }
+  // === NOUVELLES MÉTHODES POUR LES FONCTIONNALITÉS AVANCÉES ===
+  // === GESTION DES SÉANCES ===
+  async getSessions(filters) {
+    try {
+      let query = this.db.select().from(customSessions);
+      if (filters.userRole === "patient") {
+        query = query.where(eq(customSessions.status, "published"));
+      }
+      const sessions = await query.orderBy(desc(customSessions.createdAt));
+      return sessions;
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+      throw error;
+    }
+  }
+  async createSession(sessionData) {
+    try {
+      const result = await this.db.insert(customSessions).values(sessionData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating session:", error);
+      throw error;
+    }
+  }
+  async updateSession(sessionId, updates) {
+    try {
+      const result = await this.db.update(customSessions).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(customSessions.id, sessionId)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating session:", error);
+      throw error;
+    }
+  }
+  async publishSession(sessionId, patientIds) {
+    try {
+      const session2 = await this.updateSession(sessionId, { status: "published" });
+      if (!session2) return null;
+      if (patientIds && patientIds.length > 0) {
+        const assignments = patientIds.map((patientId) => ({
+          patientId,
+          sessionId,
+          status: "assigned"
+        }));
+        await this.db.insert(patientSessions).values(assignments);
+      }
+      return session2;
+    } catch (error) {
+      console.error("Error publishing session:", error);
+      throw error;
+    }
+  }
+  // === GESTION DES ASSIGNATIONS DE SÉANCES ===
+  async getPatientSessions(patientId) {
+    try {
+      const sessions = await this.db.select({
+        id: patientSessions.id,
+        sessionId: patientSessions.sessionId,
+        status: patientSessions.status,
+        feedback: patientSessions.feedback,
+        effort: patientSessions.effort,
+        duration: patientSessions.duration,
+        assignedAt: patientSessions.assignedAt,
+        completedAt: patientSessions.completedAt,
+        session: customSessions
+      }).from(patientSessions).leftJoin(customSessions, eq(patientSessions.sessionId, customSessions.id)).where(eq(patientSessions.patientId, patientId)).orderBy(desc(patientSessions.assignedAt));
+      return sessions;
+    } catch (error) {
+      console.error("Error fetching patient sessions:", error);
+      throw error;
+    }
+  }
+  async completePatientSession(patientSessionId, data) {
+    try {
+      const existing = await this.db.select().from(patientSessions).where(eq(patientSessions.id, patientSessionId)).limit(1);
+      if (!existing[0] || existing[0].patientId !== data.userId) {
+        return null;
+      }
+      const result = await this.db.update(patientSessions).set({
+        status: "done",
+        feedback: data.feedback,
+        effort: data.effort,
+        duration: data.duration,
+        completedAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(patientSessions.id, patientSessionId)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error completing patient session:", error);
+      throw error;
+    }
+  }
+  async updateExercise(exerciseId, updates) {
+    try {
+      const result = await this.db.update(exercises).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(exercises.id, exerciseId)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating exercise:", error);
+      throw error;
+    }
+  }
+  // === DASHBOARD ADMINISTRATEUR ===
+  async getAdminDashboardData() {
+    try {
+      const totalPatients = await this.db.select({ count: count() }).from(users).where(eq(users.role, "patient"));
+      const totalSessions = await this.db.select({ count: count() }).from(customSessions);
+      const totalExercises = await this.db.select({ count: count() }).from(exercises).where(eq(exercises.isActive, true));
+      const completedSessions = await this.db.select({ count: count() }).from(patientSessions).where(eq(patientSessions.status, "done"));
+      return {
+        totalPatients: totalPatients[0]?.count || 0,
+        totalSessions: totalSessions[0]?.count || 0,
+        totalExercises: totalExercises[0]?.count || 0,
+        completedSessions: completedSessions[0]?.count || 0
+      };
+    } catch (error) {
+      console.error("Error fetching admin dashboard data:", error);
+      throw error;
+    }
+  }
+  async getPatientsWithSessions() {
+    try {
+      const patients = await this.db.select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        createdAt: users.createdAt
+      }).from(users).where(eq(users.role, "patient")).orderBy(desc(users.createdAt));
+      const patientsWithSessions = await Promise.all(
+        patients.map(async (patient) => {
+          const sessions = await this.getPatientSessions(patient.id);
+          return {
+            ...patient,
+            sessions
+          };
+        })
+      );
+      return patientsWithSessions;
+    } catch (error) {
+      console.error("Error fetching patients with sessions:", error);
+      throw error;
+    }
+  }
   // Les méthodes getAllUsersWithStats, getUserById et deleteUser sont déjà définies plus haut
 };
 var storage = new Storage();
@@ -1479,15 +1657,14 @@ function registerRoutes(app2) {
   });
   app2.post("/api/psycho-education", requireAdmin, async (req, res) => {
     try {
-      const { title, content, category, tags } = req.body;
+      const { title, content, category } = req.body;
       if (!title || !content) {
         return res.status(400).json({ message: "Titre et contenu requis" });
       }
       const newContent = await storage.createPsychoEducationContent({
         title,
         content,
-        category: category || "general",
-        tags: tags || null
+        category: category || "general"
       });
       res.json(newContent);
     } catch (error) {
@@ -1640,12 +1817,14 @@ function registerRoutes(app2) {
   app2.put("/api/strategies/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, description, category, effectiveness } = req.body;
+      const { context, exercise, effort, duration, cravingBefore, cravingAfter } = req.body;
       const strategy = await storage.updateStrategy(id, req.session.user.id, {
-        title,
-        description,
-        category,
-        effectiveness
+        context,
+        exercise,
+        effort,
+        duration,
+        cravingBefore,
+        cravingAfter
       });
       if (!strategy) {
         return res.status(404).json({ message: "Strat\xE9gie non trouv\xE9e" });
@@ -1767,6 +1946,130 @@ function registerRoutes(app2) {
     } catch (error) {
       console.error("Error deleting emergency routine:", error);
       res.status(500).json({ message: "Erreur lors de la suppression de la routine d'urgence" });
+    }
+  });
+  app2.get("/api/sessions", requireAuth, async (req, res) => {
+    try {
+      const { status, tags, category } = req.query;
+      const sessions = await storage.getSessions({
+        status,
+        tags: tags ? tags.split(",") : void 0,
+        category,
+        userId: req.session.user.id,
+        userRole: req.session.user.role
+      });
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des s\xE9ances" });
+    }
+  });
+  app2.post("/api/sessions", requireAdmin, async (req, res) => {
+    try {
+      const sessionData = {
+        ...req.body,
+        creatorId: req.session.user.id,
+        status: req.body.status || "draft"
+      };
+      const session2 = await storage.createSession(sessionData);
+      res.json(session2);
+    } catch (error) {
+      console.error("Error creating session:", error);
+      res.status(500).json({ message: "Erreur lors de la cr\xE9ation de la s\xE9ance" });
+    }
+  });
+  app2.put("/api/sessions/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const session2 = await storage.updateSession(id, req.body);
+      if (!session2) {
+        return res.status(404).json({ message: "S\xE9ance non trouv\xE9e" });
+      }
+      res.json(session2);
+    } catch (error) {
+      console.error("Error updating session:", error);
+      res.status(500).json({ message: "Erreur lors de la mise \xE0 jour de la s\xE9ance" });
+    }
+  });
+  app2.post("/api/sessions/:id/publish", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { patientIds } = req.body;
+      const session2 = await storage.publishSession(id, patientIds);
+      if (!session2) {
+        return res.status(404).json({ message: "S\xE9ance non trouv\xE9e" });
+      }
+      res.json({
+        message: "S\xE9ance publi\xE9e avec succ\xE8s",
+        session: session2,
+        assignedPatients: patientIds?.length || 0
+      });
+    } catch (error) {
+      console.error("Error publishing session:", error);
+      res.status(500).json({ message: "Erreur lors de la publication de la s\xE9ance" });
+    }
+  });
+  app2.get("/api/patient-sessions", requireAuth, async (req, res) => {
+    try {
+      const patientSessions2 = await storage.getPatientSessions(req.session.user.id);
+      res.json(patientSessions2);
+    } catch (error) {
+      console.error("Error fetching patient sessions:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des s\xE9ances" });
+    }
+  });
+  app2.post("/api/patient-sessions/:id/complete", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { feedback, effort, duration } = req.body;
+      const patientSession = await storage.completePatientSession(id, {
+        feedback,
+        effort: effort ? parseInt(effort) : void 0,
+        duration: duration ? parseInt(duration) : void 0,
+        userId: req.session.user.id
+      });
+      if (!patientSession) {
+        return res.status(404).json({ message: "S\xE9ance non trouv\xE9e ou acc\xE8s refus\xE9" });
+      }
+      res.json(patientSession);
+    } catch (error) {
+      console.error("Error completing patient session:", error);
+      res.status(500).json({ message: "Erreur lors de la finalisation de la s\xE9ance" });
+    }
+  });
+  app2.put("/api/exercises/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const exerciseData = {
+        ...req.body,
+        tags: Array.isArray(req.body.tags) ? req.body.tags : []
+      };
+      const exercise = await storage.updateExercise(id, exerciseData);
+      if (!exercise) {
+        return res.status(404).json({ message: "Exercice non trouv\xE9" });
+      }
+      res.json(exercise);
+    } catch (error) {
+      console.error("Error updating exercise:", error);
+      res.status(500).json({ message: "Erreur lors de la mise \xE0 jour de l'exercice" });
+    }
+  });
+  app2.get("/api/admin/dashboard", requireAdmin, async (req, res) => {
+    try {
+      const dashboardData = await storage.getAdminDashboardData();
+      res.json(dashboardData);
+    } catch (error) {
+      console.error("Error fetching admin dashboard data:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des donn\xE9es du dashboard" });
+    }
+  });
+  app2.get("/api/admin/patients", requireAdmin, async (req, res) => {
+    try {
+      const patients = await storage.getPatientsWithSessions();
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des patients" });
     }
   });
   console.log("\u2705 All routes registered successfully");

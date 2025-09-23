@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuthQuery } from "@/hooks/use-auth";
+import { ThemeSettingsMenu } from "@/components/theme-settings-menu";
 import logoImage from "@/assets/apaddicto-logo.png";
 
 export function Navigation() {
@@ -72,9 +73,7 @@ export function Navigation() {
             </nav>
 
             <div className="flex items-center space-x-2">
-              <Link to="/" className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors" data-testid="button-toolbox">
-                <span className="material-icons">build</span>
-              </Link>
+              <ThemeSettingsMenu />
               <Link to="/profile" className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-white text-sm" data-testid="link-profile">
                 <span className="material-icons text-sm">person</span>
               </Link>

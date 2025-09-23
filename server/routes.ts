@@ -142,7 +142,7 @@ export function registerRoutes(app: Application) {
     try {
       const { firstName, lastName, email } = req.body;
       
-      const updatedUser = await AuthService.updateUser(req.session.user.id, {
+      const updatedUser = await AuthService.updateUser(req.session.user!.id, {
         firstName,
         lastName, 
         email
@@ -167,7 +167,7 @@ export function registerRoutes(app: Application) {
     try {
       const { oldPassword, newPassword } = req.body;
       
-      await AuthService.updatePassword(req.session.user.id, oldPassword, newPassword);
+      await AuthService.updatePassword(req.session.user!.id, oldPassword, newPassword);
       
       res.json({ message: 'Mot de passe mis à jour avec succès' });
     } catch (error: any) {
@@ -253,7 +253,7 @@ export function registerRoutes(app: Application) {
     try {
       const { intensity, triggers, emotions, notes } = req.body;
       
-      console.log('📝 Craving entry request for user:', req.session.user.id);
+      console.log('📝 Craving entry request for user:', req.session.user!.id);
       console.log('📝 Craving data:', { intensity, triggers, emotions, notes });
       
       // Validation
@@ -264,7 +264,7 @@ export function registerRoutes(app: Application) {
       }
       
       const cravingData = {
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         intensity: intensityNum,
         triggers: Array.isArray(triggers) ? triggers : [],
         emotions: Array.isArray(emotions) ? emotions : [],
@@ -290,7 +290,7 @@ export function registerRoutes(app: Application) {
   app.get('/api/cravings', requireAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      const cravings = await storage.getCravingEntriesByUser(req.session.user.id, limit);
+      const cravings = await storage.getCravingEntriesByUser(req.session.user!.id, limit);
       res.json(cravings);
     } catch (error: any) {
       console.error('Error fetching cravings:', error);
@@ -329,7 +329,7 @@ export function registerRoutes(app: Application) {
       }
       
       const session = await storage.createExerciseSession({
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         exerciseId: validExerciseId,
         duration: duration || 0,
         completed: completed || false,
@@ -349,7 +349,7 @@ export function registerRoutes(app: Application) {
   app.get('/api/exercise-sessions', requireAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      const sessions = await storage.getExerciseSessionsByUser(req.session.user.id, limit);
+      const sessions = await storage.getExerciseSessionsByUser(req.session.user!.id, limit);
       res.json(sessions);
     } catch (error: any) {
       console.error('Error fetching exercise sessions:', error);
@@ -373,7 +373,7 @@ export function registerRoutes(app: Application) {
   // POST /api/psycho-education - Créer du contenu (admin)
   app.post('/api/psycho-education', requireAdmin, async (req, res) => {
     try {
-      const { title, content, category, tags } = req.body;
+      const { title, content, category } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ message: 'Titre et contenu requis' });
@@ -382,8 +382,7 @@ export function registerRoutes(app: Application) {
       const newContent = await storage.createPsychoEducationContent({
         title,
         content,
-        category: category || 'general',
-        tags: tags || null
+        category: category || 'general'
       });
 
       res.json(newContent);
@@ -400,7 +399,7 @@ export function registerRoutes(app: Application) {
     try {
       const { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity } = req.body;
       
-      console.log('📝 Beck analysis request for user:', req.session.user.id);
+      console.log('📝 Beck analysis request for user:', req.session.user!.id);
       console.log('📝 Beck analysis data:', { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity });
       
       // Validation des champs requis
@@ -439,7 +438,7 @@ export function registerRoutes(app: Application) {
       }
       
       const analysisData = {
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         situation: situation.trim(),
         automaticThoughts: automaticThoughts.trim(),
         emotions: emotions.trim(),
@@ -468,7 +467,7 @@ export function registerRoutes(app: Application) {
   app.get('/api/beck-analyses', requireAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      const analyses = await storage.getBeckAnalysesByUser(req.session.user.id, limit);
+      const analyses = await storage.getBeckAnalysesByUser(req.session.user!.id, limit);
       res.json(analyses);
     } catch (error: any) {
       console.error('Error fetching Beck analyses:', error);
@@ -483,7 +482,7 @@ export function registerRoutes(app: Application) {
     try {
       const { strategies } = req.body;
       
-      console.log('📝 Strategies save request for user:', req.session.user.id);
+      console.log('📝 Strategies save request for user:', req.session.user!.id);
       console.log('📝 Received strategies data:', strategies);
       
       if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
@@ -535,7 +534,7 @@ export function registerRoutes(app: Application) {
         
         try {
           const strategy = await storage.createStrategy({
-            userId: req.session.user.id,
+            userId: req.session.user!.id,
             context: context.trim(),
             exercise: exercise.trim(),
             effort: effort.trim(),
@@ -566,7 +565,7 @@ export function registerRoutes(app: Application) {
   // GET /api/strategies - Liste des stratégies
   app.get('/api/strategies', requireAuth, async (req, res) => {
     try {
-      const strategies = await storage.getStrategiesByUser(req.session.user.id);
+      const strategies = await storage.getStrategiesByUser(req.session.user!.id);
       res.json(strategies);
     } catch (error: any) {
       console.error('Error fetching strategies:', error);
@@ -578,13 +577,15 @@ export function registerRoutes(app: Application) {
   app.put('/api/strategies/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, description, category, effectiveness } = req.body;
+      const { context, exercise, effort, duration, cravingBefore, cravingAfter } = req.body;
       
-      const strategy = await storage.updateStrategy(id, req.session.user.id, {
-        title,
-        description,
-        category,
-        effectiveness
+      const strategy = await storage.updateStrategy(id, req.session.user!.id, {
+        context,
+        exercise,
+        effort,
+        duration,
+        cravingBefore,
+        cravingAfter
       });
 
       if (!strategy) {
@@ -603,7 +604,7 @@ export function registerRoutes(app: Application) {
     try {
       const { id } = req.params;
       
-      const success = await storage.deleteStrategy(id, req.session.user.id);
+      const success = await storage.deleteStrategy(id, req.session.user!.id);
       
       if (!success) {
         return res.status(404).json({ message: 'Stratégie non trouvée' });
@@ -621,7 +622,7 @@ export function registerRoutes(app: Application) {
   // GET /api/dashboard/stats - Statistiques pour le dashboard
   app.get('/api/dashboard/stats', requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getUserStats(req.session.user.id);
+      const stats = await storage.getUserStats(req.session.user!.id);
       res.json(stats);
     } catch (error: any) {
       console.error('Error fetching dashboard stats:', error);
@@ -684,7 +685,7 @@ export function registerRoutes(app: Application) {
   // GET /api/emergency-routines - Récupérer les routines d'urgence d'un utilisateur
   app.get('/api/emergency-routines', requireAuth, async (req, res) => {
     try {
-      const routines = await storage.getEmergencyRoutines(req.session.user.id);
+      const routines = await storage.getEmergencyRoutines(req.session.user!.id);
       res.json(routines);
     } catch (error: any) {
       console.error('Error fetching emergency routines:', error);
@@ -711,7 +712,7 @@ export function registerRoutes(app: Application) {
   app.put('/api/emergency-routines/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user.id;
+      const userId = req.session.user!.id;
       
       // Vérifier que la routine appartient à l'utilisateur
       const existingRoutine = await storage.getEmergencyRoutineById(id);
@@ -731,7 +732,7 @@ export function registerRoutes(app: Application) {
   app.delete('/api/emergency-routines/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user.id;
+      const userId = req.session.user!.id;
       
       // Vérifier que la routine appartient à l'utilisateur
       const existingRoutine = await storage.getEmergencyRoutineById(id);
@@ -763,7 +764,7 @@ export function registerRoutes(app: Application) {
         status: status as string,
         tags: tags ? (tags as string).split(',') : undefined,
         category: category as string,
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         userRole: req.session.user.role
       });
       res.json(sessions);
@@ -835,7 +836,7 @@ export function registerRoutes(app: Application) {
   // GET /api/patient-sessions - Récupérer les séances assignées à un patient
   app.get('/api/patient-sessions', requireAuth, async (req, res) => {
     try {
-      const patientSessions = await storage.getPatientSessions(req.session.user.id);
+      const patientSessions = await storage.getPatientSessions(req.session.user!.id);
       res.json(patientSessions);
     } catch (error: any) {
       console.error('Error fetching patient sessions:', error);
