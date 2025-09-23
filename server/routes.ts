@@ -224,25 +224,83 @@ export function registerRoutes(app: Application) {
   // POST /api/exercises - Créer un exercice (admin)
   app.post('/api/exercises', requireAdmin, async (req, res) => {
     try {
-      const { title, description, duration, difficulty, category, instructions } = req.body;
+      const { 
+        title, 
+        description, 
+        duration, 
+        difficulty, 
+        category, 
+        instructions, 
+        benefits, 
+        imageUrl, 
+        videoUrl, 
+        mediaUrl, 
+        tags, 
+        variable1, 
+        variable2, 
+        variable3, 
+        isActive 
+      } = req.body;
       
-      if (!title || !description) {
-        return res.status(400).json({ message: 'Titre et description requis' });
+      console.log('📝 Creating exercise with data:', req.body);
+      
+      // Validation des champs requis
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        console.error('❌ Invalid title:', title);
+        return res.status(400).json({ message: 'Titre requis et non vide' });
       }
 
-      const exercise = await storage.createExercise({
-        title,
-        description,
-        duration: duration || 15,
-        difficulty: difficulty || 'beginner',
-        category: category || 'general',
-        instructions: instructions || null
-      });
+      if (!description || typeof description !== 'string' || description.trim().length === 0) {
+        console.error('❌ Invalid description:', description);
+        return res.status(400).json({ message: 'Description requise et non vide' });
+      }
 
+      // Validation des champs optionnels
+      const validCategories = ['craving_reduction', 'relaxation', 'energy_boost', 'emotion_management', 'general'];
+      const validDifficulties = ['beginner', 'intermediate', 'advanced'];
+
+      const finalCategory = validCategories.includes(category) ? category : 'craving_reduction';
+      const finalDifficulty = validDifficulties.includes(difficulty) ? difficulty : 'beginner';
+
+      // Validation de la durée
+      let finalDuration = 15;
+      if (duration !== undefined && duration !== null) {
+        const durationNum = Number(duration);
+        if (!isNaN(durationNum) && durationNum > 0 && durationNum <= 180) {
+          finalDuration = durationNum;
+        }
+      }
+
+      const exerciseData = {
+        title: title.trim(),
+        description: description.trim(),
+        duration: finalDuration,
+        difficulty: finalDifficulty,
+        category: finalCategory,
+        instructions: instructions && typeof instructions === 'string' ? instructions.trim() : null,
+        benefits: benefits && typeof benefits === 'string' ? benefits.trim() : null,
+        imageUrl: imageUrl && typeof imageUrl === 'string' ? imageUrl.trim() : null,
+        videoUrl: videoUrl && typeof videoUrl === 'string' ? videoUrl.trim() : null,
+        mediaUrl: mediaUrl && typeof mediaUrl === 'string' ? mediaUrl.trim() : null,
+        tags: Array.isArray(tags) ? tags : [],
+        variable1: variable1 && typeof variable1 === 'string' ? variable1.trim() : null,
+        variable2: variable2 && typeof variable2 === 'string' ? variable2.trim() : null,
+        variable3: variable3 && typeof variable3 === 'string' ? variable3.trim() : null,
+        isActive: typeof isActive === 'boolean' ? isActive : true
+      };
+
+      console.log('🔍 Processed exercise data:', exerciseData);
+
+      const exercise = await storage.createExercise(exerciseData);
+
+      console.log('✅ Exercise created successfully:', exercise.id);
       res.json(exercise);
     } catch (error: any) {
-      console.error('Error creating exercise:', error);
-      res.status(500).json({ message: 'Erreur lors de la création de l\'exercice' });
+      console.error('❌ Error creating exercise:', error);
+      res.status(500).json({ 
+        message: error.message || 'Erreur lors de la création de l\'exercice',
+        details: error.stack
+      });
     }
   });
 
@@ -913,6 +971,34 @@ export function registerRoutes(app: Application) {
     } catch (error: any) {
       console.error('Error fetching patients:', error);
       res.status(500).json({ message: 'Erreur lors de la récupération des patients' });
+    }
+  });
+
+  // GET /api/admin/patient-sessions - Liste de toutes les séances assignées aux patients
+  app.get('/api/admin/patient-sessions', requireAdmin, async (req, res) => {
+    try {
+      const patientSessions = await storage.getAllPatientSessions();
+      res.json(patientSessions);
+    } catch (error: any) {
+      console.error('Error fetching admin patient sessions:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des séances patients' });
+    }
+  });
+
+  // DELETE /api/exercises/:id - Supprimer un exercice (admin)
+  app.delete('/api/exercises/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteExercise(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Exercice non trouvé' });
+      }
+
+      res.json({ message: 'Exercice supprimé avec succès' });
+    } catch (error: any) {
+      console.error('Error deleting exercise:', error);
+      res.status(500).json({ message: 'Erreur lors de la suppression de l\'exercice' });
     }
   });
 
