@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Play, Pause, RotateCcw, Clock, Settings, Target, Activity } from "lucide-react";
+import { Plus, Trash2, Play, Pause, RotateCcw, Clock, Settings, Target, Activity, Send, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface SessionExercise {
   id: string;
@@ -48,10 +50,17 @@ interface EnhancedSessionBuilderProps {
     difficulty: string;
   }>;
   onSave: (session: SessionTemplate) => void;
+  onPublish?: (sessionId: string, patientIds: string[]) => Promise<void>;
   existingSession?: SessionTemplate;
+  patients?: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }>;
 }
 
-export function EnhancedSessionBuilder({ exercises, onSave, existingSession }: EnhancedSessionBuilderProps) {
+export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingSession, patients = [] }: EnhancedSessionBuilderProps) {
   const { toast } = useToast();
   const [session, setSession] = useState<SessionTemplate>({
     title: "",
@@ -81,6 +90,11 @@ export function EnhancedSessionBuilder({ exercises, onSave, existingSession }: E
   const [previewMode, setPreviewMode] = useState(false);
   const [currentPreviewExercise, setCurrentPreviewExercise] = useState(0);
   const [previewTimer, setPreviewTimer] = useState(0);
+  
+  // États pour la publication
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [selectedPatients, setSelectedPatients] = useState<string[]>([]);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   useEffect(() => {
     if (existingSession) {
@@ -238,6 +252,49 @@ export function EnhancedSessionBuilder({ exercises, onSave, existingSession }: E
       title: "Séance sauvegardée",
       description: `"${session.title}" a été sauvegardée avec succès`
     });
+  };
+
+  const handlePublish = async () => {
+    if (!session.id || !onPublish) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez d'abord sauvegarder la séance",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsPublishing(true);
+    
+    try {
+      await onPublish(session.id, selectedPatients);
+      
+      toast({
+        title: "Séance publiée",
+        description: selectedPatients.length > 0 
+          ? `Séance assignée à ${selectedPatients.length} patient(s)`
+          : "Séance publiée pour tous les patients"
+      });
+      
+      setShowPublishModal(false);
+      setSelectedPatients([]);
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la publication de la séance",
+        variant: "destructive"
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const togglePatientSelection = (patientId: string) => {
+    setSelectedPatients(prev => 
+      prev.includes(patientId) 
+        ? prev.filter(id => id !== patientId)
+        : [...prev, patientId]
+    );
   };
 
   return (
@@ -724,6 +781,87 @@ export function EnhancedSessionBuilder({ exercises, onSave, existingSession }: E
                   <Target className="h-4 w-4 mr-2" />
                   Sauvegarder la Séance
                 </Button>
+                
+                {onPublish && (
+                  <Dialog open={showPublishModal} onOpenChange={setShowPublishModal}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="default"
+                        className="bg-green-600 hover:bg-green-700"
+                        disabled={!session.id}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        Publier
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center">
+                          <Users className="h-5 w-5 mr-2" />
+                          Publier la séance
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          Sélectionnez les patients qui recevront cette séance. 
+                          Laissez vide pour publier pour tous les patients.
+                        </p>
+                        
+                        {patients.length > 0 ? (
+                          <div className="space-y-3 max-h-60 overflow-y-auto">
+                            {patients.map((patient) => (
+                              <div key={patient.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={patient.id}
+                                  checked={selectedPatients.includes(patient.id)}
+                                  onCheckedChange={() => togglePatientSelection(patient.id)}
+                                />
+                                <Label htmlFor={patient.id} className="text-sm">
+                                  {patient.firstName} {patient.lastName}
+                                  <span className="text-muted-foreground text-xs block">
+                                    {patient.email}
+                                  </span>
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">
+                            Aucun patient disponible. La séance sera publiée globalement.
+                          </p>
+                        )}
+                        
+                        <div className="flex gap-2 pt-4">
+                          <Button 
+                            onClick={handlePublish}
+                            disabled={isPublishing}
+                            className="flex-1"
+                          >
+                            {isPublishing ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                Publication...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4 mr-2" />
+                                Publier maintenant
+                              </>
+                            )}
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowPublishModal(false)}
+                            disabled={isPublishing}
+                          >
+                            Annuler
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                
                 <Button
                   variant="outline"
                   onClick={() => {

@@ -17,7 +17,11 @@ import type {
   InsertAntiCravingStrategy,
   UserStats,
   UserEmergencyRoutine,
-  InsertUserEmergencyRoutine
+  InsertUserEmergencyRoutine,
+  CustomSession,
+  InsertCustomSession,
+  PatientSession,
+  InsertPatientSession
 } from '../shared/schema.js';
 import { 
   users, 
@@ -29,7 +33,10 @@ import {
   antiCravingStrategies,
   userStats,
   userBadges,
-  userEmergencyRoutines
+  userEmergencyRoutines,
+  customSessions,
+  sessionElements,
+  patientSessions
 } from '../shared/schema.js';
 
 class Storage {
@@ -734,6 +741,230 @@ class Storage {
     } catch (error) {
       console.error('Error deleting emergency routine:', error);
       return false;
+    }
+  }
+
+  // === NOUVELLES MÉTHODES POUR LES FONCTIONNALITÉS AVANCÉES ===
+  
+  // === GESTION DES SÉANCES ===
+  async getSessions(filters: {
+    status?: string;
+    tags?: string[];
+    category?: string;
+    userId: string;
+    userRole: string;
+  }) {
+    try {
+      let query = this.db.select().from(customSessions);
+      
+      // Filtres selon le rôle
+      if (filters.userRole === 'patient') {
+        // Pour les patients, ne montrer que les séances publiées
+        query = query.where(eq(customSessions.status, 'published'));
+      }
+      
+      // TODO: Ajouter les autres filtres (status, tags, category)
+      
+      const sessions = await query.orderBy(desc(customSessions.createdAt));
+      return sessions;
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      throw error;
+    }
+  }
+
+  async createSession(sessionData: InsertCustomSession): Promise<CustomSession> {
+    try {
+      const result = await this.db.insert(customSessions).values(sessionData).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating session:', error);
+      throw error;
+    }
+  }
+
+  async updateSession(sessionId: string, updates: Partial<InsertCustomSession>): Promise<CustomSession | null> {
+    try {
+      const result = await this.db
+        .update(customSessions)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(customSessions.id, sessionId))
+        .returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error updating session:', error);
+      throw error;
+    }
+  }
+
+  async publishSession(sessionId: string, patientIds?: string[]): Promise<CustomSession | null> {
+    try {
+      // Mettre à jour le statut de la séance
+      const session = await this.updateSession(sessionId, { status: 'published' });
+      
+      if (!session) return null;
+      
+      // Si des patients spécifiques sont sélectionnés, leur assigner la séance
+      if (patientIds && patientIds.length > 0) {
+        const assignments = patientIds.map(patientId => ({
+          patientId,
+          sessionId,
+          status: 'assigned' as const
+        }));
+        
+        await this.db.insert(patientSessions).values(assignments);
+      }
+      
+      return session;
+    } catch (error) {
+      console.error('Error publishing session:', error);
+      throw error;
+    }
+  }
+
+  // === GESTION DES ASSIGNATIONS DE SÉANCES ===
+  async getPatientSessions(patientId: string): Promise<any[]> {
+    try {
+      const sessions = await this.db
+        .select({
+          id: patientSessions.id,
+          sessionId: patientSessions.sessionId,
+          status: patientSessions.status,
+          feedback: patientSessions.feedback,
+          effort: patientSessions.effort,
+          duration: patientSessions.duration,
+          assignedAt: patientSessions.assignedAt,
+          completedAt: patientSessions.completedAt,
+          session: customSessions
+        })
+        .from(patientSessions)
+        .leftJoin(customSessions, eq(patientSessions.sessionId, customSessions.id))
+        .where(eq(patientSessions.patientId, patientId))
+        .orderBy(desc(patientSessions.assignedAt));
+      
+      return sessions;
+    } catch (error) {
+      console.error('Error fetching patient sessions:', error);
+      throw error;
+    }
+  }
+
+  async completePatientSession(patientSessionId: string, data: {
+    feedback?: string;
+    effort?: number;
+    duration?: number;
+    userId: string;
+  }): Promise<PatientSession | null> {
+    try {
+      // Vérifier que la séance appartient au patient
+      const existing = await this.db
+        .select()
+        .from(patientSessions)
+        .where(eq(patientSessions.id, patientSessionId))
+        .limit(1);
+      
+      if (!existing[0] || existing[0].patientId !== data.userId) {
+        return null;
+      }
+      
+      const result = await this.db
+        .update(patientSessions)
+        .set({
+          status: 'done',
+          feedback: data.feedback,
+          effort: data.effort,
+          duration: data.duration,
+          completedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(patientSessions.id, patientSessionId))
+        .returning();
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error completing patient session:', error);
+      throw error;
+    }
+  }
+
+  async updateExercise(exerciseId: string, updates: Partial<InsertExercise>): Promise<Exercise | null> {
+    try {
+      const result = await this.db
+        .update(exercises)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(exercises.id, exerciseId))
+        .returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error updating exercise:', error);
+      throw error;
+    }
+  }
+
+  // === DASHBOARD ADMINISTRATEUR ===
+  async getAdminDashboardData() {
+    try {
+      // Récupérer les statistiques générales
+      const totalPatients = await this.db
+        .select({ count: count() })
+        .from(users)
+        .where(eq(users.role, 'patient'));
+      
+      const totalSessions = await this.db
+        .select({ count: count() })
+        .from(customSessions);
+      
+      const totalExercises = await this.db
+        .select({ count: count() })
+        .from(exercises)
+        .where(eq(exercises.isActive, true));
+      
+      const completedSessions = await this.db
+        .select({ count: count() })
+        .from(patientSessions)
+        .where(eq(patientSessions.status, 'done'));
+      
+      return {
+        totalPatients: totalPatients[0]?.count || 0,
+        totalSessions: totalSessions[0]?.count || 0,
+        totalExercises: totalExercises[0]?.count || 0,
+        completedSessions: completedSessions[0]?.count || 0
+      };
+    } catch (error) {
+      console.error('Error fetching admin dashboard data:', error);
+      throw error;
+    }
+  }
+
+  async getPatientsWithSessions() {
+    try {
+      const patients = await this.db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          createdAt: users.createdAt
+        })
+        .from(users)
+        .where(eq(users.role, 'patient'))
+        .orderBy(desc(users.createdAt));
+      
+      // Pour chaque patient, récupérer ses séances
+      const patientsWithSessions = await Promise.all(
+        patients.map(async (patient) => {
+          const sessions = await this.getPatientSessions(patient.id);
+          return {
+            ...patient,
+            sessions
+          };
+        })
+      );
+      
+      return patientsWithSessions;
+    } catch (error) {
+      console.error('Error fetching patients with sessions:', error);
+      throw error;
     }
   }
 

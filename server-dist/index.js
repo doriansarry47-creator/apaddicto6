@@ -514,6 +514,12 @@ var exerciseLibrary = pgTable("exercise_library", {
   // vérifié par un professionnel
   isFeatured: boolean("is_featured").default(false),
   // mis en avant
+  optionVariable1: text("option_variable_1"),
+  // champ personnalisable 1
+  optionVariable2: text("option_variable_2"),
+  // champ personnalisable 2
+  optionVariable3: text("option_variable_3"),
+  // champ personnalisable 3
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

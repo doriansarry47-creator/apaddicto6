@@ -34,6 +34,11 @@ export const exercises = pgTable("exercises", {
   benefits: text("benefits"),
   imageUrl: varchar("image_url"),
   videoUrl: varchar("video_url"),
+  mediaUrl: varchar("media_url"), // URL pour média associé (image/vidéo supplémentaire)
+  tags: jsonb("tags").$type<string[]>().default([]), // tags pour catégorisation
+  variable1: text("variable_1"), // variable dynamique 1
+  variable2: text("variable_2"), // variable dynamique 2  
+  variable3: text("variable_3"), // variable dynamique 3
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -362,6 +367,7 @@ export const customSessions = pgTable("custom_sessions", {
   category: varchar("category").notNull(), // 'morning', 'evening', 'crisis', 'maintenance'
   totalDuration: integer("total_duration"), // durée totale calculée en minutes
   difficulty: varchar("difficulty").default("beginner"),
+  status: varchar("status").default("draft"), // 'draft', 'published', 'archived'
   isTemplate: boolean("is_template").default(true), // template ou séance personnelle
   isPublic: boolean("is_public").default(false), // visible pour tous les patients
   tags: jsonb("tags").$type<string[]>().default([]),
@@ -404,6 +410,21 @@ export const sessionInstances = pgTable("session_instances", {
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// PatientSessions - Liaison entre patients et séances assignées
+export const patientSessions = pgTable("patient_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").notNull().references(() => customSessions.id, { onDelete: 'cascade' }),
+  status: varchar("status").default("assigned"), // 'assigned', 'done', 'skipped'
+  feedback: text("feedback"), // feedback du patient après la séance
+  effort: integer("effort"), // effort ressenti 1-10
+  duration: integer("duration"), // durée réelle en minutes
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Bibliothèque d'exercices (métadonnées enrichies)
@@ -470,6 +491,12 @@ export const insertSessionInstanceSchema = createInsertSchema(sessionInstances).
   createdAt: true,
 });
 
+export const insertPatientSessionSchema = createInsertSchema(patientSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertExerciseLibrarySchema = createInsertSchema(exerciseLibrary).omit({
   id: true,
   createdAt: true,
@@ -522,6 +549,8 @@ export type SessionElement = typeof sessionElements.$inferSelect;
 export type InsertSessionElement = z.infer<typeof insertSessionElementSchema>;
 export type SessionInstance = typeof sessionInstances.$inferSelect;
 export type InsertSessionInstance = z.infer<typeof insertSessionInstanceSchema>;
+export type PatientSession = typeof patientSessions.$inferSelect;
+export type InsertPatientSession = z.infer<typeof insertPatientSessionSchema>;
 export type ExerciseLibrary = typeof exerciseLibrary.$inferSelect;
 export type InsertExerciseLibrary = z.infer<typeof insertExerciseLibrarySchema>;
 export type ExerciseRating = typeof exerciseRatings.$inferSelect;

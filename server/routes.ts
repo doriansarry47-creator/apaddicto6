@@ -751,5 +751,169 @@ export function registerRoutes(app: Application) {
     }
   });
 
+  // === ROUTES POUR LES NOUVELLES FONCTIONNALITÉS ===
+  
+  // === SÉANCES PERSONNALISÉES ===
+  
+  // GET /api/sessions - Récupérer les séances (avec filtres)
+  app.get('/api/sessions', requireAuth, async (req, res) => {
+    try {
+      const { status, tags, category } = req.query;
+      const sessions = await storage.getSessions({
+        status: status as string,
+        tags: tags ? (tags as string).split(',') : undefined,
+        category: category as string,
+        userId: req.session.user.id,
+        userRole: req.session.user.role
+      });
+      res.json(sessions);
+    } catch (error: any) {
+      console.error('Error fetching sessions:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des séances' });
+    }
+  });
+
+  // POST /api/sessions - Créer une séance (admin)
+  app.post('/api/sessions', requireAdmin, async (req, res) => {
+    try {
+      const sessionData = {
+        ...req.body,
+        creatorId: req.session.user.id,
+        status: req.body.status || 'draft'
+      };
+      
+      const session = await storage.createSession(sessionData);
+      res.json(session);
+    } catch (error: any) {
+      console.error('Error creating session:', error);
+      res.status(500).json({ message: 'Erreur lors de la création de la séance' });
+    }
+  });
+
+  // PUT /api/sessions/:id - Mettre à jour une séance (admin)
+  app.put('/api/sessions/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const session = await storage.updateSession(id, req.body);
+      
+      if (!session) {
+        return res.status(404).json({ message: 'Séance non trouvée' });
+      }
+      
+      res.json(session);
+    } catch (error: any) {
+      console.error('Error updating session:', error);
+      res.status(500).json({ message: 'Erreur lors de la mise à jour de la séance' });
+    }
+  });
+
+  // POST /api/sessions/:id/publish - Publier une séance (admin)
+  app.post('/api/sessions/:id/publish', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { patientIds } = req.body; // Array d'IDs de patients
+      
+      const session = await storage.publishSession(id, patientIds);
+      
+      if (!session) {
+        return res.status(404).json({ message: 'Séance non trouvée' });
+      }
+      
+      res.json({ 
+        message: 'Séance publiée avec succès', 
+        session,
+        assignedPatients: patientIds?.length || 0
+      });
+    } catch (error: any) {
+      console.error('Error publishing session:', error);
+      res.status(500).json({ message: 'Erreur lors de la publication de la séance' });
+    }
+  });
+
+  // === GESTION DES ASSIGNATIONS DE SÉANCES ===
+  
+  // GET /api/patient-sessions - Récupérer les séances assignées à un patient
+  app.get('/api/patient-sessions', requireAuth, async (req, res) => {
+    try {
+      const patientSessions = await storage.getPatientSessions(req.session.user.id);
+      res.json(patientSessions);
+    } catch (error: any) {
+      console.error('Error fetching patient sessions:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des séances' });
+    }
+  });
+
+  // POST /api/patient-sessions/:id/complete - Marquer une séance comme terminée
+  app.post('/api/patient-sessions/:id/complete', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { feedback, effort, duration } = req.body;
+      
+      const patientSession = await storage.completePatientSession(id, {
+        feedback,
+        effort: effort ? parseInt(effort) : undefined,
+        duration: duration ? parseInt(duration) : undefined,
+        userId: req.session.user.id
+      });
+      
+      if (!patientSession) {
+        return res.status(404).json({ message: 'Séance non trouvée ou accès refusé' });
+      }
+      
+      res.json(patientSession);
+    } catch (error: any) {
+      console.error('Error completing patient session:', error);
+      res.status(500).json({ message: 'Erreur lors de la finalisation de la séance' });
+    }
+  });
+
+  // === GESTION DES EXERCICES AVANCÉS ===
+  
+  // PUT /api/exercises/:id - Mettre à jour un exercice (admin)
+  app.put('/api/exercises/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const exerciseData = {
+        ...req.body,
+        tags: Array.isArray(req.body.tags) ? req.body.tags : []
+      };
+      
+      const exercise = await storage.updateExercise(id, exerciseData);
+      
+      if (!exercise) {
+        return res.status(404).json({ message: 'Exercice non trouvé' });
+      }
+      
+      res.json(exercise);
+    } catch (error: any) {
+      console.error('Error updating exercise:', error);
+      res.status(500).json({ message: 'Erreur lors de la mise à jour de l\'exercice' });
+    }
+  });
+
+  // === DASHBOARD ADMINISTRATEUR ===
+  
+  // GET /api/admin/dashboard - Statistiques pour le dashboard admin
+  app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
+    try {
+      const dashboardData = await storage.getAdminDashboardData();
+      res.json(dashboardData);
+    } catch (error: any) {
+      console.error('Error fetching admin dashboard data:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des données du dashboard' });
+    }
+  });
+
+  // GET /api/admin/patients - Liste des patients avec leurs séances
+  app.get('/api/admin/patients', requireAdmin, async (req, res) => {
+    try {
+      const patients = await storage.getPatientsWithSessions();
+      res.json(patients);
+    } catch (error: any) {
+      console.error('Error fetching patients:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des patients' });
+    }
+  });
+
   console.log('✅ All routes registered successfully');
 }

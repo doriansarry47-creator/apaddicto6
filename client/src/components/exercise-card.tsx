@@ -2,16 +2,28 @@ import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Settings, Tag, Play, Eye } from "lucide-react";
 import type { Exercise } from "@/lib/exercises-data";
 import { levels, intensities } from "@/lib/exercises-data";
 
-interface ExerciseCardProps {
-  exercise: Exercise;
-  showStartButton?: boolean;
-  onStart?: () => void;
+// Extension du type Exercise pour les nouvelles fonctionnalités
+interface ExtendedExercise extends Exercise {
+  tags?: string[];
+  variable1?: string;
+  variable2?: string;
+  variable3?: string;
+  mediaUrl?: string;
 }
 
-export function ExerciseCard({ exercise, showStartButton = true, onStart }: ExerciseCardProps) {
+interface ExerciseCardProps {
+  exercise: ExtendedExercise;
+  showStartButton?: boolean;
+  onStart?: () => void;
+  showAdminFeatures?: boolean; // Pour afficher les fonctionnalités admin (tags, variables)
+}
+
+export function ExerciseCard({ exercise, showStartButton = true, onStart, showAdminFeatures = false }: ExerciseCardProps) {
   const getLevelBadgeColor = (level: keyof typeof levels) => {
     switch (level) {
       case 'beginner':
@@ -78,9 +90,87 @@ export function ExerciseCard({ exercise, showStartButton = true, onStart }: Exer
           {exercise.title}
         </h4>
         
-        <p className="text-sm text-muted-foreground mb-4" data-testid={`description-exercise-${exercise.id}`}>
+        <p className="text-sm text-muted-foreground mb-3" data-testid={`description-exercise-${exercise.id}`}>
           {exercise.description}
         </p>
+        
+        {/* Tags */}
+        {exercise.tags && exercise.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {exercise.tags.slice(0, 3).map((tag, index) => (
+              <Badge key={index} variant="secondary" className="text-xs">
+                <Tag className="h-3 w-3 mr-1" />
+                {tag}
+              </Badge>
+            ))}
+            {exercise.tags.length > 3 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="secondary" className="text-xs cursor-help">
+                      +{exercise.tags.length - 3}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="space-y-1">
+                      {exercise.tags.slice(3).map((tag, index) => (
+                        <div key={index} className="text-xs">{tag}</div>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )}
+        
+        {/* Variables dynamiques (mode admin seulement) */}
+        {showAdminFeatures && (exercise.variable1 || exercise.variable2 || exercise.variable3) && (
+          <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center mb-1">
+              <Settings className="h-3 w-3 mr-1 text-blue-600" />
+              <span className="text-xs font-medium text-blue-800">Variables</span>
+            </div>
+            <div className="space-y-1">
+              {exercise.variable1 && (
+                <div className="text-xs text-blue-700">
+                  <span className="font-medium">Var 1:</span> {exercise.variable1}
+                </div>
+              )}
+              {exercise.variable2 && (
+                <div className="text-xs text-blue-700">
+                  <span className="font-medium">Var 2:</span> {exercise.variable2}
+                </div>
+              )}
+              {exercise.variable3 && (
+                <div className="text-xs text-blue-700">
+                  <span className="font-medium">Var 3:</span> {exercise.variable3}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Média supplémentaire */}
+        {exercise.mediaUrl && (
+          <div className="mb-3">
+            <div className="flex items-center justify-between p-2 bg-gray-50 rounded border">
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Play className="h-3 w-3 mr-1" />
+                <span>Média associé disponible</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs"
+                onClick={() => window.open(exercise.mediaUrl, '_blank')}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Voir
+              </Button>
+            </div>
+          </div>
+        )}
         
         <div className="flex items-center justify-between">
           <div className="flex items-center text-sm text-muted-foreground">
