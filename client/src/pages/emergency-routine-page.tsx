@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuthQuery } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Exercise as APIExercise } from "@shared/schema";
+import type { Exercise as APIExercise, AntiCravingStrategy } from "@shared/schema";
 
 interface RoutineExercise {
   id: string;
@@ -68,6 +68,28 @@ export default function EmergencyRoutinePage() {
       return response.json();
     },
     enabled: !!authenticatedUser,
+  });
+
+  // Récupération des stratégies anti-craving pour accès rapide
+  const { data: antiCravingStrategies = [] } = useQuery<AntiCravingStrategy[]>({
+    queryKey: ["/api/strategies"],
+    queryFn: async () => {
+      const response = await fetch("/api/strategies", {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch strategies: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!authenticatedUser,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Mutation pour sauvegarder une routine
@@ -259,6 +281,72 @@ export default function EmergencyRoutinePage() {
             </Button>
           </div>
         </section>
+
+        {/* Quick Access to Effective Strategies */}
+        {antiCravingStrategies && antiCravingStrategies.length > 0 && (
+          <section className="mb-8">
+            <Card className="shadow-material border-warning/20 bg-warning/5">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <span className="material-icons mr-2 text-warning">psychology</span>
+                  Vos Stratégies Anti-Craving Efficaces
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                  {antiCravingStrategies
+                    .filter(strategy => strategy.cravingBefore > strategy.cravingAfter) // Only effective strategies
+                    .sort((a, b) => (b.cravingBefore - b.cravingAfter) - (a.cravingBefore - a.cravingAfter)) // Sort by effectiveness
+                    .slice(0, 6) // Show top 6
+                    .map((strategy) => (
+                      <Card key={strategy.id} className="border-success/20 bg-success/5 hover:bg-success/10 transition-colors cursor-pointer">
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {strategy.context === 'leisure' ? 'Loisirs' : 
+                               strategy.context === 'home' ? 'Domicile' : 'Travail'}
+                            </Badge>
+                            <div className="flex items-center text-xs text-success">
+                              <span className="material-icons text-sm mr-1">trending_down</span>
+                              -{strategy.cravingBefore - strategy.cravingAfter}
+                            </div>
+                          </div>
+                          <p className="text-sm font-medium text-foreground mb-2 line-clamp-2">{strategy.exercise}</p>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{strategy.duration} min • {strategy.effort}</span>
+                            <span>{strategy.cravingBefore}/10 → {strategy.cravingAfter}/10</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                </div>
+                {antiCravingStrategies.filter(s => s.cravingBefore > s.cravingAfter).length === 0 && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <p className="text-sm">Aucune stratégie efficace identifiée pour l'instant.</p>
+                    <Button 
+                      onClick={() => setLocation("/strategies")}
+                      size="sm"
+                      className="mt-2 bg-warning text-warning-foreground hover:bg-warning/90"
+                    >
+                      Tester Mes Stratégies
+                    </Button>
+                  </div>
+                )}
+                <div className="text-center">
+                  <Button 
+                    onClick={() => setLocation("/strategies")}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                  >
+                    <span className="material-icons text-sm mr-1">add</span>
+                    Ajouter de Nouvelles Stratégies
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         {/* Existing Routines */}
         {routines.length > 0 && (

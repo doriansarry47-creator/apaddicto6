@@ -33,13 +33,19 @@ export default function Tracking() {
     
     setIsRefreshing(true);
     try {
+      // Invalider et refetch immédiatement pour une synchronisation complète
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/cravings"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/exercise-sessions"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/beck-analyses"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/strategies"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/cravings"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/strategies"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/exercise-sessions"] }),
       ]);
+      
+      console.log('✅ Toutes les données ont été actualisées avec succès');
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des données:", error);
     } finally {
@@ -749,6 +755,20 @@ export default function Tracking() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm text-muted-foreground">
+                    {safeAntiCravingStrategies.length} stratégie(s) enregistrée(s)
+                  </div>
+                  <Button
+                    onClick={() => window.location.href = "/strategies"}
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                  >
+                    <span className="material-icons text-sm mr-1">add</span>
+                    Ajouter
+                  </Button>
+                </div>
                 {safeAntiCravingStrategies.length > 0 ? (
                   <div className="space-y-4">
                     {safeAntiCravingStrategies.map((strategy: AntiCravingStrategy) => (
@@ -806,6 +826,25 @@ export default function Tracking() {
                     <span className="material-icons text-6xl text-muted-foreground mb-4">fitness_center</span>
                     <h3 className="text-lg font-medium text-foreground mb-2">Aucune stratégie enregistrée</h3>
                     <p className="text-muted-foreground mb-4">Utilisez la Boîte à Stratégies depuis l'accueil pour commencer à tester vos techniques anti-craving.</p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+                      <Button 
+                        onClick={() => window.location.href = "/strategies"}
+                        className="bg-warning text-warning-foreground hover:bg-warning/90"
+                      >
+                        <span className="material-icons mr-2">psychology</span>
+                        Tester Mes Stratégies
+                      </Button>
+                      <Button 
+                        onClick={refreshAllData}
+                        variant="outline"
+                        disabled={isRefreshing}
+                      >
+                        <span className={`material-icons mr-2 text-sm ${isRefreshing ? 'animate-spin' : ''}`}>
+                          {isRefreshing ? 'hourglass_empty' : 'refresh'}
+                        </span>
+                        Actualiser
+                      </Button>
+                    </div>
                     <div className="bg-info/10 p-4 rounded-lg">
                       <p className="text-sm text-info font-medium mb-2">💡 Conseil :</p>
                       <p className="text-xs text-muted-foreground">
