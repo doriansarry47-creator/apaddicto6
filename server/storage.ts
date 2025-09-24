@@ -21,7 +21,15 @@ import type {
   CustomSession,
   InsertCustomSession,
   PatientSession,
-  InsertPatientSession
+  InsertPatientSession,
+  EducationalContent,
+  InsertEducationalContent,
+  ContentCategory,
+  InsertContentCategory,
+  ContentTag,
+  InsertContentTag,
+  ContentInteraction,
+  InsertContentInteraction
 } from '../shared/schema.js';
 import { 
   users, 
@@ -36,7 +44,11 @@ import {
   userEmergencyRoutines,
   customSessions,
   sessionElements,
-  patientSessions
+  patientSessions,
+  educationalContents,
+  contentCategories,
+  contentTags,
+  contentInteractions
 } from '../shared/schema.js';
 
 class Storage {
@@ -1034,6 +1046,260 @@ class Storage {
   }
 
   // Les méthodes getAllUsersWithStats, getUserById et deleteUser sont déjà définies plus haut
+
+  // === CONTENUS ÉDUCATIFS ===
+
+  async getEducationalContents(filters: {
+    categoryId?: string;
+    type?: string;
+    difficulty?: string;
+    status?: string;
+    search?: string;
+    tags?: string[];
+    isRecommended?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}) {
+    try {
+      let query = this.db.select().from(educationalContents);
+      
+      const conditions: any[] = [eq(educationalContents.isActive, true)];
+      
+      if (filters.categoryId) {
+        conditions.push(eq(educationalContents.categoryId, filters.categoryId));
+      }
+      
+      if (filters.type) {
+        conditions.push(eq(educationalContents.type, filters.type));
+      }
+      
+      if (filters.difficulty) {
+        conditions.push(eq(educationalContents.difficulty, filters.difficulty));
+      }
+      
+      if (filters.status) {
+        conditions.push(eq(educationalContents.status, filters.status));
+      }
+      
+      if (filters.isRecommended !== undefined) {
+        conditions.push(eq(educationalContents.isRecommended, filters.isRecommended));
+      }
+      
+      if (filters.search) {
+        conditions.push(
+          sql`(${educationalContents.title} ILIKE ${`%${filters.search}%`} OR ${educationalContents.description} ILIKE ${`%${filters.search}%`})`
+        );
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      query = query.orderBy(desc(educationalContents.createdAt));
+      
+      if (filters.limit) {
+        query = query.limit(filters.limit);
+      }
+      
+      if (filters.offset) {
+        query = query.offset(filters.offset);
+      }
+      
+      return await query;
+    } catch (error) {
+      console.error('Error fetching educational contents:', error);
+      throw error;
+    }
+  }
+
+  async getEducationalContentById(id: string): Promise<EducationalContent | null> {
+    try {
+      const result = await this.db
+        .select()
+        .from(educationalContents)
+        .where(and(eq(educationalContents.id, id), eq(educationalContents.isActive, true)))
+        .limit(1);
+      
+      if (result.length > 0) {
+        // Incrémenter le compteur de vues
+        await this.db
+          .update(educationalContents)
+          .set({ 
+            viewCount: sql`${educationalContents.viewCount} + 1`
+          })
+          .where(eq(educationalContents.id, id));
+      }
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching educational content by id:', error);
+      throw error;
+    }
+  }
+
+  async createEducationalContent(data: InsertEducationalContent): Promise<EducationalContent> {
+    try {
+      const result = await this.db.insert(educationalContents).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating educational content:', error);
+      throw error;
+    }
+  }
+
+  async updateEducationalContent(id: string, data: Partial<InsertEducationalContent>): Promise<EducationalContent | null> {
+    try {
+      const result = await this.db
+        .update(educationalContents)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(educationalContents.id, id))
+        .returning();
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error updating educational content:', error);
+      throw error;
+    }
+  }
+
+  async deleteEducationalContent(id: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .update(educationalContents)
+        .set({ isActive: false })
+        .where(eq(educationalContents.id, id));
+      
+      return result.rowsAffected > 0;
+    } catch (error) {
+      console.error('Error deleting educational content:', error);
+      throw error;
+    }
+  }
+
+  // === CATÉGORIES DE CONTENU ===
+
+  async getContentCategories() {
+    try {
+      return await this.db
+        .select()
+        .from(contentCategories)
+        .where(eq(contentCategories.isActive, true))
+        .orderBy(contentCategories.order, contentCategories.name);
+    } catch (error) {
+      console.error('Error fetching content categories:', error);
+      throw error;
+    }
+  }
+
+  async createContentCategory(data: InsertContentCategory): Promise<ContentCategory> {
+    try {
+      const result = await this.db.insert(contentCategories).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating content category:', error);
+      throw error;
+    }
+  }
+
+  async updateContentCategory(id: string, data: Partial<InsertContentCategory>): Promise<ContentCategory | null> {
+    try {
+      const result = await this.db
+        .update(contentCategories)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(contentCategories.id, id))
+        .returning();
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error updating content category:', error);
+      throw error;
+    }
+  }
+
+  async deleteContentCategory(id: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .update(contentCategories)
+        .set({ isActive: false })
+        .where(eq(contentCategories.id, id));
+      
+      return result.rowsAffected > 0;
+    } catch (error) {
+      console.error('Error deleting content category:', error);
+      throw error;
+    }
+  }
+
+  // === TAGS DE CONTENU ===
+
+  async getContentTags() {
+    try {
+      return await this.db
+        .select()
+        .from(contentTags)
+        .where(eq(contentTags.isActive, true))
+        .orderBy(desc(contentTags.usageCount), contentTags.name);
+    } catch (error) {
+      console.error('Error fetching content tags:', error);
+      throw error;
+    }
+  }
+
+  async createContentTag(data: InsertContentTag): Promise<ContentTag> {
+    try {
+      const result = await this.db.insert(contentTags).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating content tag:', error);
+      throw error;
+    }
+  }
+
+  // === INTERACTIONS UTILISATEUR ===
+
+  async recordContentInteraction(data: InsertContentInteraction): Promise<ContentInteraction> {
+    try {
+      const result = await this.db.insert(contentInteractions).values(data).returning();
+      
+      // Mettre à jour les compteurs selon le type d'interaction
+      if (data.interactionType === 'like') {
+        await this.db
+          .update(educationalContents)
+          .set({ 
+            likeCount: sql`${educationalContents.likeCount} + 1`
+          })
+          .where(eq(educationalContents.id, data.contentId));
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error('Error recording content interaction:', error);
+      throw error;
+    }
+  }
+
+  async getUserContentInteractions(userId: string, interactionType?: string) {
+    try {
+      let query = this.db
+        .select()
+        .from(contentInteractions)
+        .where(eq(contentInteractions.userId, userId));
+      
+      if (interactionType) {
+        query = query.where(
+          and(
+            eq(contentInteractions.userId, userId),
+            eq(contentInteractions.interactionType, interactionType)
+          )
+        );
+      }
+      
+      return await query.orderBy(desc(contentInteractions.createdAt));
+    } catch (error) {
+      console.error('Error fetching user content interactions:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new Storage();

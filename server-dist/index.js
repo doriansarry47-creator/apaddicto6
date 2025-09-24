@@ -28,8 +28,12 @@ __export(schema_exports, {
   antiCravingStrategies: () => antiCravingStrategies,
   audioContent: () => audioContent,
   beckAnalyses: () => beckAnalyses,
+  contentCategories: () => contentCategories,
+  contentInteractions: () => contentInteractions,
+  contentTags: () => contentTags,
   cravingEntries: () => cravingEntries,
   customSessions: () => customSessions,
+  educationalContents: () => educationalContents,
   emergencyRoutines: () => emergencyRoutines,
   exerciseEnhancements: () => exerciseEnhancements,
   exerciseLibrary: () => exerciseLibrary,
@@ -40,8 +44,12 @@ __export(schema_exports, {
   insertAntiCravingStrategySchema: () => insertAntiCravingStrategySchema,
   insertAudioContentSchema: () => insertAudioContentSchema,
   insertBeckAnalysisSchema: () => insertBeckAnalysisSchema,
+  insertContentCategorySchema: () => insertContentCategorySchema,
+  insertContentInteractionSchema: () => insertContentInteractionSchema,
+  insertContentTagSchema: () => insertContentTagSchema,
   insertCravingEntrySchema: () => insertCravingEntrySchema,
   insertCustomSessionSchema: () => insertCustomSessionSchema,
+  insertEducationalContentSchema: () => insertEducationalContentSchema,
   insertEmergencyRoutineSchema: () => insertEmergencyRoutineSchema,
   insertExerciseEnhancementSchema: () => insertExerciseEnhancementSchema,
   insertExerciseLibrarySchema: () => insertExerciseLibrarySchema,
@@ -600,6 +608,89 @@ var insertExerciseRatingSchema = createInsertSchema(exerciseRatings).omit({
   id: true,
   createdAt: true,
   updatedAt: true
+});
+var educationalContents = pgTable("educational_contents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  type: varchar("type").notNull(),
+  // 'text', 'video', 'audio', 'pdf', 'image'
+  categoryId: varchar("category_id").references(() => contentCategories.id, { onDelete: "set null" }),
+  tags: jsonb("tags").$type().default([]),
+  mediaUrl: varchar("media_url"),
+  // URL for uploaded or external media
+  mediaType: varchar("media_type"),
+  // 'upload', 'youtube', 'vimeo', 'external_link'
+  content: text("content"),
+  // Rich text or markdown content
+  difficulty: varchar("difficulty").default("easy"),
+  // 'easy', 'intermediate', 'advanced'
+  estimatedReadTime: integer("estimated_read_time"),
+  // in minutes
+  status: varchar("status").default("draft"),
+  // 'draft', 'published', 'archived'
+  isRecommended: boolean("is_recommended").default(false),
+  viewCount: integer("view_count").default(0),
+  likeCount: integer("like_count").default(0),
+  thumbnailUrl: varchar("thumbnail_url"),
+  authorId: varchar("author_id").references(() => users.id, { onDelete: "set null" }),
+  publishedAt: timestamp("published_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var contentCategories = pgTable("content_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  description: text("description"),
+  color: varchar("color").default("blue"),
+  // For UI theming
+  icon: varchar("icon"),
+  // Icon name for UI
+  order: integer("order").default(0),
+  // For custom sorting
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var contentTags = pgTable("content_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  description: text("description"),
+  color: varchar("color").default("gray"),
+  usageCount: integer("usage_count").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var contentInteractions = pgTable("content_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  contentId: varchar("content_id").notNull().references(() => educationalContents.id, { onDelete: "cascade" }),
+  interactionType: varchar("interaction_type").notNull(),
+  // 'view', 'like', 'bookmark', 'complete'
+  duration: integer("duration"),
+  // Time spent viewing in seconds
+  progress: integer("progress").default(0),
+  // Percentage of completion (0-100)
+  createdAt: timestamp("created_at").defaultNow()
+});
+var insertEducationalContentSchema = createInsertSchema(educationalContents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var insertContentCategorySchema = createInsertSchema(contentCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var insertContentTagSchema = createInsertSchema(contentTags).omit({
+  id: true,
+  createdAt: true
+});
+var insertContentInteractionSchema = createInsertSchema(contentInteractions).omit({
+  id: true,
+  createdAt: true
 });
 var userEmergencyRoutines = pgTable("user_emergency_routines", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1302,6 +1393,174 @@ var Storage = class {
     }
   }
   // Les méthodes getAllUsersWithStats, getUserById et deleteUser sont déjà définies plus haut
+  // === CONTENUS ÉDUCATIFS ===
+  async getEducationalContents(filters = {}) {
+    try {
+      let query = this.db.select().from(educationalContents);
+      const conditions = [eq(educationalContents.isActive, true)];
+      if (filters.categoryId) {
+        conditions.push(eq(educationalContents.categoryId, filters.categoryId));
+      }
+      if (filters.type) {
+        conditions.push(eq(educationalContents.type, filters.type));
+      }
+      if (filters.difficulty) {
+        conditions.push(eq(educationalContents.difficulty, filters.difficulty));
+      }
+      if (filters.status) {
+        conditions.push(eq(educationalContents.status, filters.status));
+      }
+      if (filters.isRecommended !== void 0) {
+        conditions.push(eq(educationalContents.isRecommended, filters.isRecommended));
+      }
+      if (filters.search) {
+        conditions.push(
+          sql2`(${educationalContents.title} ILIKE ${`%${filters.search}%`} OR ${educationalContents.description} ILIKE ${`%${filters.search}%`})`
+        );
+      }
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      query = query.orderBy(desc(educationalContents.createdAt));
+      if (filters.limit) {
+        query = query.limit(filters.limit);
+      }
+      if (filters.offset) {
+        query = query.offset(filters.offset);
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching educational contents:", error);
+      throw error;
+    }
+  }
+  async getEducationalContentById(id) {
+    try {
+      const result = await this.db.select().from(educationalContents).where(and(eq(educationalContents.id, id), eq(educationalContents.isActive, true))).limit(1);
+      if (result.length > 0) {
+        await this.db.update(educationalContents).set({
+          viewCount: sql2`${educationalContents.viewCount} + 1`
+        }).where(eq(educationalContents.id, id));
+      }
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching educational content by id:", error);
+      throw error;
+    }
+  }
+  async createEducationalContent(data) {
+    try {
+      const result = await this.db.insert(educationalContents).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating educational content:", error);
+      throw error;
+    }
+  }
+  async updateEducationalContent(id, data) {
+    try {
+      const result = await this.db.update(educationalContents).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(educationalContents.id, id)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating educational content:", error);
+      throw error;
+    }
+  }
+  async deleteEducationalContent(id) {
+    try {
+      const result = await this.db.update(educationalContents).set({ isActive: false }).where(eq(educationalContents.id, id));
+      return result.rowsAffected > 0;
+    } catch (error) {
+      console.error("Error deleting educational content:", error);
+      throw error;
+    }
+  }
+  // === CATÉGORIES DE CONTENU ===
+  async getContentCategories() {
+    try {
+      return await this.db.select().from(contentCategories).where(eq(contentCategories.isActive, true)).orderBy(contentCategories.order, contentCategories.name);
+    } catch (error) {
+      console.error("Error fetching content categories:", error);
+      throw error;
+    }
+  }
+  async createContentCategory(data) {
+    try {
+      const result = await this.db.insert(contentCategories).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating content category:", error);
+      throw error;
+    }
+  }
+  async updateContentCategory(id, data) {
+    try {
+      const result = await this.db.update(contentCategories).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(contentCategories.id, id)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating content category:", error);
+      throw error;
+    }
+  }
+  async deleteContentCategory(id) {
+    try {
+      const result = await this.db.update(contentCategories).set({ isActive: false }).where(eq(contentCategories.id, id));
+      return result.rowsAffected > 0;
+    } catch (error) {
+      console.error("Error deleting content category:", error);
+      throw error;
+    }
+  }
+  // === TAGS DE CONTENU ===
+  async getContentTags() {
+    try {
+      return await this.db.select().from(contentTags).where(eq(contentTags.isActive, true)).orderBy(desc(contentTags.usageCount), contentTags.name);
+    } catch (error) {
+      console.error("Error fetching content tags:", error);
+      throw error;
+    }
+  }
+  async createContentTag(data) {
+    try {
+      const result = await this.db.insert(contentTags).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating content tag:", error);
+      throw error;
+    }
+  }
+  // === INTERACTIONS UTILISATEUR ===
+  async recordContentInteraction(data) {
+    try {
+      const result = await this.db.insert(contentInteractions).values(data).returning();
+      if (data.interactionType === "like") {
+        await this.db.update(educationalContents).set({
+          likeCount: sql2`${educationalContents.likeCount} + 1`
+        }).where(eq(educationalContents.id, data.contentId));
+      }
+      return result[0];
+    } catch (error) {
+      console.error("Error recording content interaction:", error);
+      throw error;
+    }
+  }
+  async getUserContentInteractions(userId, interactionType) {
+    try {
+      let query = this.db.select().from(contentInteractions).where(eq(contentInteractions.userId, userId));
+      if (interactionType) {
+        query = query.where(
+          and(
+            eq(contentInteractions.userId, userId),
+            eq(contentInteractions.interactionType, interactionType)
+          )
+        );
+      }
+      return await query.orderBy(desc(contentInteractions.createdAt));
+    } catch (error) {
+      console.error("Error fetching user content interactions:", error);
+      throw error;
+    }
+  }
 };
 var storage = new Storage();
 
@@ -2189,6 +2448,281 @@ function registerRoutes(app2) {
     } catch (error) {
       console.error("Error deleting exercise:", error);
       res.status(500).json({ message: "Erreur lors de la suppression de l'exercice" });
+    }
+  });
+  app2.get("/api/educational-contents", requireAuth, async (req, res) => {
+    try {
+      const {
+        category,
+        type,
+        difficulty,
+        status,
+        search,
+        tags,
+        recommended,
+        limit = 50,
+        offset = 0
+      } = req.query;
+      const filters = {
+        categoryId: category,
+        type,
+        difficulty,
+        status,
+        search,
+        tags: tags ? tags.split(",") : void 0,
+        isRecommended: recommended === "true",
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      };
+      const contents = await storage.getEducationalContents(filters);
+      res.json(contents);
+    } catch (error) {
+      console.error("Error fetching educational contents:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des contenus \xE9ducatifs" });
+    }
+  });
+  app2.get("/api/educational-contents/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const content = await storage.getEducationalContentById(id);
+      if (!content) {
+        return res.status(404).json({ message: "Contenu non trouv\xE9" });
+      }
+      if (req.session.user.role !== "admin") {
+        await storage.recordContentInteraction({
+          userId: req.session.user.id,
+          contentId: id,
+          interactionType: "view"
+        });
+      }
+      res.json(content);
+    } catch (error) {
+      console.error("Error fetching educational content:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration du contenu" });
+    }
+  });
+  app2.post("/api/educational-contents", requireAdmin, async (req, res) => {
+    try {
+      const {
+        title,
+        description,
+        type,
+        categoryId,
+        tags,
+        mediaUrl,
+        mediaType,
+        content,
+        difficulty,
+        estimatedReadTime,
+        status,
+        isRecommended,
+        thumbnailUrl
+      } = req.body;
+      console.log("\u{1F4DD} Creating educational content:", { title, type, category: categoryId });
+      if (!title || typeof title !== "string" || title.trim().length === 0) {
+        return res.status(400).json({ message: "Titre requis et non vide" });
+      }
+      if (!type || !["text", "video", "audio", "pdf", "image"].includes(type)) {
+        return res.status(400).json({ message: "Type de contenu invalide" });
+      }
+      if (!content || typeof content !== "string" || content.trim().length === 0) {
+        return res.status(400).json({ message: "Contenu requis et non vide" });
+      }
+      const contentData = {
+        title: title.trim(),
+        description: description?.trim() || null,
+        type,
+        categoryId: categoryId || null,
+        tags: Array.isArray(tags) ? tags : [],
+        mediaUrl: mediaUrl?.trim() || null,
+        mediaType: mediaType || null,
+        content: content.trim(),
+        difficulty: difficulty || "easy",
+        estimatedReadTime: estimatedReadTime ? parseInt(estimatedReadTime) : null,
+        status: status || "draft",
+        isRecommended: Boolean(isRecommended),
+        thumbnailUrl: thumbnailUrl?.trim() || null,
+        authorId: req.session.user.id,
+        publishedAt: status === "published" ? /* @__PURE__ */ new Date() : null
+      };
+      const newContent = await storage.createEducationalContent(contentData);
+      console.log("\u2705 Educational content created:", newContent.id);
+      res.json(newContent);
+    } catch (error) {
+      console.error("\u274C Error creating educational content:", error);
+      res.status(500).json({
+        message: error.message || "Erreur lors de la cr\xE9ation du contenu"
+      });
+    }
+  });
+  app2.put("/api/educational-contents/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = { ...req.body };
+      if (updateData.status === "published" && req.body.status !== "published") {
+        updateData.publishedAt = /* @__PURE__ */ new Date();
+      }
+      const content = await storage.updateEducationalContent(id, updateData);
+      if (!content) {
+        return res.status(404).json({ message: "Contenu non trouv\xE9" });
+      }
+      res.json(content);
+    } catch (error) {
+      console.error("Error updating educational content:", error);
+      res.status(500).json({ message: "Erreur lors de la mise \xE0 jour du contenu" });
+    }
+  });
+  app2.delete("/api/educational-contents/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteEducationalContent(id);
+      if (!success) {
+        return res.status(404).json({ message: "Contenu non trouv\xE9" });
+      }
+      res.json({ message: "Contenu supprim\xE9 avec succ\xE8s" });
+    } catch (error) {
+      console.error("Error deleting educational content:", error);
+      res.status(500).json({ message: "Erreur lors de la suppression du contenu" });
+    }
+  });
+  app2.get("/api/content-categories", requireAuth, async (req, res) => {
+    try {
+      const categories = await storage.getContentCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching content categories:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des cat\xE9gories" });
+    }
+  });
+  app2.post("/api/content-categories", requireAdmin, async (req, res) => {
+    try {
+      const { name, description, color, icon, order } = req.body;
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        return res.status(400).json({ message: "Nom de cat\xE9gorie requis" });
+      }
+      const categoryData = {
+        name: name.trim(),
+        description: description?.trim() || null,
+        color: color || "blue",
+        icon: icon || null,
+        order: order ? parseInt(order) : 0
+      };
+      const category = await storage.createContentCategory(categoryData);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating content category:", error);
+      res.status(500).json({ message: "Erreur lors de la cr\xE9ation de la cat\xE9gorie" });
+    }
+  });
+  app2.put("/api/content-categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const category = await storage.updateContentCategory(id, req.body);
+      if (!category) {
+        return res.status(404).json({ message: "Cat\xE9gorie non trouv\xE9e" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating content category:", error);
+      res.status(500).json({ message: "Erreur lors de la mise \xE0 jour de la cat\xE9gorie" });
+    }
+  });
+  app2.delete("/api/content-categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteContentCategory(id);
+      if (!success) {
+        return res.status(404).json({ message: "Cat\xE9gorie non trouv\xE9e" });
+      }
+      res.json({ message: "Cat\xE9gorie supprim\xE9e avec succ\xE8s" });
+    } catch (error) {
+      console.error("Error deleting content category:", error);
+      res.status(500).json({ message: "Erreur lors de la suppression de la cat\xE9gorie" });
+    }
+  });
+  app2.get("/api/content-tags", requireAuth, async (req, res) => {
+    try {
+      const tags = await storage.getContentTags();
+      res.json(tags);
+    } catch (error) {
+      console.error("Error fetching content tags:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des tags" });
+    }
+  });
+  app2.post("/api/content-tags", requireAdmin, async (req, res) => {
+    try {
+      const { name, description, color } = req.body;
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        return res.status(400).json({ message: "Nom de tag requis" });
+      }
+      const tagData = {
+        name: name.trim(),
+        description: description?.trim() || null,
+        color: color || "gray"
+      };
+      const tag = await storage.createContentTag(tagData);
+      res.json(tag);
+    } catch (error) {
+      console.error("Error creating content tag:", error);
+      res.status(500).json({ message: "Erreur lors de la cr\xE9ation du tag" });
+    }
+  });
+  app2.post("/api/educational-contents/:id/like", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.recordContentInteraction({
+        userId: req.session.user.id,
+        contentId: id,
+        interactionType: "like"
+      });
+      res.json({ message: "Contenu lik\xE9 avec succ\xE8s" });
+    } catch (error) {
+      console.error("Error liking content:", error);
+      res.status(500).json({ message: "Erreur lors du like" });
+    }
+  });
+  app2.post("/api/educational-contents/:id/bookmark", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.recordContentInteraction({
+        userId: req.session.user.id,
+        contentId: id,
+        interactionType: "bookmark"
+      });
+      res.json({ message: "Contenu ajout\xE9 aux favoris" });
+    } catch (error) {
+      console.error("Error bookmarking content:", error);
+      res.status(500).json({ message: "Erreur lors de l'ajout aux favoris" });
+    }
+  });
+  app2.post("/api/educational-contents/:id/complete", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { duration, progress } = req.body;
+      await storage.recordContentInteraction({
+        userId: req.session.user.id,
+        contentId: id,
+        interactionType: "complete",
+        duration: duration ? parseInt(duration) : void 0,
+        progress: progress ? parseInt(progress) : 100
+      });
+      res.json({ message: "Contenu marqu\xE9 comme termin\xE9" });
+    } catch (error) {
+      console.error("Error completing content:", error);
+      res.status(500).json({ message: "Erreur lors de la completion" });
+    }
+  });
+  app2.get("/api/user-content-interactions", requireAuth, async (req, res) => {
+    try {
+      const { type } = req.query;
+      const interactions = await storage.getUserContentInteractions(
+        req.session.user.id,
+        type
+      );
+      res.json(interactions);
+    } catch (error) {
+      console.error("Error fetching user interactions:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des interactions" });
     }
   });
   console.log("\u2705 All routes registered successfully");

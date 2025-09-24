@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import EducationalContentAdmin from "./educational-content-admin";
 import { 
   Users, 
   TrendingUp, 
@@ -179,9 +180,10 @@ export function AdminDashboard({ stats, patients, onRefresh }: AdminDashboardPro
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
           <TabsTrigger value="patients">Gestion des Patients</TabsTrigger>
+          <TabsTrigger value="content">Contenus Éducatifs</TabsTrigger>
           <TabsTrigger value="analytics">Analyses</TabsTrigger>
         </TabsList>
 
@@ -569,6 +571,10 @@ export function AdminDashboard({ stats, patients, onRefresh }: AdminDashboardPro
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="content">
+          <EducationalContentAdmin />
         </TabsContent>
       </Tabs>
     </div>
