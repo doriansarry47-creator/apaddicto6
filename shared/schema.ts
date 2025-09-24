@@ -556,6 +556,99 @@ export type InsertExerciseLibrary = z.infer<typeof insertExerciseLibrarySchema>;
 export type ExerciseRating = typeof exerciseRatings.$inferSelect;
 export type InsertExerciseRating = z.infer<typeof insertExerciseRatingSchema>;
 
+// Educational content management (advanced version)
+export const educationalContents = pgTable("educational_contents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  type: varchar("type").notNull(), // 'text', 'video', 'audio', 'pdf', 'image'
+  categoryId: varchar("category_id").references(() => contentCategories.id, { onDelete: 'set null' }),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  mediaUrl: varchar("media_url"), // URL for uploaded or external media
+  mediaType: varchar("media_type"), // 'upload', 'youtube', 'vimeo', 'external_link'
+  content: text("content"), // Rich text or markdown content
+  difficulty: varchar("difficulty").default("easy"), // 'easy', 'intermediate', 'advanced'
+  estimatedReadTime: integer("estimated_read_time"), // in minutes
+  status: varchar("status").default("draft"), // 'draft', 'published', 'archived'
+  isRecommended: boolean("is_recommended").default(false),
+  viewCount: integer("view_count").default(0),
+  likeCount: integer("like_count").default(0),
+  thumbnailUrl: varchar("thumbnail_url"),
+  authorId: varchar("author_id").references(() => users.id, { onDelete: 'set null' }),
+  publishedAt: timestamp("published_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Content categories for better organization
+export const contentCategories = pgTable("content_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  description: text("description"),
+  color: varchar("color").default("blue"), // For UI theming
+  icon: varchar("icon"), // Icon name for UI
+  order: integer("order").default(0), // For custom sorting
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Content tags for flexible tagging system
+export const contentTags = pgTable("content_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  description: text("description"),
+  color: varchar("color").default("gray"),
+  usageCount: integer("usage_count").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User interactions with educational content
+export const contentInteractions = pgTable("content_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  contentId: varchar("content_id").notNull().references(() => educationalContents.id, { onDelete: 'cascade' }),
+  interactionType: varchar("interaction_type").notNull(), // 'view', 'like', 'bookmark', 'complete'
+  duration: integer("duration"), // Time spent viewing in seconds
+  progress: integer("progress").default(0), // Percentage of completion (0-100)
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Create insert schemas for new tables
+export const insertEducationalContentSchema = createInsertSchema(educationalContents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertContentCategorySchema = createInsertSchema(contentCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertContentTagSchema = createInsertSchema(contentTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContentInteractionSchema = createInsertSchema(contentInteractions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for new tables
+export type EducationalContent = typeof educationalContents.$inferSelect;
+export type InsertEducationalContent = z.infer<typeof insertEducationalContentSchema>;
+export type ContentCategory = typeof contentCategories.$inferSelect;
+export type InsertContentCategory = z.infer<typeof insertContentCategorySchema>;
+export type ContentTag = typeof contentTags.$inferSelect;
+export type InsertContentTag = z.infer<typeof insertContentTagSchema>;
+export type ContentInteraction = typeof contentInteractions.$inferSelect;
+export type InsertContentInteraction = z.infer<typeof insertContentInteractionSchema>;
+
 // User emergency routines (personalised routines by users)
 export const userEmergencyRoutines = pgTable("user_emergency_routines", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

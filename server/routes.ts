@@ -1002,5 +1002,355 @@ export function registerRoutes(app: Application) {
     }
   });
 
+  // === ROUTES DES CONTENUS ÉDUCATIFS ===
+
+  // GET /api/educational-contents - Liste des contenus éducatifs avec filtres
+  app.get('/api/educational-contents', requireAuth, async (req, res) => {
+    try {
+      const { 
+        category, 
+        type, 
+        difficulty, 
+        status, 
+        search, 
+        tags, 
+        recommended,
+        limit = 50, 
+        offset = 0 
+      } = req.query;
+
+      const filters = {
+        categoryId: category as string,
+        type: type as string,
+        difficulty: difficulty as string,
+        status: status as string,
+        search: search as string,
+        tags: tags ? (tags as string).split(',') : undefined,
+        isRecommended: recommended === 'true',
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      };
+
+      const contents = await storage.getEducationalContents(filters);
+      res.json(contents);
+    } catch (error: any) {
+      console.error('Error fetching educational contents:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des contenus éducatifs' });
+    }
+  });
+
+  // GET /api/educational-contents/:id - Récupérer un contenu éducatif spécifique
+  app.get('/api/educational-contents/:id', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const content = await storage.getEducationalContentById(id);
+      
+      if (!content) {
+        return res.status(404).json({ message: 'Contenu non trouvé' });
+      }
+
+      // Enregistrer la vue si l'utilisateur n'est pas admin
+      if (req.session.user!.role !== 'admin') {
+        await storage.recordContentInteraction({
+          userId: req.session.user!.id,
+          contentId: id,
+          interactionType: 'view'
+        });
+      }
+      
+      res.json(content);
+    } catch (error: any) {
+      console.error('Error fetching educational content:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération du contenu' });
+    }
+  });
+
+  // POST /api/educational-contents - Créer un contenu éducatif (admin)
+  app.post('/api/educational-contents', requireAdmin, async (req, res) => {
+    try {
+      const { 
+        title, 
+        description, 
+        type, 
+        categoryId, 
+        tags, 
+        mediaUrl, 
+        mediaType,
+        content, 
+        difficulty, 
+        estimatedReadTime,
+        status,
+        isRecommended,
+        thumbnailUrl
+      } = req.body;
+
+      console.log('📝 Creating educational content:', { title, type, category: categoryId });
+
+      // Validation des champs requis
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        return res.status(400).json({ message: 'Titre requis et non vide' });
+      }
+
+      if (!type || !['text', 'video', 'audio', 'pdf', 'image'].includes(type)) {
+        return res.status(400).json({ message: 'Type de contenu invalide' });
+      }
+
+      if (!content || typeof content !== 'string' || content.trim().length === 0) {
+        return res.status(400).json({ message: 'Contenu requis et non vide' });
+      }
+
+      const contentData = {
+        title: title.trim(),
+        description: description?.trim() || null,
+        type,
+        categoryId: categoryId || null,
+        tags: Array.isArray(tags) ? tags : [],
+        mediaUrl: mediaUrl?.trim() || null,
+        mediaType: mediaType || null,
+        content: content.trim(),
+        difficulty: difficulty || 'easy',
+        estimatedReadTime: estimatedReadTime ? parseInt(estimatedReadTime) : null,
+        status: status || 'draft',
+        isRecommended: Boolean(isRecommended),
+        thumbnailUrl: thumbnailUrl?.trim() || null,
+        authorId: req.session.user!.id,
+        publishedAt: status === 'published' ? new Date() : null
+      };
+
+      const newContent = await storage.createEducationalContent(contentData);
+      console.log('✅ Educational content created:', newContent.id);
+      
+      res.json(newContent);
+    } catch (error: any) {
+      console.error('❌ Error creating educational content:', error);
+      res.status(500).json({ 
+        message: error.message || 'Erreur lors de la création du contenu' 
+      });
+    }
+  });
+
+  // PUT /api/educational-contents/:id - Mettre à jour un contenu éducatif (admin)
+  app.put('/api/educational-contents/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = { ...req.body };
+
+      // Si on publie le contenu, ajouter la date de publication
+      if (updateData.status === 'published' && req.body.status !== 'published') {
+        updateData.publishedAt = new Date();
+      }
+
+      const content = await storage.updateEducationalContent(id, updateData);
+      
+      if (!content) {
+        return res.status(404).json({ message: 'Contenu non trouvé' });
+      }
+      
+      res.json(content);
+    } catch (error: any) {
+      console.error('Error updating educational content:', error);
+      res.status(500).json({ message: 'Erreur lors de la mise à jour du contenu' });
+    }
+  });
+
+  // DELETE /api/educational-contents/:id - Supprimer un contenu éducatif (admin)
+  app.delete('/api/educational-contents/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteEducationalContent(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Contenu non trouvé' });
+      }
+
+      res.json({ message: 'Contenu supprimé avec succès' });
+    } catch (error: any) {
+      console.error('Error deleting educational content:', error);
+      res.status(500).json({ message: 'Erreur lors de la suppression du contenu' });
+    }
+  });
+
+  // === ROUTES DES CATÉGORIES DE CONTENU ===
+
+  // GET /api/content-categories - Liste des catégories de contenu
+  app.get('/api/content-categories', requireAuth, async (req, res) => {
+    try {
+      const categories = await storage.getContentCategories();
+      res.json(categories);
+    } catch (error: any) {
+      console.error('Error fetching content categories:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des catégories' });
+    }
+  });
+
+  // POST /api/content-categories - Créer une catégorie de contenu (admin)
+  app.post('/api/content-categories', requireAdmin, async (req, res) => {
+    try {
+      const { name, description, color, icon, order } = req.body;
+
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: 'Nom de catégorie requis' });
+      }
+
+      const categoryData = {
+        name: name.trim(),
+        description: description?.trim() || null,
+        color: color || 'blue',
+        icon: icon || null,
+        order: order ? parseInt(order) : 0
+      };
+
+      const category = await storage.createContentCategory(categoryData);
+      res.json(category);
+    } catch (error: any) {
+      console.error('Error creating content category:', error);
+      res.status(500).json({ message: 'Erreur lors de la création de la catégorie' });
+    }
+  });
+
+  // PUT /api/content-categories/:id - Mettre à jour une catégorie (admin)
+  app.put('/api/content-categories/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const category = await storage.updateContentCategory(id, req.body);
+      
+      if (!category) {
+        return res.status(404).json({ message: 'Catégorie non trouvée' });
+      }
+      
+      res.json(category);
+    } catch (error: any) {
+      console.error('Error updating content category:', error);
+      res.status(500).json({ message: 'Erreur lors de la mise à jour de la catégorie' });
+    }
+  });
+
+  // DELETE /api/content-categories/:id - Supprimer une catégorie (admin)
+  app.delete('/api/content-categories/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteContentCategory(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Catégorie non trouvée' });
+      }
+
+      res.json({ message: 'Catégorie supprimée avec succès' });
+    } catch (error: any) {
+      console.error('Error deleting content category:', error);
+      res.status(500).json({ message: 'Erreur lors de la suppression de la catégorie' });
+    }
+  });
+
+  // === ROUTES DES TAGS DE CONTENU ===
+
+  // GET /api/content-tags - Liste des tags de contenu
+  app.get('/api/content-tags', requireAuth, async (req, res) => {
+    try {
+      const tags = await storage.getContentTags();
+      res.json(tags);
+    } catch (error: any) {
+      console.error('Error fetching content tags:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des tags' });
+    }
+  });
+
+  // POST /api/content-tags - Créer un tag de contenu (admin)
+  app.post('/api/content-tags', requireAdmin, async (req, res) => {
+    try {
+      const { name, description, color } = req.body;
+
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: 'Nom de tag requis' });
+      }
+
+      const tagData = {
+        name: name.trim(),
+        description: description?.trim() || null,
+        color: color || 'gray'
+      };
+
+      const tag = await storage.createContentTag(tagData);
+      res.json(tag);
+    } catch (error: any) {
+      console.error('Error creating content tag:', error);
+      res.status(500).json({ message: 'Erreur lors de la création du tag' });
+    }
+  });
+
+  // === ROUTES DES INTERACTIONS UTILISATEUR ===
+
+  // POST /api/educational-contents/:id/like - Liker un contenu
+  app.post('/api/educational-contents/:id/like', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await storage.recordContentInteraction({
+        userId: req.session.user!.id,
+        contentId: id,
+        interactionType: 'like'
+      });
+
+      res.json({ message: 'Contenu liké avec succès' });
+    } catch (error: any) {
+      console.error('Error liking content:', error);
+      res.status(500).json({ message: 'Erreur lors du like' });
+    }
+  });
+
+  // POST /api/educational-contents/:id/bookmark - Marquer un contenu comme favori
+  app.post('/api/educational-contents/:id/bookmark', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await storage.recordContentInteraction({
+        userId: req.session.user!.id,
+        contentId: id,
+        interactionType: 'bookmark'
+      });
+
+      res.json({ message: 'Contenu ajouté aux favoris' });
+    } catch (error: any) {
+      console.error('Error bookmarking content:', error);
+      res.status(500).json({ message: 'Erreur lors de l\'ajout aux favoris' });
+    }
+  });
+
+  // POST /api/educational-contents/:id/complete - Marquer un contenu comme terminé
+  app.post('/api/educational-contents/:id/complete', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { duration, progress } = req.body;
+      
+      await storage.recordContentInteraction({
+        userId: req.session.user!.id,
+        contentId: id,
+        interactionType: 'complete',
+        duration: duration ? parseInt(duration) : undefined,
+        progress: progress ? parseInt(progress) : 100
+      });
+
+      res.json({ message: 'Contenu marqué comme terminé' });
+    } catch (error: any) {
+      console.error('Error completing content:', error);
+      res.status(500).json({ message: 'Erreur lors de la completion' });
+    }
+  });
+
+  // GET /api/user-content-interactions - Récupérer les interactions de l'utilisateur
+  app.get('/api/user-content-interactions', requireAuth, async (req, res) => {
+    try {
+      const { type } = req.query;
+      const interactions = await storage.getUserContentInteractions(
+        req.session.user!.id,
+        type as string
+      );
+      res.json(interactions);
+    } catch (error: any) {
+      console.error('Error fetching user interactions:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des interactions' });
+    }
+  });
+
   console.log('✅ All routes registered successfully');
 }
