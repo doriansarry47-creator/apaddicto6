@@ -20,9 +20,22 @@ import {
   Image,
   Video,
   FileText,
-  Target
+  Target,
+  Copy,
+  Edit3,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface ExerciseVariation {
+  id?: string;
+  title: string;
+  description: string;
+  instructions: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  mediaUrl?: string;
+}
 
 interface Exercise {
   id?: string;
@@ -41,6 +54,7 @@ interface Exercise {
   variable2?: string;
   variable3?: string;
   isActive: boolean;
+  variations?: ExerciseVariation[];
 }
 
 interface ExerciseFormProps {
@@ -67,13 +81,22 @@ export function ExerciseForm({ exercise, onSave, onCancel, isEditing = false }: 
     variable1: '',
     variable2: '',
     variable3: '',
-    isActive: true
+    isActive: true,
+    variations: []
   });
 
   const [activeTab, setActiveTab] = useState("basic");
   const [newTag, setNewTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [editingVariation, setEditingVariation] = useState<number | null>(null);
+  const [newVariation, setNewVariation] = useState<Omit<ExerciseVariation, 'id'>>({
+    title: '',
+    description: '',
+    instructions: '',
+    difficulty: 'beginner',
+    mediaUrl: ''
+  });
 
   const categories = [
     { value: 'cardio', label: 'Cardio & Endurance' },
@@ -102,7 +125,8 @@ export function ExerciseForm({ exercise, onSave, onCancel, isEditing = false }: 
         variable1: exercise.variable1 || '',
         variable2: exercise.variable2 || '',
         variable3: exercise.variable3 || '',
-        isActive: exercise.isActive !== undefined ? exercise.isActive : true
+        isActive: exercise.isActive !== undefined ? exercise.isActive : true,
+        variations: exercise.variations || []
       });
     }
   }, [exercise]);
@@ -124,6 +148,53 @@ export function ExerciseForm({ exercise, onSave, onCancel, isEditing = false }: 
 
   const removeTag = (tagToRemove: string) => {
     updateFormData('tags', formData.tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const addVariation = () => {
+    if (!newVariation.title.trim() || !newVariation.description.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le titre et la description de la variation sont requis",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const variation: ExerciseVariation = {
+      ...newVariation,
+      id: `temp_${Date.now()}`
+    };
+
+    updateFormData('variations', [...formData.variations!, variation]);
+    setNewVariation({
+      title: '',
+      description: '',
+      instructions: '',
+      difficulty: 'beginner',
+      mediaUrl: ''
+    });
+  };
+
+  const removeVariation = (index: number) => {
+    const variations = [...formData.variations!];
+    variations.splice(index, 1);
+    updateFormData('variations', variations);
+  };
+
+  const updateVariation = (index: number, variation: ExerciseVariation) => {
+    const variations = [...formData.variations!];
+    variations[index] = variation;
+    updateFormData('variations', variations);
+    setEditingVariation(null);
+  };
+
+  const getDifficultyLabel = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner': return 'Débutant';
+      case 'intermediate': return 'Intermédiaire';
+      case 'advanced': return 'Avancé';
+      default: return difficulty;
+    }
   };
 
   const handleSubmit = async () => {
@@ -309,14 +380,62 @@ export function ExerciseForm({ exercise, onSave, onCancel, isEditing = false }: 
                   </CardContent>
                 </Card>
               )}
+
+              {/* Aperçu des variations dans le mode preview */}
+              {formData.variations && formData.variations.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-xl font-bold mb-4 text-center">🔹 Variations proposées</h3>
+                  <div className="grid gap-4">
+                    {formData.variations.map((variation, index) => (
+                      <Card key={index} className="border-l-4 border-l-blue-500">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-lg">{variation.title}</h4>
+                            <Badge className={getDifficultyColor(variation.difficulty)}>
+                              {getDifficultyLabel(variation.difficulty)}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div>
+                              <span className="font-medium text-sm">Description :</span>
+                              <p className="text-sm mt-1">{variation.description}</p>
+                            </div>
+                            {variation.instructions && (
+                              <div>
+                                <span className="font-medium text-sm">Instructions :</span>
+                                <p className="text-sm mt-1 whitespace-pre-wrap">{variation.instructions}</p>
+                              </div>
+                            )}
+                            {variation.mediaUrl && (
+                              <div>
+                                <span className="font-medium text-sm">Média :</span>
+                                <div className="mt-2">
+                                  <img 
+                                    src={variation.mediaUrl} 
+                                    alt={variation.title}
+                                    className="w-32 h-20 object-cover rounded border"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
-            // Mode édition
+            // Mode édition - Formulaire organisé en grille
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="basic">Informations de Base</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="basic">Informations</TabsTrigger>
                 <TabsTrigger value="content">Contenu</TabsTrigger>
                 <TabsTrigger value="media">Médias</TabsTrigger>
+                <TabsTrigger value="variations">Variations</TabsTrigger>
                 <TabsTrigger value="advanced">Avancé</TabsTrigger>
               </TabsList>
 
@@ -501,6 +620,259 @@ export function ExerciseForm({ exercise, onSave, onCancel, isEditing = false }: 
                       </ul>
                     </div>
                   </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="variations" className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-4 flex items-center">
+                    <Copy className="h-5 w-5 mr-2" />
+                    Variations de l'Exercice
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Ajoutez des variations pour adapter l'exercice à différents niveaux de difficulté et besoins spécifiques.
+                  </p>
+
+                  {/* Formulaire d'ajout de variation */}
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Ajouter une Variation
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="variation-title">Titre de la variation *</Label>
+                          <Input
+                            id="variation-title"
+                            value={newVariation.title}
+                            onChange={(e) => setNewVariation(prev => ({ ...prev, title: e.target.value }))}
+                            placeholder="Ex: Pompes sur les genoux"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="variation-difficulty">Difficulté</Label>
+                          <Select 
+                            value={newVariation.difficulty} 
+                            onValueChange={(value: any) => setNewVariation(prev => ({ ...prev, difficulty: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="beginner">Débutant</SelectItem>
+                              <SelectItem value="intermediate">Intermédiaire</SelectItem>
+                              <SelectItem value="advanced">Avancé</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="variation-description">Description *</Label>
+                        <Textarea
+                          id="variation-description"
+                          value={newVariation.description}
+                          onChange={(e) => setNewVariation(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Description de cette variation..."
+                          rows={3}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="variation-instructions">Instructions</Label>
+                        <Textarea
+                          id="variation-instructions"
+                          value={newVariation.instructions}
+                          onChange={(e) => setNewVariation(prev => ({ ...prev, instructions: e.target.value }))}
+                          placeholder="Instructions spécifiques pour cette variation..."
+                          rows={4}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="variation-media">Média (image/vidéo - optionnel)</Label>
+                        <Input
+                          id="variation-media"
+                          value={newVariation.mediaUrl || ''}
+                          onChange={(e) => setNewVariation(prev => ({ ...prev, mediaUrl: e.target.value }))}
+                          placeholder="URL de l'image ou vidéo"
+                        />
+                        {newVariation.mediaUrl && (
+                          <div className="mt-2">
+                            <img 
+                              src={newVariation.mediaUrl} 
+                              alt="Aperçu"
+                              className="w-32 h-20 object-cover rounded border"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <Button type="button" onClick={addVariation} className="w-full">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Ajouter cette variation
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Liste des variations */}
+                  {formData.variations && formData.variations.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-sm text-muted-foreground">
+                        Variations créées ({formData.variations.length})
+                      </h4>
+                      
+                      <div className="grid gap-4">
+                        {formData.variations.map((variation, index) => (
+                          <Card key={variation.id || index} className="border-l-4 border-l-blue-500">
+                            <CardHeader className="pb-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <Badge className={getDifficultyColor(variation.difficulty)}>
+                                    {getDifficultyLabel(variation.difficulty)}
+                                  </Badge>
+                                  <h5 className="font-medium">{variation.title}</h5>
+                                </div>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setEditingVariation(editingVariation === index ? null : index)}
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeVariation(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              {editingVariation === index ? (
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <Label>Titre</Label>
+                                      <Input
+                                        value={variation.title}
+                                        onChange={(e) => {
+                                          const updatedVariation = { ...variation, title: e.target.value };
+                                          const variations = [...formData.variations!];
+                                          variations[index] = updatedVariation;
+                                          updateFormData('variations', variations);
+                                        }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label>Difficulté</Label>
+                                      <Select 
+                                        value={variation.difficulty}
+                                        onValueChange={(value: any) => {
+                                          const updatedVariation = { ...variation, difficulty: value };
+                                          const variations = [...formData.variations!];
+                                          variations[index] = updatedVariation;
+                                          updateFormData('variations', variations);
+                                        }}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="beginner">Débutant</SelectItem>
+                                          <SelectItem value="intermediate">Intermédiaire</SelectItem>
+                                          <SelectItem value="advanced">Avancé</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <Label>Description</Label>
+                                    <Textarea
+                                      value={variation.description}
+                                      onChange={(e) => {
+                                        const updatedVariation = { ...variation, description: e.target.value };
+                                        const variations = [...formData.variations!];
+                                        variations[index] = updatedVariation;
+                                        updateFormData('variations', variations);
+                                      }}
+                                      rows={3}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Instructions</Label>
+                                    <Textarea
+                                      value={variation.instructions}
+                                      onChange={(e) => {
+                                        const updatedVariation = { ...variation, instructions: e.target.value };
+                                        const variations = [...formData.variations!];
+                                        variations[index] = updatedVariation;
+                                        updateFormData('variations', variations);
+                                      }}
+                                      rows={4}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Média</Label>
+                                    <Input
+                                      value={variation.mediaUrl || ''}
+                                      onChange={(e) => {
+                                        const updatedVariation = { ...variation, mediaUrl: e.target.value };
+                                        const variations = [...formData.variations!];
+                                        variations[index] = updatedVariation;
+                                        updateFormData('variations', variations);
+                                      }}
+                                      placeholder="URL de l'image ou vidéo"
+                                    />
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => setEditingVariation(null)}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                                    Terminer l'édition
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  <p className="text-sm text-gray-600">{variation.description}</p>
+                                  {variation.instructions && (
+                                    <div>
+                                      <p className="text-xs font-medium text-gray-500 mb-1">Instructions:</p>
+                                      <p className="text-xs text-gray-600 whitespace-pre-wrap">{variation.instructions}</p>
+                                    </div>
+                                  )}
+                                  {variation.mediaUrl && (
+                                    <div className="mt-2">
+                                      <img 
+                                        src={variation.mediaUrl} 
+                                        alt={variation.title}
+                                        className="w-24 h-16 object-cover rounded border"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!formData.variations || formData.variations.length === 0) && (
+                    <div className="text-center py-8 text-gray-500">
+                      <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Aucune variation créée pour le moment</p>
+                      <p className="text-sm">Utilisez le formulaire ci-dessus pour ajouter des variations</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 

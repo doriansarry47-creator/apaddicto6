@@ -19,10 +19,10 @@ export default function AdminDashboard() {
               Créer, modifier et gérer les exercices et articles psycho-éducatifs.
             </p>
             <div className="flex flex-col space-y-2">
-              <Link to="/admin/manage-exercises">
+              <Link to="/admin/manage-exercises-sessions">
                 <Button variant="outline" className="w-full">
                   <span className="material-icons mr-2">fitness_center</span>
-                  Gérer les Exercices
+                  Exercices & Séances
                 </Button>
               </Link>
               <Link to="/admin/manage-content">

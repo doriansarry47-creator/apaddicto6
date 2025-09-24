@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthQuery } from "@/hooks/use-auth";
+import { useDashboardAutoRefresh } from "@/hooks/useAutoRefresh";
 import { apiRequest } from "@/lib/queryClient";
 import { getEmergencyExercises } from "@/lib/exercises-data";
 import type { User, UserStats, ExerciseSession, AntiCravingStrategy } from "@shared/schema";
@@ -26,8 +27,11 @@ export default function Dashboard() {
   // Récupérer l'utilisateur authentifié
   const { data: authenticatedUser, isLoading } = useAuthQuery();
 
+  // Actualisation automatique des données du dashboard
+  useDashboardAutoRefresh(!!authenticatedUser);
+
   const { data: dashboardStats } = useQuery({
-    queryKey: ["/api/dashboard/stats"],
+    queryKey: ["dashboard", "stats"],
     queryFn: async () => {
       const response = await fetch("/api/dashboard/stats", {
         credentials: 'include'
@@ -55,7 +59,7 @@ export default function Dashboard() {
   });
 
   const { data: exerciseSessions } = useQuery<any[]>({
-    queryKey: ["/api/exercise-sessions/detailed"],
+    queryKey: ["exercise-sessions"],
     queryFn: async () => {
       const response = await fetch("/api/exercise-sessions/detailed?limit=5");
       if (!response.ok) throw new Error("Failed to fetch exercise sessions");
@@ -66,7 +70,7 @@ export default function Dashboard() {
   });
 
   const { data: antiCravingStrategies } = useQuery<AntiCravingStrategy[]>({
-    queryKey: ["/api/strategies", authenticatedUser?.id],
+    queryKey: ["strategies"],
     queryFn: async () => {
       const response = await fetch("/api/strategies");
       if (!response.ok) throw new Error("Failed to fetch strategies");

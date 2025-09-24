@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AdminRoute } from "@/components/admin-route";
+import { ThemeProvider } from "@/hooks/use-theme";
 
 // Page Imports
 import Dashboard from "@/pages/dashboard";
@@ -27,7 +28,7 @@ import EmergencyRoutinePage from "@/pages/emergency-routine-page";
 
 // Admin Page Imports
 import AdminDashboard from "@/pages/admin/dashboard";
-import ManageExercises from "@/pages/admin/manage-exercises";
+import ManageExercisesSessions from "@/pages/admin/manage-exercises-sessions";
 import ManageContent from "@/pages/admin/manage-content";
 import ManageUsers from "@/pages/admin/manage-users";
 import ManageMedia from "@/pages/admin/manage-media";
@@ -113,9 +114,9 @@ function AppContent() {
           <AdminDashboard />
         </AdminRoute>
       </Route>
-      <Route path="/admin/manage-exercises">
+      <Route path="/admin/manage-exercises-sessions">
         <AdminRoute>
-          <ManageExercises />
+          <ManageExercisesSessions />
         </AdminRoute>
       </Route>
       <Route path="/admin/manage-content">
@@ -153,12 +154,14 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <div className="min-h-screen bg-background text-foreground font-roboto">
-          <Toaster />
-          <AppContent />
-        </div>
-      </TooltipProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <div className="min-h-screen bg-background text-foreground font-roboto">
+            <Toaster />
+            <AppContent />
+          </div>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

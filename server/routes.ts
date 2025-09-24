@@ -142,7 +142,7 @@ export function registerRoutes(app: Application) {
     try {
       const { firstName, lastName, email } = req.body;
       
-      const updatedUser = await AuthService.updateUser(req.session.user.id, {
+      const updatedUser = await AuthService.updateUser(req.session.user!.id, {
         firstName,
         lastName, 
         email
@@ -167,7 +167,7 @@ export function registerRoutes(app: Application) {
     try {
       const { oldPassword, newPassword } = req.body;
       
-      await AuthService.updatePassword(req.session.user.id, oldPassword, newPassword);
+      await AuthService.updatePassword(req.session.user!.id, oldPassword, newPassword);
       
       res.json({ message: 'Mot de passe mis à jour avec succès' });
     } catch (error: any) {
@@ -224,25 +224,83 @@ export function registerRoutes(app: Application) {
   // POST /api/exercises - Créer un exercice (admin)
   app.post('/api/exercises', requireAdmin, async (req, res) => {
     try {
-      const { title, description, duration, difficulty, category, instructions } = req.body;
+      const { 
+        title, 
+        description, 
+        duration, 
+        difficulty, 
+        category, 
+        instructions, 
+        benefits, 
+        imageUrl, 
+        videoUrl, 
+        mediaUrl, 
+        tags, 
+        variable1, 
+        variable2, 
+        variable3, 
+        isActive 
+      } = req.body;
       
-      if (!title || !description) {
-        return res.status(400).json({ message: 'Titre et description requis' });
+      console.log('📝 Creating exercise with data:', req.body);
+      
+      // Validation des champs requis
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        console.error('❌ Invalid title:', title);
+        return res.status(400).json({ message: 'Titre requis et non vide' });
       }
 
-      const exercise = await storage.createExercise({
-        title,
-        description,
-        duration: duration || 15,
-        difficulty: difficulty || 'beginner',
-        category: category || 'general',
-        instructions: instructions || null
-      });
+      if (!description || typeof description !== 'string' || description.trim().length === 0) {
+        console.error('❌ Invalid description:', description);
+        return res.status(400).json({ message: 'Description requise et non vide' });
+      }
 
+      // Validation des champs optionnels
+      const validCategories = ['craving_reduction', 'relaxation', 'energy_boost', 'emotion_management', 'general'];
+      const validDifficulties = ['beginner', 'intermediate', 'advanced'];
+
+      const finalCategory = validCategories.includes(category) ? category : 'craving_reduction';
+      const finalDifficulty = validDifficulties.includes(difficulty) ? difficulty : 'beginner';
+
+      // Validation de la durée
+      let finalDuration = 15;
+      if (duration !== undefined && duration !== null) {
+        const durationNum = Number(duration);
+        if (!isNaN(durationNum) && durationNum > 0 && durationNum <= 180) {
+          finalDuration = durationNum;
+        }
+      }
+
+      const exerciseData = {
+        title: title.trim(),
+        description: description.trim(),
+        duration: finalDuration,
+        difficulty: finalDifficulty,
+        category: finalCategory,
+        instructions: instructions && typeof instructions === 'string' ? instructions.trim() : null,
+        benefits: benefits && typeof benefits === 'string' ? benefits.trim() : null,
+        imageUrl: imageUrl && typeof imageUrl === 'string' ? imageUrl.trim() : null,
+        videoUrl: videoUrl && typeof videoUrl === 'string' ? videoUrl.trim() : null,
+        mediaUrl: mediaUrl && typeof mediaUrl === 'string' ? mediaUrl.trim() : null,
+        tags: Array.isArray(tags) ? tags : [],
+        variable1: variable1 && typeof variable1 === 'string' ? variable1.trim() : null,
+        variable2: variable2 && typeof variable2 === 'string' ? variable2.trim() : null,
+        variable3: variable3 && typeof variable3 === 'string' ? variable3.trim() : null,
+        isActive: typeof isActive === 'boolean' ? isActive : true
+      };
+
+      console.log('🔍 Processed exercise data:', exerciseData);
+
+      const exercise = await storage.createExercise(exerciseData);
+
+      console.log('✅ Exercise created successfully:', exercise.id);
       res.json(exercise);
     } catch (error: any) {
-      console.error('Error creating exercise:', error);
-      res.status(500).json({ message: 'Erreur lors de la création de l\'exercice' });
+      console.error('❌ Error creating exercise:', error);
+      res.status(500).json({ 
+        message: error.message || 'Erreur lors de la création de l\'exercice',
+        details: error.stack
+      });
     }
   });
 
@@ -253,7 +311,7 @@ export function registerRoutes(app: Application) {
     try {
       const { intensity, triggers, emotions, notes } = req.body;
       
-      console.log('📝 Craving entry request for user:', req.session.user.id);
+      console.log('📝 Craving entry request for user:', req.session.user!.id);
       console.log('📝 Craving data:', { intensity, triggers, emotions, notes });
       
       // Validation
@@ -264,7 +322,7 @@ export function registerRoutes(app: Application) {
       }
       
       const cravingData = {
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         intensity: intensityNum,
         triggers: Array.isArray(triggers) ? triggers : [],
         emotions: Array.isArray(emotions) ? emotions : [],
@@ -290,7 +348,7 @@ export function registerRoutes(app: Application) {
   app.get('/api/cravings', requireAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      const cravings = await storage.getCravingEntriesByUser(req.session.user.id, limit);
+      const cravings = await storage.getCravingEntriesByUser(req.session.user!.id, limit);
       res.json(cravings);
     } catch (error: any) {
       console.error('Error fetching cravings:', error);
@@ -329,7 +387,7 @@ export function registerRoutes(app: Application) {
       }
       
       const session = await storage.createExerciseSession({
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         exerciseId: validExerciseId,
         duration: duration || 0,
         completed: completed || false,
@@ -349,7 +407,7 @@ export function registerRoutes(app: Application) {
   app.get('/api/exercise-sessions', requireAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      const sessions = await storage.getExerciseSessionsByUser(req.session.user.id, limit);
+      const sessions = await storage.getExerciseSessionsByUser(req.session.user!.id, limit);
       res.json(sessions);
     } catch (error: any) {
       console.error('Error fetching exercise sessions:', error);
@@ -373,7 +431,7 @@ export function registerRoutes(app: Application) {
   // POST /api/psycho-education - Créer du contenu (admin)
   app.post('/api/psycho-education', requireAdmin, async (req, res) => {
     try {
-      const { title, content, category, tags } = req.body;
+      const { title, content, category } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ message: 'Titre et contenu requis' });
@@ -382,8 +440,7 @@ export function registerRoutes(app: Application) {
       const newContent = await storage.createPsychoEducationContent({
         title,
         content,
-        category: category || 'general',
-        tags: tags || null
+        category: category || 'general'
       });
 
       res.json(newContent);
@@ -400,7 +457,7 @@ export function registerRoutes(app: Application) {
     try {
       const { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity } = req.body;
       
-      console.log('📝 Beck analysis request for user:', req.session.user.id);
+      console.log('📝 Beck analysis request for user:', req.session.user!.id);
       console.log('📝 Beck analysis data:', { situation, automaticThoughts, emotions, emotionIntensity, rationalResponse, newFeeling, newIntensity });
       
       // Validation des champs requis
@@ -439,7 +496,7 @@ export function registerRoutes(app: Application) {
       }
       
       const analysisData = {
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         situation: situation.trim(),
         automaticThoughts: automaticThoughts.trim(),
         emotions: emotions.trim(),
@@ -468,7 +525,7 @@ export function registerRoutes(app: Application) {
   app.get('/api/beck-analyses', requireAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      const analyses = await storage.getBeckAnalysesByUser(req.session.user.id, limit);
+      const analyses = await storage.getBeckAnalysesByUser(req.session.user!.id, limit);
       res.json(analyses);
     } catch (error: any) {
       console.error('Error fetching Beck analyses:', error);
@@ -483,7 +540,7 @@ export function registerRoutes(app: Application) {
     try {
       const { strategies } = req.body;
       
-      console.log('📝 Strategies save request for user:', req.session.user.id);
+      console.log('📝 Strategies save request for user:', req.session.user!.id);
       console.log('📝 Received strategies data:', strategies);
       
       if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
@@ -535,7 +592,7 @@ export function registerRoutes(app: Application) {
         
         try {
           const strategy = await storage.createStrategy({
-            userId: req.session.user.id,
+            userId: req.session.user!.id,
             context: context.trim(),
             exercise: exercise.trim(),
             effort: effort.trim(),
@@ -566,7 +623,7 @@ export function registerRoutes(app: Application) {
   // GET /api/strategies - Liste des stratégies
   app.get('/api/strategies', requireAuth, async (req, res) => {
     try {
-      const strategies = await storage.getStrategiesByUser(req.session.user.id);
+      const strategies = await storage.getStrategiesByUser(req.session.user!.id);
       res.json(strategies);
     } catch (error: any) {
       console.error('Error fetching strategies:', error);
@@ -578,13 +635,15 @@ export function registerRoutes(app: Application) {
   app.put('/api/strategies/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, description, category, effectiveness } = req.body;
+      const { context, exercise, effort, duration, cravingBefore, cravingAfter } = req.body;
       
-      const strategy = await storage.updateStrategy(id, req.session.user.id, {
-        title,
-        description,
-        category,
-        effectiveness
+      const strategy = await storage.updateStrategy(id, req.session.user!.id, {
+        context,
+        exercise,
+        effort,
+        duration,
+        cravingBefore,
+        cravingAfter
       });
 
       if (!strategy) {
@@ -603,7 +662,7 @@ export function registerRoutes(app: Application) {
     try {
       const { id } = req.params;
       
-      const success = await storage.deleteStrategy(id, req.session.user.id);
+      const success = await storage.deleteStrategy(id, req.session.user!.id);
       
       if (!success) {
         return res.status(404).json({ message: 'Stratégie non trouvée' });
@@ -621,7 +680,7 @@ export function registerRoutes(app: Application) {
   // GET /api/dashboard/stats - Statistiques pour le dashboard
   app.get('/api/dashboard/stats', requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getUserStats(req.session.user.id);
+      const stats = await storage.getUserStats(req.session.user!.id);
       res.json(stats);
     } catch (error: any) {
       console.error('Error fetching dashboard stats:', error);
@@ -684,7 +743,7 @@ export function registerRoutes(app: Application) {
   // GET /api/emergency-routines - Récupérer les routines d'urgence d'un utilisateur
   app.get('/api/emergency-routines', requireAuth, async (req, res) => {
     try {
-      const routines = await storage.getEmergencyRoutines(req.session.user.id);
+      const routines = await storage.getEmergencyRoutines(req.session.user!.id);
       res.json(routines);
     } catch (error: any) {
       console.error('Error fetching emergency routines:', error);
@@ -697,7 +756,7 @@ export function registerRoutes(app: Application) {
     try {
       const routineData = {
         ...req.body,
-        userId: req.session.user.id
+        userId: req.session.user!.id
       };
       const routine = await storage.createEmergencyRoutine(routineData);
       res.json(routine);
@@ -711,7 +770,7 @@ export function registerRoutes(app: Application) {
   app.put('/api/emergency-routines/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user.id;
+      const userId = req.session.user!.id;
       
       // Vérifier que la routine appartient à l'utilisateur
       const existingRoutine = await storage.getEmergencyRoutineById(id);
@@ -731,7 +790,7 @@ export function registerRoutes(app: Application) {
   app.delete('/api/emergency-routines/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user.id;
+      const userId = req.session.user!.id;
       
       // Vérifier que la routine appartient à l'utilisateur
       const existingRoutine = await storage.getEmergencyRoutineById(id);
@@ -763,8 +822,8 @@ export function registerRoutes(app: Application) {
         status: status as string,
         tags: tags ? (tags as string).split(',') : undefined,
         category: category as string,
-        userId: req.session.user.id,
-        userRole: req.session.user.role
+        userId: req.session.user!.id,
+        userRole: req.session.user!.role
       });
       res.json(sessions);
     } catch (error: any) {
@@ -778,7 +837,7 @@ export function registerRoutes(app: Application) {
     try {
       const sessionData = {
         ...req.body,
-        creatorId: req.session.user.id,
+        creatorId: req.session.user!.id,
         status: req.body.status || 'draft'
       };
       
@@ -835,7 +894,7 @@ export function registerRoutes(app: Application) {
   // GET /api/patient-sessions - Récupérer les séances assignées à un patient
   app.get('/api/patient-sessions', requireAuth, async (req, res) => {
     try {
-      const patientSessions = await storage.getPatientSessions(req.session.user.id);
+      const patientSessions = await storage.getPatientSessions(req.session.user!.id);
       res.json(patientSessions);
     } catch (error: any) {
       console.error('Error fetching patient sessions:', error);
@@ -853,7 +912,7 @@ export function registerRoutes(app: Application) {
         feedback,
         effort: effort ? parseInt(effort) : undefined,
         duration: duration ? parseInt(duration) : undefined,
-        userId: req.session.user.id
+        userId: req.session.user!.id
       });
       
       if (!patientSession) {
@@ -912,6 +971,34 @@ export function registerRoutes(app: Application) {
     } catch (error: any) {
       console.error('Error fetching patients:', error);
       res.status(500).json({ message: 'Erreur lors de la récupération des patients' });
+    }
+  });
+
+  // GET /api/admin/patient-sessions - Liste de toutes les séances assignées aux patients
+  app.get('/api/admin/patient-sessions', requireAdmin, async (req, res) => {
+    try {
+      const patientSessions = await storage.getAllPatientSessions();
+      res.json(patientSessions);
+    } catch (error: any) {
+      console.error('Error fetching admin patient sessions:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des séances patients' });
+    }
+  });
+
+  // DELETE /api/exercises/:id - Supprimer un exercice (admin)
+  app.delete('/api/exercises/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteExercise(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Exercice non trouvé' });
+      }
+
+      res.json({ message: 'Exercice supprimé avec succès' });
+    } catch (error: any) {
+      console.error('Error deleting exercise:', error);
+      res.status(500).json({ message: 'Erreur lors de la suppression de l\'exercice' });
     }
   });
 

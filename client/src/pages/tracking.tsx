@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useAuthQuery } from "@/hooks/use-auth";
+import { useTrackingAutoRefresh } from "@/hooks/useAutoRefresh";
 import type { CravingEntry, ExerciseSession, BeckAnalysis, UserStats, AntiCravingStrategy } from "@shared/schema";
 
 interface CravingStats {
@@ -22,6 +23,9 @@ export default function Tracking() {
   
   // Récupérer l'utilisateur authentifié
   const { data: authenticatedUser, isLoading: userLoading, error: userError } = useAuthQuery();
+
+  // Actualisation automatique des données de suivi
+  useTrackingAutoRefresh(!!authenticatedUser && !userLoading);
 
   // Fonction pour rafraîchir toutes les données avec gestion d'erreur améliorée
   const refreshAllData = useCallback(async () => {
