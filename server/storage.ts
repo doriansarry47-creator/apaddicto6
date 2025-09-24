@@ -137,8 +137,26 @@ class Storage {
   }
 
   async createExercise(exerciseData: InsertExercise): Promise<Exercise> {
-    const result = await this.db.insert(exercises).values(exerciseData).returning();
-    return result[0];
+    try {
+      console.log('💾 Creating exercise in storage with data:', exerciseData);
+      
+      // Validation supplémentaire côté storage
+      if (!exerciseData.title || !exerciseData.description) {
+        throw new Error('Titre et description requis pour créer un exercice');
+      }
+
+      const result = await this.db.insert(exercises).values(exerciseData).returning();
+      
+      if (!result || result.length === 0) {
+        throw new Error('Aucune donnée retournée après insertion de l\'exercice');
+      }
+      
+      console.log('✅ Exercise created in storage successfully:', result[0].id);
+      return result[0];
+    } catch (error: any) {
+      console.error('❌ Error in storage createExercise:', error);
+      throw new Error(`Erreur lors de la création de l'exercice: ${error.message}`);
+    }
   }
 
   async getExercise(id: string): Promise<Exercise | null> {
@@ -884,6 +902,53 @@ class Storage {
     } catch (error) {
       console.error('Error completing patient session:', error);
       throw error;
+    }
+  }
+
+  async getAllPatientSessions(): Promise<any[]> {
+    try {
+      const sessions = await this.db
+        .select({
+          id: patientSessions.id,
+          patientId: patientSessions.patientId,
+          sessionId: patientSessions.sessionId,
+          status: patientSessions.status,
+          feedback: patientSessions.feedback,
+          effort: patientSessions.effort,
+          duration: patientSessions.duration,
+          assignedAt: patientSessions.assignedAt,
+          completedAt: patientSessions.completedAt,
+          session: customSessions,
+          // Informations du patient
+          patient: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email
+          }
+        })
+        .from(patientSessions)
+        .leftJoin(customSessions, eq(patientSessions.sessionId, customSessions.id))
+        .leftJoin(users, eq(patientSessions.patientId, users.id))
+        .orderBy(desc(patientSessions.assignedAt));
+      
+      return sessions;
+    } catch (error) {
+      console.error('Error fetching all patient sessions:', error);
+      throw error;
+    }
+  }
+
+  async deleteExercise(exerciseId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .delete(exercises)
+        .where(eq(exercises.id, exerciseId))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting exercise:', error);
+      return false;
     }
   }
 

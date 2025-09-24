@@ -26,35 +26,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Edit, Activity, Filter, Clock, Target, Users, Play, Settings, Send, Eye, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAutoRefresh } from "@/hooks/useAutoRefresh";
 import { apiRequest } from "@/lib/queryClient";
 import { EnhancedSessionBuilder } from "@/components/enhanced-session-builder";
 
 type ExerciseFormData = InsertExercise;
 type SessionFormData = InsertCustomSession;
 
-// Catégories prédéfinies pour les exercices
-const EXERCISE_CATEGORIES = [
-  { value: "craving_reduction", label: "Réduction Craving" },
-  { value: "relaxation", label: "Relaxation" },
-  { value: "energy_boost", label: "Regain d'Énergie" },
-  { value: "emotion_management", label: "Gestion Émotionnelle" },
-];
-
-// Catégories pour les séances
-const SESSION_CATEGORIES = [
-  { value: "morning", label: "Séance Matinale" },
-  { value: "evening", label: "Séance Soirée" },
-  { value: "crisis", label: "Gestion de Crise" },
-  { value: "maintenance", label: "Maintenance" },
-  { value: "recovery", label: "Récupération" },
-];
-
-// Niveaux de difficulté
-const DIFFICULTY_LEVELS = [
-  { value: "beginner", label: "Débutant" },
-  { value: "intermediate", label: "Intermédiaire" },
-  { value: "advanced", label: "Avancé" },
-];
+import { 
+  EXERCISE_CATEGORIES, 
+  SESSION_CATEGORIES, 
+  DIFFICULTY_LEVELS, 
+  SESSION_STATUSES,
+  getCategoryByValue,
+  getDifficultyByValue,
+  getStatusByValue
+} from "../../../../shared/constants";
 
 export default function ManageExercisesSessions() {
   const { toast } = useToast();
@@ -64,6 +51,9 @@ export default function ManageExercisesSessions() {
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedPatients, setSelectedPatients] = useState<string[]>([]);
+
+  // Actualisation automatique des données admin
+  useAdminAutoRefresh(true);
 
   // Queries
   const { data: exercises, isLoading: isLoadingExercises } = useQuery<Exercise[]>({
@@ -254,36 +244,15 @@ export default function ManageExercisesSessions() {
   };
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'bg-green-100 text-green-800 border-green-200';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'advanced': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+    return getDifficultyByValue(difficulty).color;
   };
 
   const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'craving_reduction': return '🎯';
-      case 'relaxation': return '😌';
-      case 'energy_boost': return '⚡';
-      case 'emotion_management': return '💚';
-      case 'morning': return '🌅';
-      case 'evening': return '🌙';
-      case 'crisis': return '🚨';
-      case 'maintenance': return '🔧';
-      case 'recovery': return '🔄';
-      default: return '📋';
-    }
+    return getCategoryByValue(category).icon;
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'published': return 'bg-green-100 text-green-800';
-      case 'archived': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    return getStatusByValue(status, SESSION_STATUSES).color;
   };
 
   return (
@@ -329,7 +298,7 @@ export default function ManageExercisesSessions() {
                 <SelectItem value="all">Toutes les catégories</SelectItem>
                 {EXERCISE_CATEGORIES.map(cat => (
                   <SelectItem key={cat.value} value={cat.value}>
-                    {getCategoryIcon(cat.value)} {cat.label}
+                    {cat.icon} {cat.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -415,7 +384,7 @@ export default function ManageExercisesSessions() {
                         <SelectContent>
                           {EXERCISE_CATEGORIES.map(cat => (
                             <SelectItem key={cat.value} value={cat.value}>
-                              {getCategoryIcon(cat.value)} {cat.label}
+                              {cat.icon} {cat.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -499,11 +468,11 @@ export default function ManageExercisesSessions() {
                           </p>
                           <div className="flex items-center gap-2">
                             <Badge className={getDifficultyColor(exercise.difficulty || 'beginner')}>
-                              {DIFFICULTY_LEVELS.find(d => d.value === exercise.difficulty)?.label}
+                              {getDifficultyByValue(exercise.difficulty || 'beginner').label}
                             </Badge>
                             <Badge variant="outline">
-                              {getCategoryIcon(exercise.category)} 
-                              {EXERCISE_CATEGORIES.find(c => c.value === exercise.category)?.label}
+                              {getCategoryByValue(exercise.category).icon} 
+                              {getCategoryByValue(exercise.category).label}
                             </Badge>
                             <Badge variant="secondary">
                               <Clock className="h-3 w-3 mr-1" />
@@ -585,10 +554,10 @@ export default function ManageExercisesSessions() {
                         <p className="text-muted-foreground mb-3">{session.description}</p>
                         <div className="flex items-center gap-3">
                           <Badge variant="outline">
-                            {getCategoryIcon(session.category)} {session.category}
+                            {getCategoryByValue(session.category, SESSION_CATEGORIES).icon} {getCategoryByValue(session.category, SESSION_CATEGORIES).label}
                           </Badge>
                           <Badge className={getDifficultyColor(session.difficulty || 'beginner')}>
-                            {session.difficulty}
+                            {getDifficultyByValue(session.difficulty || 'beginner').label}
                           </Badge>
                           <Badge variant="secondary">
                             <Clock className="h-3 w-3 mr-1" />
@@ -725,7 +694,7 @@ export default function ManageExercisesSessions() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-medium">
-                            Patient: {/* {patientSession.patient?.firstName} {patientSession.patient?.lastName} */}
+                            Patient: {patientSession.patient ? `${patientSession.patient.firstName} ${patientSession.patient.lastName}` : 'Utilisateur inconnu'}
                           </h4>
                           <Badge className={
                             patientSession.status === 'done' ? 'bg-green-100 text-green-800' :
@@ -736,6 +705,11 @@ export default function ManageExercisesSessions() {
                              patientSession.status === 'assigned' ? 'En cours' : 'Ignorée'}
                           </Badge>
                         </div>
+                        {patientSession.session && (
+                          <p className="text-sm font-medium text-gray-700">
+                            Séance: {patientSession.session.title}
+                          </p>
+                        )}
                         <p className="text-sm text-muted-foreground mb-2">
                           Assignée le {new Date(patientSession.assignedAt).toLocaleDateString('fr-FR')}
                         </p>

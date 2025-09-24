@@ -703,8 +703,21 @@ var Storage = class {
     return result;
   }
   async createExercise(exerciseData) {
-    const result = await this.db.insert(exercises).values(exerciseData).returning();
-    return result[0];
+    try {
+      console.log("\u{1F4BE} Creating exercise in storage with data:", exerciseData);
+      if (!exerciseData.title || !exerciseData.description) {
+        throw new Error("Titre et description requis pour cr\xE9er un exercice");
+      }
+      const result = await this.db.insert(exercises).values(exerciseData).returning();
+      if (!result || result.length === 0) {
+        throw new Error("Aucune donn\xE9e retourn\xE9e apr\xE8s insertion de l'exercice");
+      }
+      console.log("\u2705 Exercise created in storage successfully:", result[0].id);
+      return result[0];
+    } catch (error) {
+      console.error("\u274C Error in storage createExercise:", error);
+      throw new Error(`Erreur lors de la cr\xE9ation de l'exercice: ${error.message}`);
+    }
   }
   async getExercise(id) {
     const result = await this.db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
@@ -1201,6 +1214,42 @@ var Storage = class {
       throw error;
     }
   }
+  async getAllPatientSessions() {
+    try {
+      const sessions = await this.db.select({
+        id: patientSessions.id,
+        patientId: patientSessions.patientId,
+        sessionId: patientSessions.sessionId,
+        status: patientSessions.status,
+        feedback: patientSessions.feedback,
+        effort: patientSessions.effort,
+        duration: patientSessions.duration,
+        assignedAt: patientSessions.assignedAt,
+        completedAt: patientSessions.completedAt,
+        session: customSessions,
+        // Informations du patient
+        patient: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email
+        }
+      }).from(patientSessions).leftJoin(customSessions, eq(patientSessions.sessionId, customSessions.id)).leftJoin(users, eq(patientSessions.patientId, users.id)).orderBy(desc(patientSessions.assignedAt));
+      return sessions;
+    } catch (error) {
+      console.error("Error fetching all patient sessions:", error);
+      throw error;
+    }
+  }
+  async deleteExercise(exerciseId) {
+    try {
+      const result = await this.db.delete(exercises).where(eq(exercises.id, exerciseId)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting exercise:", error);
+      return false;
+    }
+  }
   async updateExercise(exerciseId, updates) {
     try {
       const result = await this.db.update(exercises).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(exercises.id, exerciseId)).returning();
@@ -1542,22 +1591,70 @@ function registerRoutes(app2) {
   });
   app2.post("/api/exercises", requireAdmin, async (req, res) => {
     try {
-      const { title, description, duration, difficulty, category, instructions } = req.body;
-      if (!title || !description) {
-        return res.status(400).json({ message: "Titre et description requis" });
-      }
-      const exercise = await storage.createExercise({
+      const {
         title,
         description,
-        duration: duration || 15,
-        difficulty: difficulty || "beginner",
-        category: category || "general",
-        instructions: instructions || null
-      });
+        duration,
+        difficulty,
+        category,
+        instructions,
+        benefits,
+        imageUrl,
+        videoUrl,
+        mediaUrl,
+        tags,
+        variable1,
+        variable2,
+        variable3,
+        isActive
+      } = req.body;
+      console.log("\u{1F4DD} Creating exercise with data:", req.body);
+      if (!title || typeof title !== "string" || title.trim().length === 0) {
+        console.error("\u274C Invalid title:", title);
+        return res.status(400).json({ message: "Titre requis et non vide" });
+      }
+      if (!description || typeof description !== "string" || description.trim().length === 0) {
+        console.error("\u274C Invalid description:", description);
+        return res.status(400).json({ message: "Description requise et non vide" });
+      }
+      const validCategories = ["craving_reduction", "relaxation", "energy_boost", "emotion_management", "general"];
+      const validDifficulties = ["beginner", "intermediate", "advanced"];
+      const finalCategory = validCategories.includes(category) ? category : "craving_reduction";
+      const finalDifficulty = validDifficulties.includes(difficulty) ? difficulty : "beginner";
+      let finalDuration = 15;
+      if (duration !== void 0 && duration !== null) {
+        const durationNum = Number(duration);
+        if (!isNaN(durationNum) && durationNum > 0 && durationNum <= 180) {
+          finalDuration = durationNum;
+        }
+      }
+      const exerciseData = {
+        title: title.trim(),
+        description: description.trim(),
+        duration: finalDuration,
+        difficulty: finalDifficulty,
+        category: finalCategory,
+        instructions: instructions && typeof instructions === "string" ? instructions.trim() : null,
+        benefits: benefits && typeof benefits === "string" ? benefits.trim() : null,
+        imageUrl: imageUrl && typeof imageUrl === "string" ? imageUrl.trim() : null,
+        videoUrl: videoUrl && typeof videoUrl === "string" ? videoUrl.trim() : null,
+        mediaUrl: mediaUrl && typeof mediaUrl === "string" ? mediaUrl.trim() : null,
+        tags: Array.isArray(tags) ? tags : [],
+        variable1: variable1 && typeof variable1 === "string" ? variable1.trim() : null,
+        variable2: variable2 && typeof variable2 === "string" ? variable2.trim() : null,
+        variable3: variable3 && typeof variable3 === "string" ? variable3.trim() : null,
+        isActive: typeof isActive === "boolean" ? isActive : true
+      };
+      console.log("\u{1F50D} Processed exercise data:", exerciseData);
+      const exercise = await storage.createExercise(exerciseData);
+      console.log("\u2705 Exercise created successfully:", exercise.id);
       res.json(exercise);
     } catch (error) {
-      console.error("Error creating exercise:", error);
-      res.status(500).json({ message: "Erreur lors de la cr\xE9ation de l'exercice" });
+      console.error("\u274C Error creating exercise:", error);
+      res.status(500).json({
+        message: error.message || "Erreur lors de la cr\xE9ation de l'exercice",
+        details: error.stack
+      });
     }
   });
   app2.post("/api/cravings", requireAuth, async (req, res) => {
@@ -2070,6 +2167,28 @@ function registerRoutes(app2) {
     } catch (error) {
       console.error("Error fetching patients:", error);
       res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des patients" });
+    }
+  });
+  app2.get("/api/admin/patient-sessions", requireAdmin, async (req, res) => {
+    try {
+      const patientSessions2 = await storage.getAllPatientSessions();
+      res.json(patientSessions2);
+    } catch (error) {
+      console.error("Error fetching admin patient sessions:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des s\xE9ances patients" });
+    }
+  });
+  app2.delete("/api/exercises/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteExercise(id);
+      if (!success) {
+        return res.status(404).json({ message: "Exercice non trouv\xE9" });
+      }
+      res.json({ message: "Exercice supprim\xE9 avec succ\xE8s" });
+    } catch (error) {
+      console.error("Error deleting exercise:", error);
+      res.status(500).json({ message: "Erreur lors de la suppression de l'exercice" });
     }
   });
   console.log("\u2705 All routes registered successfully");
