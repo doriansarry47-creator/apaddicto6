@@ -334,7 +334,6 @@ export default function Education() {
     }
   };
 
-  // Utilisation de Material Icons pour éviter les problèmes avec lucide-react
   const getCategoryIcon = (category: keyof typeof categories) => {
     switch (category) {
       case 'addiction':
