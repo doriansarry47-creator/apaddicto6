@@ -56,28 +56,50 @@ export default function Dashboard() {
         totalActivities: 0
       }
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes pour les stats
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: true, // Actualiser quand l'utilisateur revient sur la page
+    refetchInterval: 5 * 60 * 1000, // Actualiser automatiquement toutes les 5 minutes
   });
 
   const { data: exerciseSessions } = useQuery<any[]>({
     queryKey: ["exercise-sessions"],
     queryFn: async () => {
-      const response = await fetch("/api/exercise-sessions/detailed?limit=5");
+      const response = await fetch("/api/exercise-sessions/detailed?limit=5", {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch exercise sessions");
-      return response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!authenticatedUser,
     initialData: [],
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: antiCravingStrategies } = useQuery<AntiCravingStrategy[]>({
-    queryKey: ["strategies"],
+    queryKey: ["/api/strategies"],
     queryFn: async () => {
-      const response = await fetch("/api/strategies");
-      if (!response.ok) throw new Error("Failed to fetch strategies");
-      return response.json();
+      const response = await fetch("/api/strategies", {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch strategies: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!authenticatedUser,
     initialData: [],
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 2,
+    refetchOnWindowFocus: false,
   });
 
   // Pas besoin de requête séparée pour user, nous avons déjà authenticatedUser
@@ -202,16 +224,17 @@ export default function Dashboard() {
                 >
                   Démarrer Routine 3 min
                 </Button>
-                {antiCravingStrategies && antiCravingStrategies.length > 0 && (
-                  <Button 
-                    onClick={() => setShowEmergencyStrategies(!showEmergencyStrategies)}
-                    variant="outline"
-                    className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"
-                    data-testid="button-show-strategies"
-                  >
-                    {showEmergencyStrategies ? "Masquer" : "Voir Mes Stratégies"} ({antiCravingStrategies.length})
-                  </Button>
-                )}
+                <Button 
+                  onClick={() => setShowEmergencyStrategies(!showEmergencyStrategies)}
+                  variant="outline"
+                  className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  data-testid="button-show-strategies"
+                >
+                  {showEmergencyStrategies ? "Masquer" : "Voir Mes Stratégies"} 
+                  {antiCravingStrategies && antiCravingStrategies.length > 0 && 
+                    ` (${antiCravingStrategies.length})`
+                  }
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -286,7 +309,7 @@ export default function Dashboard() {
         </section>
 
         {/* Emergency Strategies Display */}
-        {showEmergencyStrategies && antiCravingStrategies && antiCravingStrategies.length > 0 && (
+        {showEmergencyStrategies && (
           <section className="mb-8">
             <Card className="shadow-material border-destructive/20" data-testid="card-emergency-strategies">
               <CardHeader>
@@ -296,38 +319,53 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {antiCravingStrategies
-                    .filter(strategy => strategy.cravingBefore > strategy.cravingAfter) // Strategies that worked
-                    .sort((a, b) => (b.cravingBefore - b.cravingAfter) - (a.cravingBefore - a.cravingAfter)) // Sort by effectiveness
-                    .slice(0, 6) // Show top 6 most effective strategies
-                    .map((strategy) => (
-                      <Card key={strategy.id} className="border-success/20 bg-success/5">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="text-xs font-medium text-muted-foreground capitalize">
-                              {strategy.context === 'leisure' ? 'Loisirs' : 
-                               strategy.context === 'home' ? 'Domicile' : 'Travail'}
-                            </span>
-                            <div className="flex items-center text-xs text-success">
-                              <span className="material-icons text-sm mr-1">trending_down</span>
-                              -{strategy.cravingBefore - strategy.cravingAfter}
+                {antiCravingStrategies && antiCravingStrategies.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {antiCravingStrategies
+                      .filter(strategy => strategy.cravingBefore > strategy.cravingAfter) // Strategies that worked
+                      .sort((a, b) => (b.cravingBefore - b.cravingAfter) - (a.cravingBefore - a.cravingAfter)) // Sort by effectiveness
+                      .slice(0, 6) // Show top 6 most effective strategies
+                      .map((strategy) => (
+                        <Card key={strategy.id} className="border-success/20 bg-success/5">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <span className="text-xs font-medium text-muted-foreground capitalize">
+                                {strategy.context === 'leisure' ? 'Loisirs' : 
+                                 strategy.context === 'home' ? 'Domicile' : 'Travail'}
+                              </span>
+                              <div className="flex items-center text-xs text-success">
+                                <span className="material-icons text-sm mr-1">trending_down</span>
+                                -{strategy.cravingBefore - strategy.cravingAfter}
+                              </div>
                             </div>
-                          </div>
-                          <p className="text-sm font-medium text-foreground mb-2">{strategy.exercise}</p>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{strategy.duration} min • {strategy.effort}</span>
-                            <span>{strategy.cravingBefore}/10 → {strategy.cravingAfter}/10</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-                {antiCravingStrategies.filter(s => s.cravingBefore > s.cravingAfter).length === 0 && (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <span className="material-icons text-4xl mb-2">psychology</span>
-                    <p>Aucune stratégie efficace identifiée pour l'instant</p>
-                    <p className="text-xs">Continuez à tester des stratégies pour construire votre boîte à outils</p>
+                            <p className="text-sm font-medium text-foreground mb-2">{strategy.exercise}</p>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>{strategy.duration} min • {strategy.effort}</span>
+                              <span>{strategy.cravingBefore}/10 → {strategy.cravingAfter}/10</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    {antiCravingStrategies.filter(s => s.cravingBefore > s.cravingAfter).length === 0 && (
+                      <div className="col-span-full text-center py-6 text-muted-foreground">
+                        <span className="material-icons text-4xl mb-2">psychology</span>
+                        <p>Aucune stratégie efficace identifiée pour l'instant</p>
+                        <p className="text-xs">Continuez à tester des stratégies pour construire votre boîte à outils</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <span className="material-icons text-6xl mb-4">psychology</span>
+                    <h3 className="text-lg font-medium mb-2">Aucune stratégie enregistrée</h3>
+                    <p className="text-sm mb-4">Utilisez la Boîte à Stratégies pour commencer à tester vos techniques.</p>
+                    <Button 
+                      onClick={() => window.location.href = "/strategies"}
+                      size="sm"
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Tester vos Stratégies
+                    </Button>
                   </div>
                 )}
               </CardContent>

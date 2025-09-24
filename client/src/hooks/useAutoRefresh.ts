@@ -25,9 +25,26 @@ export function useAutoRefresh({
     const interval = setInterval(() => {
       console.log('🔄 Auto-refresh des données...');
       
-      // Invalider toutes les queries spécifiées
+      // Invalider toutes les queries spécifiées avec une approche plus robuste
       queryKeys.forEach(queryKey => {
         queryClient.invalidateQueries({ queryKey });
+        // Forcer un refetch immédiat pour les données critiques
+        queryClient.refetchQueries({ queryKey });
+      });
+      
+      // Invalider aussi les queries partielles correspondantes
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey;
+          if (!Array.isArray(key)) return false;
+          
+          return queryKeys.some(targetKey => {
+            if (targetKey.length === 1 && key.length >= 1) {
+              return key[0] === targetKey[0];
+            }
+            return targetKey.every((part, index) => key[index] === part);
+          });
+        }
       });
       
       // Callback optionnel
@@ -47,10 +64,10 @@ export function useDashboardAutoRefresh(enabled: boolean = true) {
   return useAutoRefresh({
     queryKeys: [
       ["dashboard", "stats"],
-      ["cravings"],
+      ["/api/cravings"],
       ["exercise-sessions"],
-      ["strategies"],
-      ["beck-analyses"]
+      ["/api/strategies"],
+      ["/api/beck-analyses"]
     ],
     intervalMs: 30000, // 30 secondes
     enabled,
@@ -66,9 +83,12 @@ export function useDashboardAutoRefresh(enabled: boolean = true) {
 export function useTrackingAutoRefresh(enabled: boolean = true) {
   return useAutoRefresh({
     queryKeys: [
-      ["cravings"],
-      ["exercise-sessions"],
-      ["strategies"]
+      ["/api/cravings"],
+      ["/api/exercise-sessions"],
+      ["/api/strategies"],
+      ["/api/beck-analyses"],
+      ["/api/dashboard/stats", "cravings"],
+      ["/api/dashboard/stats", "userStats"]
     ],
     intervalMs: 20000, // 20 secondes pour les données de suivi
     enabled,

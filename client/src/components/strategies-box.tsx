@@ -74,26 +74,40 @@ export function StrategiesBox({ userId, onSuccess }: StrategiesBoxProps) {
         description: `${count} stratégie(s) enregistrée(s) avec succès dans l'onglet Suivi.`,
       });
       
-      // Invalider tous les caches liés aux stratégies avec les clés correctes
-      queryClient.invalidateQueries({ queryKey: ["/api/strategies"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/strategies", userId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/stats"] });
+      // Invalider et refetch immédiatement tous les caches liés aux stratégies
+      const strategiesQueries = [
+        ["/api/strategies"],
+        ["strategies"], // Pour compatibilité avec d'anciennes clés
+        ["/api/strategies", userId],
+        ["/api/dashboard/stats"],
+        ["dashboard", "stats"],
+        ["/api/users/stats"]
+      ];
       
-      // Invalider toutes les queries relatives aux stratégies pour être sûr
+      strategiesQueries.forEach(queryKey => {
+        queryClient.invalidateQueries({ queryKey });
+        queryClient.refetchQueries({ queryKey });
+      });
+      
+      // Invalider toutes les queries relatives aux stratégies avec un prédicat large
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey;
-          return Array.isArray(key) && key.length > 0 && key[0] === "/api/strategies";
+          if (!Array.isArray(key) || key.length === 0) return false;
+          
+          const keyStr = key.join('/');
+          return keyStr.includes('strateg') || keyStr.includes('/api/strategies') || keyStr.includes('dashboard');
         }
       });
       
-      // Refetch immédiat
+      // Force un refetch global des données principales après un délai
       setTimeout(() => {
         queryClient.refetchQueries({ queryKey: ["/api/strategies"] });
-        queryClient.refetchQueries({ queryKey: ["/api/strategies", userId] });
-      }, 100);
+        queryClient.refetchQueries({ queryKey: ["dashboard", "stats"] });
+        console.log('🔄 Refetch global des stratégies effectué');
+      }, 200);
       
-      console.log('Strategies saved successfully, caches invalidated');
+      console.log('✅ Strategies saved successfully, all caches invalidated and refetched');
       onSuccess?.();
     },
     onError: (error) => {
