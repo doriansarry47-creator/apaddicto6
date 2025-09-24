@@ -756,7 +756,7 @@ export function registerRoutes(app: Application) {
     try {
       const routineData = {
         ...req.body,
-        userId: req.session.user.id
+        userId: req.session.user!.id
       };
       const routine = await storage.createEmergencyRoutine(routineData);
       res.json(routine);
@@ -823,7 +823,7 @@ export function registerRoutes(app: Application) {
         tags: tags ? (tags as string).split(',') : undefined,
         category: category as string,
         userId: req.session.user!.id,
-        userRole: req.session.user.role
+        userRole: req.session.user!.role
       });
       res.json(sessions);
     } catch (error: any) {
@@ -837,7 +837,7 @@ export function registerRoutes(app: Application) {
     try {
       const sessionData = {
         ...req.body,
-        creatorId: req.session.user.id,
+        creatorId: req.session.user!.id,
         status: req.body.status || 'draft'
       };
       
@@ -912,7 +912,7 @@ export function registerRoutes(app: Application) {
         feedback,
         effort: effort ? parseInt(effort) : undefined,
         duration: duration ? parseInt(duration) : undefined,
-        userId: req.session.user.id
+        userId: req.session.user!.id
       });
       
       if (!patientSession) {
