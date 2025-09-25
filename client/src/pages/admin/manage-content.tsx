@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPsychoEducationContentSchema } from "../../../../shared/schema";
-import type { PsychoEducationContent, InsertPsychoEducationContent, QuickResource, InsertQuickResource } from "../../../../shared/schema";
+import type { PsychoEducationContent, InsertPsychoEducationContent, EducationalContent, InsertEducationalContent, QuickResource, InsertQuickResource } from "../../../../shared/schema";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +19,10 @@ import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-type FormData = InsertPsychoEducationContent;
+type FormData = Omit<InsertEducationalContent, 'authorId' | 'publishedAt'>;
 
-// Catégories prédéfinies pour le contenu psycho-éducationnel
-const PSYCHO_EDUCATION_CATEGORIES = [
+// Catégories prédéfinies pour le contenu éducatif
+const EDUCATION_CATEGORIES = [
   { value: "addiction", label: "Addiction et Dépendance" },
   { value: "motivation", label: "Motivation et Objectifs" },
   { value: "coping", label: "Stratégies d'Adaptation" },
@@ -37,15 +37,16 @@ const PSYCHO_EDUCATION_CATEGORIES = [
 
 // Types de contenu
 const CONTENT_TYPES = [
-  { value: "article", label: "Article" },
+  { value: "text", label: "Texte" },
   { value: "video", label: "Vidéo" },
   { value: "audio", label: "Audio" },
-  { value: "interactive", label: "Interactif" },
+  { value: "pdf", label: "PDF" },
+  { value: "image", label: "Image" },
 ];
 
 // Niveaux de difficulté
 const DIFFICULTY_LEVELS = [
-  { value: "beginner", label: "Débutant" },
+  { value: "easy", label: "Facile" },
   { value: "intermediate", label: "Intermédiaire" },
   { value: "advanced", label: "Avancé" },
 ];
@@ -58,16 +59,17 @@ export default function ManageContent() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const { data: content, isLoading } = useQuery<PsychoEducationContent[]>({
-    queryKey: ["admin", "psycho-education"],
-    queryFn: async () => apiRequest("GET", "/api/admin/psycho-education").then(res => res.json()),
+  // Utiliser les nouveaux contenus éducatifs plutôt que l'ancienne table psycho-education
+  const { data: content, isLoading } = useQuery<EducationalContent[]>({
+    queryKey: ["admin", "educational-contents"],
+    queryFn: async () => apiRequest("GET", "/api/educational-contents").then(res => res.json()),
     initialData: [],
   });
 
   const mutation = useMutation({
-    mutationFn: async (newContent: InsertPsychoEducationContent) => {
+    mutationFn: async (newContent: InsertEducationalContent) => {
       // Si une image est sélectionnée, l'uploader d'abord
-      let imageUrl = newContent.imageUrl;
+      let thumbnailUrl = newContent.thumbnailUrl;
       if (selectedImage) {
         const formData = new FormData();
         formData.append('image', selectedImage);
@@ -80,17 +82,17 @@ export default function ManageContent() {
           
           if (uploadResponse.ok) {
             const uploadResult = await uploadResponse.json();
-            imageUrl = uploadResult.url;
+            thumbnailUrl = uploadResult.url;
           }
         } catch (error) {
           console.warn('Image upload failed, proceeding without image');
         }
       }
       
-      return apiRequest("POST", "/api/psycho-education", { ...newContent, imageUrl });
+      return apiRequest("POST", "/api/educational-contents", { ...newContent, thumbnailUrl });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "psycho-education"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "educational-contents"] });
       showToast({ title: "Succès", description: "Contenu créé avec succès." });
       reset();
       setSelectedImage(null);
@@ -102,11 +104,11 @@ export default function ManageContent() {
   });
 
   const updateContentMutation = useMutation({
-    mutationFn: async ({ contentId, data }: { contentId: string, data: Partial<InsertPsychoEducationContent> }) => {
-      return apiRequest("PUT", `/api/admin/psycho-education/${contentId}`, data);
+    mutationFn: async ({ contentId, data }: { contentId: string, data: Partial<InsertEducationalContent> }) => {
+      return apiRequest("PUT", `/api/educational-contents/${contentId}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "psycho-education"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "educational-contents"] });
       showToast({ title: "Succès", description: "Contenu mis à jour avec succès." });
     },
     onError: (error) => {
@@ -115,9 +117,9 @@ export default function ManageContent() {
   });
 
   const deleteContentMutation = useMutation({
-    mutationFn: (contentId: string) => apiRequest("DELETE", `/api/admin/psycho-education/${contentId}`),
+    mutationFn: (contentId: string) => apiRequest("DELETE", `/api/educational-contents/${contentId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "psycho-education"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "educational-contents"] });
       showToast({ title: "Succès", description: "Contenu supprimé avec succès." });
     },
     onError: (error) => {
@@ -144,7 +146,8 @@ export default function ManageContent() {
   }) || [];
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(insertPsychoEducationContentSchema),
+    // Nous devons créer un schéma personnalisé car nous n'incluons pas authorId et publishedAt
+    // resolver: zodResolver(insertEducationalContentSchema),
   });
 
   const onSubmit: SubmitHandler<FormData> = (data) => {
@@ -199,7 +202,7 @@ export default function ManageContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes les catégories</SelectItem>
-                  {PSYCHO_EDUCATION_CATEGORIES.map((category) => (
+                  {EDUCATION_CATEGORIES.map((category) => (
                     <SelectItem key={category.value} value={category.value}>
                       {category.label}
                     </SelectItem>
@@ -238,9 +241,9 @@ export default function ManageContent() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-green-600">
-              {content?.filter(c => c.type === 'article').length || 0}
+              {content?.filter(c => c.type === 'text').length || 0}
             </div>
-            <div className="text-sm text-muted-foreground">Articles</div>
+            <div className="text-sm text-muted-foreground">Textes</div>
           </CardContent>
         </Card>
         <Card>
@@ -254,9 +257,9 @@ export default function ManageContent() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-purple-600">
-              {content?.filter(c => c.type === 'interactive').length || 0}
+              {content?.filter(c => c.type === 'pdf').length || 0}
             </div>
-            <div className="text-sm text-muted-foreground">Interactifs</div>
+            <div className="text-sm text-muted-foreground">PDFs</div>
           </CardContent>
         </Card>
       </div>
@@ -280,20 +283,20 @@ export default function ManageContent() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="category">Catégorie</Label>
-                  <Select onValueChange={(value) => setValue("category", value)}>
+                  <Label htmlFor="categoryId">Catégorie</Label>
+                  <Select onValueChange={(value) => setValue("categoryId", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner une catégorie" />
                     </SelectTrigger>
                     <SelectContent>
-                      {PSYCHO_EDUCATION_CATEGORIES.map((category) => (
+                      {EDUCATION_CATEGORIES.map((category) => (
                         <SelectItem key={category.value} value={category.value}>
                           {category.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category.message}</p>}
+                  {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId.message}</p>}
                 </div>
 
                 <div>
@@ -342,6 +345,17 @@ export default function ManageContent() {
                 </div>
 
                 <div>
+                  <Label htmlFor="description">Description (optionnelle)</Label>
+                  <Textarea 
+                    id="description" 
+                    {...register("description")} 
+                    placeholder="Description courte du contenu..."
+                    rows={3}
+                  />
+                  {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
+                </div>
+
+                <div>
                   <Label htmlFor="content">Contenu (Markdown)</Label>
                   <Textarea 
                     id="content" 
@@ -353,20 +367,20 @@ export default function ManageContent() {
                 </div>
 
                 <div>
-                  <Label htmlFor="videoUrl">URL Vidéo (optionnel)</Label>
+                  <Label htmlFor="mediaUrl">URL Média (optionnel)</Label>
                   <Input 
-                    id="videoUrl" 
-                    {...register("videoUrl")} 
-                    placeholder="https://youtube.com/watch?v=..."
+                    id="mediaUrl" 
+                    {...register("mediaUrl")} 
+                    placeholder="https://example.com/media.mp4"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="audioUrl">URL Audio (optionnel)</Label>
+                  <Label htmlFor="thumbnailUrl">URL Miniature (optionnel)</Label>
                   <Input 
-                    id="audioUrl" 
-                    {...register("audioUrl")} 
-                    placeholder="https://example.com/audio.mp3"
+                    id="thumbnailUrl" 
+                    {...register("thumbnailUrl")} 
+                    placeholder="https://example.com/thumbnail.jpg"
                   />
                 </div>
 
@@ -404,6 +418,30 @@ export default function ManageContent() {
                   </div>
                 </div>
 
+                <div>
+                  <Label htmlFor="status">Statut</Label>
+                  <Select onValueChange={(value) => setValue("status", value)} defaultValue="draft">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Statut du contenu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Brouillon</SelectItem>
+                      <SelectItem value="published">Publié</SelectItem>
+                      <SelectItem value="archived">Archivé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isRecommended"
+                    {...register("isRecommended")}
+                    className="rounded"
+                  />
+                  <Label htmlFor="isRecommended">Contenu recommandé</Label>
+                </div>
+
                 <Button type="submit" disabled={mutation.isPending} className="w-full">
                   {mutation.isPending ? "Création..." : "Créer le Contenu"}
                 </Button>
@@ -430,13 +468,13 @@ export default function ManageContent() {
                           <div className="flex items-center space-x-2 mb-2">
                             <h3 className="font-bold text-lg">{item.title}</h3>
                             <Badge variant="outline">
-                              {PSYCHO_EDUCATION_CATEGORIES.find(c => c.value === item.category)?.label || item.category}
+                              {EDUCATION_CATEGORIES.find(c => c.value === (item as any).categoryId || (item as any).category)?.label || (item as any).category || 'Sans catégorie'}
                             </Badge>
                             <Badge variant="secondary">
                               {CONTENT_TYPES.find(t => t.value === item.type)?.label || item.type}
                             </Badge>
                             <Badge variant={
-                              item.difficulty === 'beginner' ? 'default' :
+                              item.difficulty === 'easy' ? 'default' :
                               item.difficulty === 'intermediate' ? 'secondary' :
                               'destructive'
                             }>
@@ -498,14 +536,14 @@ export default function ManageContent() {
                                 <div>
                                   <Label htmlFor="edit-category">Catégorie</Label>
                                   <Select
-                                    defaultValue={item.category}
-                                    onValueChange={(value) => setValue("category", value)}
+                                    defaultValue={(item as any).categoryId || (item as any).category}
+                                    onValueChange={(value) => setValue("categoryId", value)}
                                   >
                                     <SelectTrigger>
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {PSYCHO_EDUCATION_CATEGORIES.map((category) => (
+                                      {EDUCATION_CATEGORIES.map((category) => (
                                         <SelectItem
                                           key={category.value}
                                           value={category.value}
@@ -576,19 +614,19 @@ export default function ManageContent() {
                                   />
                                 </div>
                                 <div>
-                                  <Label htmlFor="edit-videoUrl">URL Vidéo (optionnel)</Label>
+                                  <Label htmlFor="edit-mediaUrl">URL Média (optionnel)</Label>
                                   <Input
-                                    id="edit-videoUrl"
-                                    defaultValue={item.videoUrl}
-                                    {...register("videoUrl")}
+                                    id="edit-mediaUrl"
+                                    defaultValue={(item as any).mediaUrl}
+                                    {...register("mediaUrl")}
                                   />
                                 </div>
                                 <div>
-                                  <Label htmlFor="edit-audioUrl">URL Audio (optionnel)</Label>
+                                  <Label htmlFor="edit-thumbnailUrl">URL Miniature (optionnel)</Label>
                                   <Input
-                                    id="edit-audioUrl"
-                                    defaultValue={item.audioUrl}
-                                    {...register("audioUrl")}
+                                    id="edit-thumbnailUrl"
+                                    defaultValue={(item as any).thumbnailUrl}
+                                    {...register("thumbnailUrl")}
                                   />
                                 </div>
                                 <AlertDialogFooter>

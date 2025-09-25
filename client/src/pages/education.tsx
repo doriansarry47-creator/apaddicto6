@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { apiRequest } from "@/lib/queryClient";
-import type { PsychoEducationContent as APIPsychoEducationContent } from "../../../../shared/schema";
+import type { EducationalContent, PsychoEducationContent as APIPsychoEducationContent } from "../../../../shared/schema";
 
 interface EducationModule {
   id: string;
@@ -268,8 +268,18 @@ export default function Education() {
   const [selectedCategory, setSelectedCategory] = useState<keyof typeof categories>('addiction');
   const [completedModules, setCompletedModules] = useState<string[]>([]);
 
-  // Récupération du contenu psychoéducationnel depuis l'API
-  const { data: apiContent, isLoading, error } = useQuery<APIPsychoEducationContent[]>({
+  // Récupération du contenu éducationnel depuis l'API (nouvelle version)
+  const { data: newApiContent, isLoading: isLoadingNew } = useQuery<EducationalContent[]>({
+    queryKey: ['educational-contents'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/educational-contents?status=published');
+      return response.json();
+    },
+    initialData: []
+  });
+
+  // Récupération du contenu psychoéducationnel depuis l'ancienne API (fallback)
+  const { data: apiContent, isLoading: isLoadingOld, error } = useQuery<APIPsychoEducationContent[]>({
     queryKey: ['psycho-education'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/psycho-education');
@@ -278,10 +288,72 @@ export default function Education() {
     initialData: []
   });
 
-  // Conversion du contenu API vers le format frontend, avec fallback
-  const educationModules = apiContent.length > 0 
-    ? apiContent.map(convertAPIContentToFrontend)
-    : fallbackEducationModules;
+  const isLoading = isLoadingNew || isLoadingOld;
+
+  // Fonction pour convertir le nouveau contenu éducatif en format frontend
+  const convertNewAPIContentToFrontend = (content: EducationalContent): EducationModule => {
+    // Mapper les nouvelles catégories vers les anciennes catégories frontend
+    const categoryMapping: Record<string, keyof typeof categories> = {
+      'addiction': 'addiction',
+      'motivation': 'psychology', 
+      'coping': 'psychology',
+      'relapse_prevention': 'psychology',
+      'stress_management': 'techniques',
+      'emotional_regulation': 'psychology',
+      'mindfulness': 'techniques',
+      'cognitive_therapy': 'psychology',
+      'social_support': 'psychology',
+      'lifestyle': 'exercise'
+    };
+    
+    // Déterminer la catégorie à partir de la structure du contenu
+    let mappedCategory: keyof typeof categories = 'addiction';
+    
+    // Si le contenu a une catégorie via categoryId, l'utiliser
+    if (content.categoryId) {
+      // Ici, nous pourrions faire un appel aux catégories pour récupérer le nom
+      // Pour l'instant, on utilise des mots-clés dans le titre/description
+      const titleLower = content.title.toLowerCase();
+      const descLower = (content.description || '').toLowerCase();
+      const contentLower = content.content.toLowerCase();
+      
+      if (titleLower.includes('exercice') || titleLower.includes('sport') || titleLower.includes('physique')) {
+        mappedCategory = 'exercise';
+      } else if (titleLower.includes('technique') || titleLower.includes('respiration') || titleLower.includes('méditation')) {
+        mappedCategory = 'techniques';
+      } else if (titleLower.includes('psycho') || titleLower.includes('cognitif') || titleLower.includes('émotion')) {
+        mappedCategory = 'psychology';
+      }
+    }
+    
+    // Parser le contenu markdown
+    const sections = parseContentSections(content.content);
+    
+    return {
+      id: content.id,
+      title: content.title,
+      description: content.description || (content.content.substring(0, 200) + '...'),
+      category: mappedCategory,
+      duration: content.estimatedReadTime || 10,
+      difficulty: (content.difficulty === 'easy' ? 'beginner' : content.difficulty) as 'beginner' | 'intermediate' | 'advanced',
+      content: {
+        sections: sections
+      }
+    };
+  };
+
+  // Conversion du contenu API vers le format frontend
+  let educationModules: EducationModule[];
+  if (newApiContent.length > 0) {
+    // Utiliser le nouveau contenu éducatif en priorité
+    educationModules = newApiContent.map(convertNewAPIContentToFrontend);
+  } else if (apiContent.length > 0) {
+    // Fallback vers l'ancienne API
+    educationModules = apiContent.map(convertAPIContentToFrontend);
+  } else {
+    // Fallback vers le contenu statique
+    educationModules = fallbackEducationModules;
+  }
 
   const filteredModules = educationModules.filter(module => module.category === selectedCategory);
 
@@ -439,7 +511,9 @@ export default function Education() {
             </h2>
             <span className="text-sm text-muted-foreground" data-testid="text-module-count">
               {filteredModules.length} module{filteredModules.length !== 1 ? 's' : ''}
-              {apiContent.length > 0 ? ' (depuis la base de données)' : ' (contenu de démonstration)'}
+              {newApiContent.length > 0 ? ' (nouveau contenu éducatif)' : 
+               apiContent.length > 0 ? ' (ancien contenu psychoéducatif)' : 
+               ' (contenu de démonstration)'}
             </span>
           </div>
 
@@ -532,7 +606,7 @@ export default function Education() {
                   <span className="material-icons text-6xl text-muted-foreground mb-4">school</span>
                   <h3 className="text-xl font-medium text-foreground mb-2">Aucun contenu disponible</h3>
                   <p className="text-muted-foreground mb-4">
-                    {apiContent.length === 0 ? 
+                    {newApiContent.length === 0 && apiContent.length === 0 ? 
                       "Aucun contenu éducatif disponible pour cette catégorie. Les administrateurs peuvent en ajouter via l'interface d'administration." :
                       "Aucun contenu disponible pour cette catégorie."
                     }

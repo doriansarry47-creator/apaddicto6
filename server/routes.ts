@@ -431,7 +431,17 @@ export function registerRoutes(app: Application) {
   // POST /api/psycho-education - Créer du contenu (admin)
   app.post('/api/psycho-education', requireAdmin, async (req, res) => {
     try {
-      const { title, content, category } = req.body;
+      const { 
+        title, 
+        content, 
+        category, 
+        type, 
+        difficulty, 
+        estimatedReadTime, 
+        imageUrl, 
+        videoUrl, 
+        audioUrl 
+      } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ message: 'Titre et contenu requis' });
@@ -440,13 +450,55 @@ export function registerRoutes(app: Application) {
       const newContent = await storage.createPsychoEducationContent({
         title,
         content,
-        category: category || 'general'
+        category: category || 'addiction',
+        type: type || 'article',
+        difficulty: difficulty || 'beginner',
+        estimatedReadTime: estimatedReadTime ? parseInt(estimatedReadTime) : null,
+        imageUrl,
+        videoUrl,
+        audioUrl
       });
 
       res.json(newContent);
     } catch (error: any) {
       console.error('Error creating psycho-education content:', error);
       res.status(500).json({ message: 'Erreur lors de la création du contenu' });
+    }
+  });
+
+  // PUT /api/psycho-education/:id - Mettre à jour du contenu (admin)
+  app.put('/api/psycho-education/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      const content = await storage.updatePsychoEducationContent(id, updateData);
+      
+      if (!content) {
+        return res.status(404).json({ message: 'Contenu non trouvé' });
+      }
+      
+      res.json(content);
+    } catch (error: any) {
+      console.error('Error updating psycho-education content:', error);
+      res.status(500).json({ message: 'Erreur lors de la mise à jour du contenu' });
+    }
+  });
+
+  // DELETE /api/psycho-education/:id - Supprimer du contenu (admin)
+  app.delete('/api/psycho-education/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deletePsychoEducationContent(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Contenu non trouvé' });
+      }
+
+      res.json({ message: 'Contenu supprimé avec succès' });
+    } catch (error: any) {
+      console.error('Error deleting psycho-education content:', error);
+      res.status(500).json({ message: 'Erreur lors de la suppression du contenu' });
     }
   });
 

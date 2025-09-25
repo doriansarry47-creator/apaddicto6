@@ -208,6 +208,35 @@ class Storage {
     return result[0];
   }
 
+  async updatePsychoEducationContent(id: string, updateData: Partial<InsertPsychoEducationContent>): Promise<PsychoEducationContent | null> {
+    try {
+      const result = await this.db
+        .update(psychoEducationContent)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(eq(psychoEducationContent.id, id))
+        .returning();
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error updating psycho-education content:', error);
+      throw error;
+    }
+  }
+
+  async deletePsychoEducationContent(id: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .delete(psychoEducationContent)
+        .where(eq(psychoEducationContent.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting psycho-education content:', error);
+      throw error;
+    }
+  }
+
   // === CRAVING ENTRIES ===
   async createCravingEntry(cravingData: InsertCravingEntry): Promise<CravingEntry> {
     try {
