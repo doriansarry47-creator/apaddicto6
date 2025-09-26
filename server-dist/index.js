@@ -834,6 +834,24 @@ var Storage = class {
     const result = await this.db.insert(psychoEducationContent).values(contentData).returning();
     return result[0];
   }
+  async updatePsychoEducationContent(id, updateData) {
+    try {
+      const result = await this.db.update(psychoEducationContent).set({ ...updateData, updatedAt: /* @__PURE__ */ new Date() }).where(eq(psychoEducationContent.id, id)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating psycho-education content:", error);
+      throw error;
+    }
+  }
+  async deletePsychoEducationContent(id) {
+    try {
+      const result = await this.db.delete(psychoEducationContent).where(eq(psychoEducationContent.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting psycho-education content:", error);
+      throw error;
+    }
+  }
   // === CRAVING ENTRIES ===
   async createCravingEntry(cravingData) {
     try {
@@ -2013,19 +2031,62 @@ function registerRoutes(app2) {
   });
   app2.post("/api/psycho-education", requireAdmin, async (req, res) => {
     try {
-      const { title, content, category } = req.body;
+      const {
+        title,
+        content,
+        category,
+        type,
+        difficulty,
+        estimatedReadTime,
+        imageUrl,
+        videoUrl,
+        audioUrl
+      } = req.body;
       if (!title || !content) {
         return res.status(400).json({ message: "Titre et contenu requis" });
       }
       const newContent = await storage.createPsychoEducationContent({
         title,
         content,
-        category: category || "general"
+        category: category || "addiction",
+        type: type || "article",
+        difficulty: difficulty || "beginner",
+        estimatedReadTime: estimatedReadTime ? parseInt(estimatedReadTime) : null,
+        imageUrl,
+        videoUrl,
+        audioUrl
       });
       res.json(newContent);
     } catch (error) {
       console.error("Error creating psycho-education content:", error);
       res.status(500).json({ message: "Erreur lors de la cr\xE9ation du contenu" });
+    }
+  });
+  app2.put("/api/psycho-education/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const content = await storage.updatePsychoEducationContent(id, updateData);
+      if (!content) {
+        return res.status(404).json({ message: "Contenu non trouv\xE9" });
+      }
+      res.json(content);
+    } catch (error) {
+      console.error("Error updating psycho-education content:", error);
+      res.status(500).json({ message: "Erreur lors de la mise \xE0 jour du contenu" });
+    }
+  });
+  app2.delete("/api/psycho-education/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deletePsychoEducationContent(id);
+      if (!success) {
+        return res.status(404).json({ message: "Contenu non trouv\xE9" });
+      }
+      res.json({ message: "Contenu supprim\xE9 avec succ\xE8s" });
+    } catch (error) {
+      console.error("Error deleting psycho-education content:", error);
+      res.status(500).json({ message: "Erreur lors de la suppression du contenu" });
     }
   });
   app2.post("/api/beck-analyses", requireAuth, async (req, res) => {

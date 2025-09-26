@@ -98,13 +98,26 @@ export default function EducationalContentAdmin() {
     categoryId: "",
     tags: [] as string[],
     mediaUrl: "",
-    mediaType: "",
+    mediaType: "external_link" as string,
     content: "",
     difficulty: "easy" as EducationalContent['difficulty'],
     estimatedReadTime: "",
     status: "draft" as EducationalContent['status'],
     isRecommended: false,
     thumbnailUrl: ""
+  });
+
+  // Category and Tag form states
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    description: "",
+    color: "blue",
+    icon: ""
+  });
+
+  const [tagForm, setTagForm] = useState({
+    name: "",
+    description: ""
   });
 
   // Load data
@@ -228,7 +241,7 @@ export default function EducationalContentAdmin() {
       categoryId: "",
       tags: [],
       mediaUrl: "",
-      mediaType: "",
+      mediaType: "external_link",
       content: "",
       difficulty: "easy",
       estimatedReadTime: "",
@@ -238,6 +251,80 @@ export default function EducationalContentAdmin() {
     });
     setEditingContent(null);
     setShowForm(false);
+  };
+
+  // Category management functions
+  const handleCreateCategory = async () => {
+    if (!categoryForm.name.trim()) return;
+
+    try {
+      const response = await fetch('/api/content-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(categoryForm)
+      });
+
+      if (response.ok) {
+        setCategoryForm({ name: "", description: "", color: "blue", icon: "" });
+        await loadData();
+        alert('Catégorie créée avec succès!');
+      } else {
+        const error = await response.json();
+        alert(`Erreur: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+      alert('Erreur lors de la création de la catégorie');
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ?')) return;
+
+    try {
+      const response = await fetch(`/api/content-categories/${categoryId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        await loadData();
+        alert('Catégorie supprimée avec succès');
+      } else {
+        const error = await response.json();
+        alert(`Erreur: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('Erreur lors de la suppression de la catégorie');
+    }
+  };
+
+  // Tag management functions
+  const handleCreateTag = async () => {
+    if (!tagForm.name.trim()) return;
+
+    try {
+      const response = await fetch('/api/content-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(tagForm)
+      });
+
+      if (response.ok) {
+        setTagForm({ name: "", description: "" });
+        await loadData();
+        alert('Tag créé avec succès!');
+      } else {
+        const error = await response.json();
+        alert(`Erreur: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error creating tag:', error);
+      alert('Erreur lors de la création du tag');
+    }
   };
 
   const getTypeIcon = (type: string) => {
@@ -470,23 +557,159 @@ export default function EducationalContentAdmin() {
         </TabsContent>
 
         <TabsContent value="categories">
-          {/* Categories management will be implemented here */}
-          <Card>
-            <CardContent className="text-center py-8">
-              <Folder className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Gestion des catégories - À implémenter</p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {/* New Category Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Nouvelle Catégorie</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Input 
+                    placeholder="Nom de la catégorie" 
+                    value={categoryForm.name}
+                    onChange={(e) => setCategoryForm({...categoryForm, name: e.target.value})}
+                  />
+                  <Input 
+                    placeholder="Description" 
+                    value={categoryForm.description}
+                    onChange={(e) => setCategoryForm({...categoryForm, description: e.target.value})}
+                  />
+                  <Select value={categoryForm.color} onValueChange={(value) => setCategoryForm({...categoryForm, color: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Couleur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="blue">Bleu</SelectItem>
+                      <SelectItem value="green">Vert</SelectItem>
+                      <SelectItem value="red">Rouge</SelectItem>
+                      <SelectItem value="purple">Violet</SelectItem>
+                      <SelectItem value="orange">Orange</SelectItem>
+                      <SelectItem value="yellow">Jaune</SelectItem>
+                      <SelectItem value="pink">Rose</SelectItem>
+                      <SelectItem value="gray">Gris</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleCreateCategory} disabled={!categoryForm.name.trim()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Categories List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categories.map((category) => (
+                <Card key={category.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{category.name}</CardTitle>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 w-8 p-0 hover:bg-red-50"
+                          onClick={() => handleDeleteCategory(category.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600 mb-3">{category.description}</p>
+                    <div className="flex items-center justify-between">
+                      <Badge className={`bg-${category.color}-100 text-${category.color}-800`}>
+                        {category.color}
+                      </Badge>
+                      <span className="text-xs text-gray-400">
+                        Ordre: {category.order}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {categories.length === 0 && (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <Folder className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500">Aucune catégorie créée</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="tags">
-          {/* Tags management will be implemented here */}
-          <Card>
-            <CardContent className="text-center py-8">
-              <Tag className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Gestion des tags - À implémenter</p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {/* New Tag Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Nouveau Tag</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Input 
+                    placeholder="Nom du tag" 
+                    value={tagForm.name}
+                    onChange={(e) => setTagForm({...tagForm, name: e.target.value})}
+                  />
+                  <Input 
+                    placeholder="Description (optionnelle)" 
+                    value={tagForm.description}
+                    onChange={(e) => setTagForm({...tagForm, description: e.target.value})}
+                  />
+                  <Button onClick={handleCreateTag} disabled={!tagForm.name.trim()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tags List */}
+            <div className="flex flex-wrap gap-3">
+              {tags.map((tag) => (
+                <div 
+                  key={tag.id} 
+                  className="group relative bg-white border rounded-lg p-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {tag.name}
+                    </Badge>
+                    <span className="text-xs text-gray-500">({tag.usageCount})</span>
+                  </div>
+                  {tag.description && (
+                    <p className="text-xs text-gray-600 mb-2">{tag.description}</p>
+                  )}
+                  <div className="hidden group-hover:flex absolute top-1 right-1 gap-1">
+                    <Button size="sm" variant="outline" className="h-6 w-6 p-0">
+                      <Edit className="h-2 w-2" />
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-6 w-6 p-0 hover:bg-red-50">
+                      <Trash2 className="h-2 w-2" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {tags.length === 0 && (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <Tag className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500">Aucun tag créé</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -584,7 +807,7 @@ export default function EducationalContentAdmin() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="mediaUrl">URL du média</Label>
                     <Input
@@ -595,6 +818,20 @@ export default function EducationalContentAdmin() {
                     />
                   </div>
                   <div>
+                    <Label htmlFor="mediaType">Type de média</Label>
+                    <Select value={form.mediaType} onValueChange={(value) => setForm({...form, mediaType: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Type de média" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="external_link">Lien externe</SelectItem>
+                        <SelectItem value="youtube">YouTube</SelectItem>
+                        <SelectItem value="vimeo">Vimeo</SelectItem>
+                        <SelectItem value="upload">Fichier uploadé</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <Label htmlFor="thumbnailUrl">URL de la miniature</Label>
                     <Input
                       id="thumbnailUrl"
@@ -603,6 +840,23 @@ export default function EducationalContentAdmin() {
                       placeholder="https://example.com/thumb.jpg"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="tags">Tags (séparés par des virgules)</Label>
+                  <Input
+                    id="tags"
+                    value={form.tags.join(', ')}
+                    onChange={(e) => {
+                      const tagList = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+                      setForm({...form, tags: tagList});
+                    }}
+                    placeholder="addiction, motivation, relaxation"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tags disponibles: {tags.slice(0, 5).map(tag => tag.name).join(', ')}
+                    {tags.length > 5 && ` et ${tags.length - 5} autres...`}
+                  </p>
                 </div>
 
                 <div>
