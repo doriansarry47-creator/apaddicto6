@@ -23,6 +23,14 @@ interface EducationModule {
       keyPoints?: string[];
     }[];
   };
+  // Nouveaux champs pour le contenu enrichi
+  thumbnailUrl?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isRecommended?: boolean;
+  viewCount?: number;
+  likeCount?: number;
 }
 
 // Mapping des catégories API vers les catégories frontend
@@ -278,6 +286,21 @@ export default function Education() {
     initialData: []
   });
 
+  // Récupération des catégories de contenu
+  const { data: contentCategories } = useQuery({
+    queryKey: ['content-categories'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', '/api/content-categories');
+        return response.json();
+      } catch (error) {
+        console.log('Categories not available, using fallback');
+        return [];
+      }
+    },
+    initialData: []
+  });
+
   // Récupération du contenu psychoéducationnel depuis l'ancienne API (fallback)
   const { data: apiContent, isLoading: isLoadingOld, error } = useQuery<APIPsychoEducationContent[]>({
     queryKey: ['psycho-education'],
@@ -292,36 +315,36 @@ export default function Education() {
 
   // Fonction pour convertir le nouveau contenu éducatif en format frontend
   const convertNewAPIContentToFrontend = (content: EducationalContent): EducationModule => {
-    // Mapper les nouvelles catégories vers les anciennes catégories frontend
-    const categoryMapping: Record<string, keyof typeof categories> = {
-      'addiction': 'addiction',
-      'motivation': 'psychology', 
-      'coping': 'psychology',
-      'relapse_prevention': 'psychology',
-      'stress_management': 'techniques',
-      'emotional_regulation': 'psychology',
-      'mindfulness': 'techniques',
-      'cognitive_therapy': 'psychology',
-      'social_support': 'psychology',
-      'lifestyle': 'exercise'
-    };
-    
     // Déterminer la catégorie à partir de la structure du contenu
     let mappedCategory: keyof typeof categories = 'addiction';
     
-    // Si le contenu a une catégorie via categoryId, l'utiliser
-    if (content.categoryId) {
-      // Ici, nous pourrions faire un appel aux catégories pour récupérer le nom
-      // Pour l'instant, on utilise des mots-clés dans le titre/description
+    // Si le contenu a une catégorie via categoryId, utiliser le nom de la catégorie
+    if (content.categoryId && contentCategories.length > 0) {
+      const category = contentCategories.find((cat: any) => cat.id === content.categoryId);
+      if (category) {
+        const categoryName = category.name.toLowerCase();
+        // Mapper le nom de catégorie vers nos catégories frontend
+        if (categoryName.includes('exercice') || categoryName.includes('sport') || categoryName.includes('physique')) {
+          mappedCategory = 'exercise';
+        } else if (categoryName.includes('technique') || categoryName.includes('respiration') || categoryName.includes('méditation')) {
+          mappedCategory = 'techniques';
+        } else if (categoryName.includes('psycho') || categoryName.includes('cognitif') || categoryName.includes('émotion')) {
+          mappedCategory = 'psychology';
+        }
+      }
+    } else {
+      // Fallback: analyser le titre et la description
       const titleLower = content.title.toLowerCase();
       const descLower = (content.description || '').toLowerCase();
-      const contentLower = content.content.toLowerCase();
       
-      if (titleLower.includes('exercice') || titleLower.includes('sport') || titleLower.includes('physique')) {
+      if (titleLower.includes('exercice') || titleLower.includes('sport') || titleLower.includes('physique') ||
+          descLower.includes('exercice') || descLower.includes('sport')) {
         mappedCategory = 'exercise';
-      } else if (titleLower.includes('technique') || titleLower.includes('respiration') || titleLower.includes('méditation')) {
+      } else if (titleLower.includes('technique') || titleLower.includes('respiration') || titleLower.includes('méditation') ||
+                 descLower.includes('technique') || descLower.includes('respiration')) {
         mappedCategory = 'techniques';
-      } else if (titleLower.includes('psycho') || titleLower.includes('cognitif') || titleLower.includes('émotion')) {
+      } else if (titleLower.includes('psycho') || titleLower.includes('cognitif') || titleLower.includes('émotion') ||
+                 descLower.includes('psycho') || descLower.includes('cognitif')) {
         mappedCategory = 'psychology';
       }
     }
@@ -338,7 +361,15 @@ export default function Education() {
       difficulty: (content.difficulty === 'easy' ? 'beginner' : content.difficulty) as 'beginner' | 'intermediate' | 'advanced',
       content: {
         sections: sections
-      }
+      },
+      // Nouveaux champs
+      thumbnailUrl: content.thumbnailUrl,
+      mediaUrl: content.mediaUrl,
+      mediaType: content.mediaType,
+      tags: content.tags,
+      isRecommended: content.isRecommended,
+      viewCount: content.viewCount,
+      likeCount: content.likeCount
     };
   };
 
@@ -528,6 +559,12 @@ export default function Education() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <CardTitle className="text-xl">{module.title}</CardTitle>
+                          {module.isRecommended && (
+                            <Badge className="bg-yellow-100 text-yellow-800">
+                              <span className="material-icons text-sm mr-1">star</span>
+                              Recommandé
+                            </Badge>
+                          )}
                           {isCompleted && (
                             <Badge className="bg-success text-success-foreground">
                               <span className="material-icons text-sm mr-1">check_circle</span>
@@ -536,7 +573,7 @@ export default function Education() {
                           )}
                         </div>
                         <p className="text-muted-foreground">{module.description}</p>
-                        <div className="flex items-center gap-4 mt-3">
+                        <div className="flex items-center gap-4 mt-3 flex-wrap">
                           <Badge className={getDifficultyColor(module.difficulty)}>
                             {module.difficulty === 'beginner' ? 'Débutant' : 
                              module.difficulty === 'intermediate' ? 'Intermédiaire' : 'Avancé'}
@@ -545,8 +582,46 @@ export default function Education() {
                             <span className="material-icons text-base mr-1">schedule</span>
                             {module.duration} min
                           </span>
+                          {module.viewCount !== undefined && (
+                            <span className="text-sm text-muted-foreground flex items-center">
+                              <span className="material-icons text-base mr-1">visibility</span>
+                              {module.viewCount}
+                            </span>
+                          )}
+                          {module.likeCount !== undefined && (
+                            <span className="text-sm text-muted-foreground flex items-center">
+                              <span className="material-icons text-base mr-1">favorite</span>
+                              {module.likeCount}
+                            </span>
+                          )}
                         </div>
+                        {module.tags && module.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {module.tags.slice(0, 3).map((tag, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {module.tags.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{module.tags.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                       </div>
+                      {module.thumbnailUrl && (
+                        <div className="ml-4">
+                          <img 
+                            src={module.thumbnailUrl} 
+                            alt={module.title}
+                            className="w-16 h-16 object-cover rounded-lg"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent>
