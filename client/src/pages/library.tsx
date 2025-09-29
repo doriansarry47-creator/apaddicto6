@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,55 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Clock, Search, Filter, Grid, List, Star, TrendingUp, Heart, Brain, Target, Shield } from "lucide-react";
+import { BookOpen, Clock, Search, Grid, List, Target, Play } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import type { PsychoEducationContent, Exercise } from "../../../shared/schema";
-
-// Catégories avec icônes et couleurs
-const CATEGORIES = [
-  { 
-    value: "addiction", 
-    label: "Addiction & Dépendance", 
-    icon: Brain, 
-    color: "bg-red-50 text-red-700 border-red-200",
-    description: "Comprendre les mécanismes de l'addiction"
-  },
-  { 
-    value: "coping", 
-    label: "Stratégies d'Adaptation", 
-    icon: Heart, 
-    color: "bg-blue-50 text-blue-700 border-blue-200",
-    description: "Techniques pour gérer stress et émotions"
-  },
-  { 
-    value: "motivation", 
-    label: "Motivation & Objectifs", 
-    icon: Target, 
-    color: "bg-green-50 text-green-700 border-green-200",
-    description: "Maintenir la motivation et atteindre ses buts"
-  },
-  { 
-    value: "relapse_prevention", 
-    label: "Prévention des Rechutes", 
-    icon: Shield, 
-    color: "bg-orange-50 text-orange-700 border-orange-200",
-    description: "Anticiper et éviter les rechutes"
-  },
-  { 
-    value: "stress_management", 
-    label: "Gestion du Stress", 
-    icon: TrendingUp, 
-    color: "bg-purple-50 text-purple-700 border-purple-200",
-    description: "Techniques avancées de gestion du stress"
-  },
-  { 
-    value: "emotional_regulation", 
-    label: "Régulation Émotionnelle", 
-    icon: Heart, 
-    color: "bg-pink-50 text-pink-700 border-pink-200",
-    description: "Maîtriser ses émotions au quotidien"
-  }
-];
+import type { 
+  PsychoEducationContent, 
+  Exercise, 
+  CustomSession, 
+  EducationalContent, 
+  ContentCategory 
+} from "../../../shared/schema";
+import { 
+  EXERCISE_CATEGORIES, 
+  SESSION_CATEGORIES, 
+  getCategoryByValue 
+} from "../../../shared/constants";
 
 const DIFFICULTY_COLORS = {
   beginner: "bg-green-100 text-green-800",
@@ -73,63 +38,157 @@ export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedDifficulty, setSelectedDifficulty] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeTab, setActiveTab] = useState("educational");
 
-  const { data: content = [], isLoading: contentLoading } = useQuery<PsychoEducationContent[]>({
-    queryKey: ["psycho-education"],
-    queryFn: async () => apiRequest("GET", "/api/psycho-education").then(res => res.json()),
+  // Réinitialiser la catégorie quand on change d'onglet
+  React.useEffect(() => {
+    setSelectedCategory("all");
+  }, [activeTab]);
+
+  // Récupération du contenu éducatif (nouveau système)
+  const { data: educationalContent = [], isLoading: educationalLoading } = useQuery<EducationalContent[]>({
+    queryKey: ["educational-contents"],
+    queryFn: async () => {
+      try {
+        return apiRequest("GET", "/api/educational-contents?status=published").then(res => res.json());
+      } catch (error) {
+        console.log('Educational contents not available');
+        return [];
+      }
+    },
     initialData: [],
   });
 
+  // Récupération des catégories de contenu éducatif
+  const { data: contentCategories = [], isLoading: categoriesLoading } = useQuery<ContentCategory[]>({
+    queryKey: ["content-categories"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("GET", "/api/content-categories");
+        const categories = await response.json();
+        return Array.isArray(categories) ? categories.filter(cat => cat.isActive) : [];
+      } catch (error) {
+        console.log('Content categories not available');
+        return [];
+      }
+    },
+    initialData: [],
+  });
+
+  // Récupération du contenu legacy (fallback)
+  const { data: legacyContent = [], isLoading: legacyLoading } = useQuery<PsychoEducationContent[]>({
+    queryKey: ["psycho-education"],
+    queryFn: async () => apiRequest("GET", "/api/psycho-education").then(res => res.json()),
+    initialData: [],
+    enabled: educationalContent.length === 0 && !educationalLoading // Seulement si pas de nouveau contenu
+  });
+
+  // Récupération des EXERCICES (différent du contenu éducatif)
   const { data: exercises = [], isLoading: exercisesLoading } = useQuery<Exercise[]>({
     queryKey: ["exercises"],
     queryFn: async () => apiRequest("GET", "/api/exercises").then(res => res.json()),
     initialData: [],
   });
 
-  // Filtrer le contenu
-  const filteredContent = content.filter(item => {
+  // Récupération des SÉANCES (différent des exercices)
+  const { data: sessions = [], isLoading: sessionsLoading } = useQuery<CustomSession[]>({
+    queryKey: ["sessions"],
+    queryFn: async () => {
+      try {
+        return apiRequest("GET", "/api/sessions").then(res => res.json());
+      } catch (error) {
+        console.log('Sessions not available');
+        return [];
+      }
+    },
+    initialData: [],
+  });
+
+  // Combiner le contenu éducatif (nouveau + legacy)
+  const allEducationalContent = [...educationalContent, ...legacyContent];
+
+  // Filtrer le contenu éducatif
+  const filteredEducationalContent = allEducationalContent.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
+                         (item.content?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+                         (item.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+    
+    let matchesCategory = selectedCategory === "all";
+    if (!matchesCategory) {
+      // Pour le nouveau système, utiliser categoryId
+      if ('categoryId' in item && item.categoryId) {
+        matchesCategory = item.categoryId === selectedCategory;
+      }
+      // Pour le legacy, utiliser category
+      else if ('category' in item) {
+        matchesCategory = item.category === selectedCategory;
+      }
+    }
+    
     const matchesDifficulty = selectedDifficulty === "all" || item.difficulty === selectedDifficulty;
     
     return matchesSearch && matchesCategory && matchesDifficulty && item.isActive;
   });
 
-  // Filtrer les exercices
+  // Filtrer les exercices (utilise les catégories d'exercices)
   const filteredExercises = exercises.filter(exercise => {
     const matchesSearch = exercise.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         exercise.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                         (exercise.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+    const matchesCategory = selectedCategory === "all" || exercise.category === selectedCategory;
     const matchesDifficulty = selectedDifficulty === "all" || exercise.difficulty === selectedDifficulty;
     
-    return matchesSearch && matchesDifficulty && exercise.isActive;
+    return matchesSearch && matchesCategory && matchesDifficulty && exercise.isActive;
   });
 
-  // Regrouper par catégorie
-  const contentByCategory = CATEGORIES.reduce((acc, category) => {
-    acc[category.value] = filteredContent.filter(item => item.category === category.value);
+  // Filtrer les séances (utilise les catégories de séances)
+  const filteredSessions = sessions.filter(session => {
+    const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (session.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+    const matchesCategory = selectedCategory === "all" || session.category === selectedCategory;
+    const matchesDifficulty = selectedDifficulty === "all" || session.difficulty === selectedDifficulty;
+    
+    return matchesSearch && matchesCategory && matchesDifficulty && session.isActive && session.status === 'published';
+  });
+
+  // Regrouper le contenu éducatif par catégorie dynamique
+  const educationalContentByCategory = contentCategories.reduce((acc, category) => {
+    acc[category.id] = filteredEducationalContent.filter(item => {
+      if ('categoryId' in item) return item.categoryId === category.id;
+      return false;
+    });
     return acc;
-  }, {} as Record<string, PsychoEducationContent[]>);
+  }, {} as Record<string, EducationalContent[]>);
 
-  const ContentCard = ({ item }: { item: PsychoEducationContent }) => {
-    const category = CATEGORIES.find(cat => cat.value === item.category);
-    const IconComponent = category?.icon || BookOpen;
+  // Regrouper les exercices par catégorie
+  const exercisesByCategory = EXERCISE_CATEGORIES.reduce((acc, category) => {
+    acc[category.value] = filteredExercises.filter(item => item.category === category.value);
+    return acc;
+  }, {} as Record<string, Exercise[]>);
 
+  // Regrouper les séances par catégorie
+  const sessionsByCategory = SESSION_CATEGORIES.reduce((acc, category) => {
+    acc[category.value] = filteredSessions.filter(item => item.category === category.value);
+    return acc;
+  }, {} as Record<string, CustomSession[]>);
+
+  const EducationalContentCard = ({ item }: { item: EducationalContent }) => {
+    // Trouve la catégorie pour le nouveau système
+    const category = contentCategories.find(cat => cat.id === item.categoryId);
+    
     return (
       <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4 border-l-transparent hover:border-l-primary">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-2">
-              <div className={`p-2 rounded-lg ${category?.color || 'bg-gray-100'}`}>
-                <IconComponent className="h-4 w-4" />
+              <div className="p-2 rounded-lg bg-blue-50 text-blue-700">
+                <BookOpen className="h-4 w-4" />
               </div>
               <div>
                 <CardTitle className="text-base group-hover:text-primary transition-colors">
                   {item.title}
                 </CardTitle>
                 <CardDescription className="text-sm mt-1">
-                  {category?.label}
+                  {category?.name || 'Contenu éducatif'}
                 </CardDescription>
               </div>
             </div>
@@ -142,7 +201,7 @@ export default function Library() {
         </CardHeader>
         <CardContent className="pt-0">
           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-            {item.description || item.content?.substring(0, 120) + "..."}
+            {item.description || (item.content?.substring(0, 120) + "...")}
           </p>
           <div className="flex items-center justify-between">
             <div className="flex items-center text-sm text-muted-foreground">
@@ -158,34 +217,88 @@ export default function Library() {
     );
   };
 
-  const ExerciseCard = ({ exercise }: { exercise: Exercise }) => (
-    <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-base group-hover:text-primary transition-colors">
-            {exercise.title}
-          </CardTitle>
-          <Badge className={DIFFICULTY_COLORS[exercise.difficulty as keyof typeof DIFFICULTY_COLORS]}>
-            {DIFFICULTY_LABELS[exercise.difficulty as keyof typeof DIFFICULTY_LABELS]}
-          </Badge>
-        </div>
-        <CardDescription>{exercise.description}</CardDescription>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Clock className="h-4 w-4 mr-1" />
-            <span>{exercise.duration} min</span>
+  const ExerciseCard = ({ exercise }: { exercise: Exercise }) => {
+    const category = getCategoryByValue(exercise.category, EXERCISE_CATEGORIES);
+    return (
+      <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className={`p-2 rounded-lg ${category.color}`}>
+                <span className="text-sm">{category.icon}</span>
+              </div>
+              <div>
+                <CardTitle className="text-base group-hover:text-primary transition-colors">
+                  {exercise.title}
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  {category.label}
+                </CardDescription>
+              </div>
+            </div>
+            <Badge className={DIFFICULTY_COLORS[exercise.difficulty as keyof typeof DIFFICULTY_COLORS]}>
+              {DIFFICULTY_LABELS[exercise.difficulty as keyof typeof DIFFICULTY_LABELS]}
+            </Badge>
           </div>
-          <Button variant="ghost" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground">
-            Commencer
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+          <CardDescription>{exercise.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>{exercise.duration} min</span>
+            </div>
+            <Button variant="ghost" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground">
+              Commencer
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
-  if (contentLoading || exercisesLoading) {
+  const SessionCard = ({ session }: { session: CustomSession }) => {
+    const category = getCategoryByValue(session.category, SESSION_CATEGORIES);
+    return (
+      <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className={`p-2 rounded-lg ${category.color}`}>
+                <span className="text-sm">{category.icon}</span>
+              </div>
+              <div>
+                <CardTitle className="text-base group-hover:text-primary transition-colors">
+                  {session.title}
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  {category.label}
+                </CardDescription>
+              </div>
+            </div>
+            <Badge className={DIFFICULTY_COLORS[session.difficulty as keyof typeof DIFFICULTY_COLORS]}>
+              {DIFFICULTY_LABELS[session.difficulty as keyof typeof DIFFICULTY_LABELS]}
+            </Badge>
+          </div>
+          <CardDescription>{session.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>{Math.round((session.totalDuration || 0) / 60)} min</span>
+            </div>
+            <Button variant="ghost" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground">
+              <Play className="h-4 w-4 mr-1" />
+              Démarrer
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  if (educationalLoading || categoriesLoading || legacyLoading || exercisesLoading || sessionsLoading) {
     return (
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -195,16 +308,34 @@ export default function Library() {
     );
   }
 
+  // Obtenir les catégories pour le filtre selon l'onglet actif
+  const getCategoriesForFilter = () => {
+    switch (activeTab) {
+      case "educational":
+        return contentCategories.map(cat => ({ id: cat.id, name: cat.name }));
+      case "exercises":
+        return EXERCISE_CATEGORIES.map(cat => ({ id: cat.value, name: cat.label }));
+      case "sessions":
+        return SESSION_CATEGORIES.map(cat => ({ id: cat.value, name: cat.label }));
+      default:
+        return [
+          ...contentCategories.map(cat => ({ id: cat.id, name: cat.name })),
+          ...EXERCISE_CATEGORIES.map(cat => ({ id: cat.value, name: cat.label })),
+          ...SESSION_CATEGORIES.map(cat => ({ id: cat.value, name: cat.label }))
+        ];
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center space-x-3 mb-4">
           <BookOpen className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Bibliothèque de Contenus</h1>
+          <h1 className="text-3xl font-bold">Bibliothèque de Ressources</h1>
         </div>
         <p className="text-muted-foreground">
-          Découvrez nos ressources pour votre parcours de rétablissement
+          Découvrez nos ressources organisées par type : contenu éducatif, exercices et séances personnalisées
         </p>
       </div>
 
@@ -230,9 +361,9 @@ export default function Library() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes les catégories</SelectItem>
-                  {CATEGORIES.map(category => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
+                  {getCategoriesForFilter().map(category => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -277,8 +408,8 @@ export default function Library() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-primary">{filteredContent.length}</div>
-            <div className="text-sm text-muted-foreground">Articles disponibles</div>
+            <div className="text-2xl font-bold text-primary">{filteredEducationalContent.length}</div>
+            <div className="text-sm text-muted-foreground">Contenus éducatifs</div>
           </CardContent>
         </Card>
         <Card>
@@ -289,82 +420,195 @@ export default function Library() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">
-              {Math.round(filteredContent.reduce((acc, item) => acc + (item.estimatedReadTime || 5), 0))}
-            </div>
-            <div className="text-sm text-muted-foreground">Minutes de lecture</div>
+            <div className="text-2xl font-bold text-blue-600">{filteredSessions.length}</div>
+            <div className="text-sm text-muted-foreground">Séances disponibles</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-purple-600">{CATEGORIES.length}</div>
-            <div className="text-sm text-muted-foreground">Catégories</div>
+            <div className="text-2xl font-bold text-purple-600">{contentCategories.length + EXERCISE_CATEGORIES.length + SESSION_CATEGORIES.length}</div>
+            <div className="text-sm text-muted-foreground">Catégories totales</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Contenu principal */}
-      <Tabs defaultValue="categories" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="categories">Par Catégories</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="educational">Contenu Éducatif</TabsTrigger>
           <TabsTrigger value="exercises">Exercices</TabsTrigger>
-          <TabsTrigger value="all">Tout le Contenu</TabsTrigger>
+          <TabsTrigger value="sessions">Séances</TabsTrigger>
+          <TabsTrigger value="all">Tout Voir</TabsTrigger>
         </TabsList>
 
-        {/* Vue par catégories */}
-        <TabsContent value="categories">
+        {/* Vue contenu éducatif */}
+        <TabsContent value="educational">
           <div className="space-y-8">
-            {CATEGORIES.map(category => {
-              const categoryContent = contentByCategory[category.value];
+            {contentCategories.length > 0 ? contentCategories.map(category => {
+              const categoryContent = educationalContentByCategory[category.id];
               if (!categoryContent?.length) return null;
-
-              const IconComponent = category.icon;
               
               return (
-                <div key={category.value}>
+                <div key={category.id}>
                   <div className="flex items-center space-x-3 mb-4">
-                    <div className={`p-2 rounded-lg ${category.color}`}>
-                      <IconComponent className="h-5 w-5" />
+                    <div className="p-2 rounded-lg bg-blue-50 text-blue-700">
+                      <BookOpen className="h-5 w-5" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold">{category.label}</h2>
-                      <p className="text-sm text-muted-foreground">{category.description}</p>
+                      <h2 className="text-xl font-semibold">{category.name}</h2>
+                      <p className="text-sm text-muted-foreground">{category.description || 'Contenu éducatif'}</p>
                     </div>
                     <Badge variant="outline">{categoryContent.length}</Badge>
                   </div>
                   
                   <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
                     {categoryContent.map(item => (
-                      <ContentCard key={item.id} item={item} />
+                      <EducationalContentCard key={item.id} item={item} />
                     ))}
                   </div>
                 </div>
               );
-            })}
+            }) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Aucun contenu éducatif</h3>
+                  <p className="text-muted-foreground">
+                    Le contenu éducatif sera disponible une fois ajouté par les administrateurs.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
         {/* Vue exercices */}
         <TabsContent value="exercises">
-          <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-            {filteredExercises.map(exercise => (
-              <ExerciseCard key={exercise.id} exercise={exercise} />
-            ))}
+          <div className="space-y-8">
+            {EXERCISE_CATEGORIES.map(category => {
+              const categoryExercises = exercisesByCategory[category.value];
+              if (!categoryExercises?.length) return null;
+              
+              return (
+                <div key={category.value}>
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className={`p-2 rounded-lg ${category.color}`}>
+                      <span className="text-lg">{category.icon}</span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold">{category.label}</h2>
+                      <p className="text-sm text-muted-foreground">Exercices de {category.label.toLowerCase()}</p>
+                    </div>
+                    <Badge variant="outline">{categoryExercises.length}</Badge>
+                  </div>
+                  
+                  <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                    {categoryExercises.map(exercise => (
+                      <ExerciseCard key={exercise.id} exercise={exercise} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {filteredExercises.length === 0 && (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Aucun exercice disponible</h3>
+                  <p className="text-muted-foreground">
+                    Les exercices seront disponibles une fois ajoutés par les administrateurs.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
-        {/* Vue tout le contenu */}
+        {/* Vue séances */}
+        <TabsContent value="sessions">
+          <div className="space-y-8">
+            {SESSION_CATEGORIES.map(category => {
+              const categorySessions = sessionsByCategory[category.value];
+              if (!categorySessions?.length) return null;
+              
+              return (
+                <div key={category.value}>
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className={`p-2 rounded-lg ${category.color}`}>
+                      <span className="text-lg">{category.icon}</span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold">{category.label}</h2>
+                      <p className="text-sm text-muted-foreground">Séances de {category.label.toLowerCase()}</p>
+                    </div>
+                    <Badge variant="outline">{categorySessions.length}</Badge>
+                  </div>
+                  
+                  <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                    {categorySessions.map(session => (
+                      <SessionCard key={session.id} session={session} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {filteredSessions.length === 0 && (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Aucune séance disponible</h3>
+                  <p className="text-muted-foreground">
+                    Les séances personnalisées seront disponibles une fois créées et publiées par les administrateurs.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Vue tout voir */}
         <TabsContent value="all">
-          <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-            {filteredContent.map(item => (
-              <ContentCard key={item.id} item={item} />
-            ))}
+          <div className="space-y-8">
+            {filteredEducationalContent.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Contenu Éducatif</h2>
+                <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                  {filteredEducationalContent.map(item => (
+                    <EducationalContentCard key={item.id} item={item} />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {filteredExercises.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Exercices</h2>
+                <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                  {filteredExercises.map(exercise => (
+                    <ExerciseCard key={exercise.id} exercise={exercise} />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {filteredSessions.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Séances</h2>
+                <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                  {filteredSessions.map(session => (
+                    <SessionCard key={session.id} session={session} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
 
       {/* Message si aucun résultat */}
-      {filteredContent.length === 0 && filteredExercises.length === 0 && (
+      {filteredEducationalContent.length === 0 && filteredExercises.length === 0 && filteredSessions.length === 0 && (
         <Card className="mt-8">
           <CardContent className="p-8 text-center">
             <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
