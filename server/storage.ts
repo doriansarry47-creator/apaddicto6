@@ -157,7 +157,11 @@ class Storage {
         throw new Error('Titre et description requis pour créer un exercice');
       }
 
-      const result = await this.db.insert(exercises).values(exerciseData).returning();
+      const insertData = {
+        ...exerciseData,
+        tags: exerciseData.tags ? Array.from(exerciseData.tags as string[]) : [],
+      };
+      const result = await this.db.insert(exercises).values(insertData).returning();
       
       if (!result || result.length === 0) {
         throw new Error('Aucune donnée retournée après insertion de l\'exercice');
@@ -245,8 +249,8 @@ class Storage {
       const insertData: InsertCravingEntry = {
         userId: cravingData.userId,
         intensity: cravingData.intensity,
-        triggers: Array.isArray(cravingData.triggers) ? [...cravingData.triggers] : [],
-        emotions: Array.isArray(cravingData.emotions) ? [...cravingData.emotions] : [],
+        triggers: (cravingData.triggers as string[] | undefined) || [],
+        emotions: (cravingData.emotions as string[] | undefined) || [],
         notes: cravingData.notes
       };
       
@@ -763,7 +767,8 @@ class Storage {
         .insert(userEmergencyRoutines)
         .values({
           ...routineData,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          exercises: routineData.exercises ? JSON.parse(JSON.stringify(routineData.exercises)) : [],
         })
         .returning();
       return result[0];

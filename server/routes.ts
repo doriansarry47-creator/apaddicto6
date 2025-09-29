@@ -873,7 +873,7 @@ export function registerRoutes(app: Application) {
       const sessions = await storage.getSessions({
         status: status as string,
         tags: tags ? (tags as string).split(',') : undefined,
-        category: category as string,
+        category: category ? (category as string) : undefined,
         userId: req.session.user!.id,
         userRole: req.session.user!.role
       });
