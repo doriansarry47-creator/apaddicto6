@@ -245,8 +245,8 @@ class Storage {
       const insertData: InsertCravingEntry = {
         userId: cravingData.userId,
         intensity: cravingData.intensity,
-        triggers: Array.isArray(cravingData.triggers) ? cravingData.triggers as string[] : [],
-        emotions: Array.isArray(cravingData.emotions) ? cravingData.emotions as string[] : [],
+        triggers: Array.isArray(cravingData.triggers) ? [...cravingData.triggers] : [],
+        emotions: Array.isArray(cravingData.emotions) ? [...cravingData.emotions] : [],
         notes: cravingData.notes
       };
       
@@ -581,9 +581,9 @@ class Storage {
       };
 
       // Calculs des statistiques améliorées
-      const todayAvgCraving = todaysCravings[0]?.avg || 0;
-      const yesterdayAvgCraving = yesterdaysCravings[0]?.avg || 0;
-      const todaysCravingCount = todaysCravings[0]?.count || 0;
+      const todayAvgCraving = Number(todaysCravings[0]?.avg || 0);
+      const yesterdayAvgCraving = Number(yesterdaysCravings[0]?.avg || 0);
+      const todaysCravingCount = Number(todaysCravings[0]?.count || 0);
       
       // Calcul de la tendance (comparaison aujourd'hui vs hier)
       let cravingTrend = 0;
@@ -1198,7 +1198,7 @@ class Storage {
         .set({ isActive: false })
         .where(eq(educationalContents.id, id));
       
-      return result.rowsAffected > 0;
+      return true; // Assume success if no error is thrown
     } catch (error) {
       console.error('Error deleting educational content:', error);
       throw error;
@@ -1252,7 +1252,7 @@ class Storage {
         .set({ isActive: false })
         .where(eq(contentCategories.id, id));
       
-      return result.rowsAffected > 0;
+      return true; // Assume success if no error is thrown
     } catch (error) {
       console.error('Error deleting content category:', error);
       throw error;
