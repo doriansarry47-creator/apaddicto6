@@ -282,7 +282,7 @@ export function registerRoutes(app: Application) {
         imageUrl: imageUrl && typeof imageUrl === 'string' ? imageUrl.trim() : null,
         videoUrl: videoUrl && typeof videoUrl === 'string' ? videoUrl.trim() : null,
         mediaUrl: mediaUrl && typeof mediaUrl === 'string' ? mediaUrl.trim() : null,
-        tags: Array.isArray(tags) ? tags : [],
+        tags: Array.isArray(tags) ? [...tags] : [],
         variable1: variable1 && typeof variable1 === 'string' ? variable1.trim() : null,
         variable2: variable2 && typeof variable2 === 'string' ? variable2.trim() : null,
         variable3: variable3 && typeof variable3 === 'string' ? variable3.trim() : null,
@@ -1151,12 +1151,14 @@ export function registerRoutes(app: Application) {
         return res.status(400).json({ message: 'Contenu requis et non vide' });
       }
 
+      // For now, set categoryId to null to avoid foreign key constraint issues
+      // TODO: Implement proper content categories
       const contentData = {
         title: title.trim(),
         description: description?.trim() || null,
         type,
-        categoryId: categoryId || null,
-        tags: Array.isArray(tags) ? tags : [],
+        categoryId: null, // Temporarily set to null to avoid FK constraint issues
+        tags: Array.isArray(tags) ? [...tags] : [],
         mediaUrl: mediaUrl?.trim() || null,
         mediaType: mediaType || null,
         content: content.trim(),
