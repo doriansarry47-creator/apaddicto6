@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigation } from "@/components/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,8 @@ interface EducationModule {
   id: string;
   title: string;
   description: string;
-  category: 'addiction' | 'exercise' | 'psychology' | 'techniques';
+  categoryId?: string;
+  categoryName?: string;
   duration: number; // in minutes
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   content: {
@@ -33,29 +34,19 @@ interface EducationModule {
   likeCount?: number;
 }
 
-// Mapping des catégories API vers les catégories frontend
-const categoryMapping: Record<string, keyof typeof categories> = {
-  // Catégories principales de la base de données
-  'addiction': 'addiction',
-  'motivation': 'psychology',
-  'coping': 'psychology',
-  'relapse_prevention': 'psychology',
-  // Catégories supplémentaires
-  'stress_management': 'techniques',
-  'emotional_regulation': 'psychology',
-  'mindfulness': 'techniques',
-  'cognitive_therapy': 'psychology',
-  'social_support': 'psychology',
-  'lifestyle': 'exercise',
-  'exercise': 'exercise',
-  'psychology': 'psychology',
-  'techniques': 'techniques'
-};
+// Interface pour les catégories de contenu
+interface ContentCategory {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  icon?: string;
+  order: number;
+  isActive: boolean;
+}
 
 // Fonction pour convertir le contenu API en format frontend
-const convertAPIContentToFrontend = (apiContent: APIPsychoEducationContent): EducationModule => {
-  const mappedCategory = categoryMapping[apiContent.category] || 'addiction';
-  
+const convertAPIContentToFrontend = (apiContent: APIPsychoEducationContent, categories: ContentCategory[]): EducationModule => {
   // Parse le contenu markdown pour extraire les sections
   const sections = parseContentSections(apiContent.content);
   
@@ -63,7 +54,8 @@ const convertAPIContentToFrontend = (apiContent: APIPsychoEducationContent): Edu
     id: apiContent.id,
     title: apiContent.title,
     description: apiContent.content.substring(0, 200) + '...', // Première partie comme description
-    category: mappedCategory,
+    categoryId: undefined,
+    categoryName: apiContent.category,
     duration: apiContent.estimatedReadTime || 10,
     difficulty: (apiContent.difficulty as 'beginner' | 'intermediate' | 'advanced') || 'beginner',
     content: {
@@ -265,7 +257,8 @@ const fallbackEducationModules: EducationModule[] = [
   }
 ];
 
-const categories = {
+// Catégories par défaut pour le fallback
+const fallbackCategories = {
   addiction: 'Comprendre l\'Addiction',
   exercise: 'Science de l\'Exercice',
   psychology: 'Psychologie Cognitive',
@@ -273,7 +266,7 @@ const categories = {
 };
 
 export default function Education() {
-  const [selectedCategory, setSelectedCategory] = useState<keyof typeof categories>('addiction');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [completedModules, setCompletedModules] = useState<string[]>([]);
 
   // Récupération du contenu éducationnel depuis l'API (nouvelle version)
@@ -287,12 +280,13 @@ export default function Education() {
   });
 
   // Récupération des catégories de contenu
-  const { data: contentCategories } = useQuery({
+  const { data: contentCategories = [] } = useQuery<ContentCategory[]>({
     queryKey: ['content-categories'],
     queryFn: async () => {
       try {
         const response = await apiRequest('GET', '/api/content-categories');
-        return response.json();
+        const categories = await response.json();
+        return Array.isArray(categories) ? categories.filter(cat => cat.isActive) : [];
       } catch (error) {
         console.log('Categories not available, using fallback');
         return [];
@@ -300,6 +294,14 @@ export default function Education() {
     },
     initialData: []
   });
+
+  // Sélectionner la première catégorie par défaut une fois qu'elles sont chargées
+  React.useEffect(() => {
+    if (contentCategories.length > 0 && !selectedCategory) {
+      const firstCategory = contentCategories.sort((a, b) => a.order - b.order)[0];
+      setSelectedCategory(firstCategory.id);
+    }
+  }, [contentCategories, selectedCategory]);
 
   // Récupération du contenu psychoéducationnel depuis l'ancienne API (fallback)
   const { data: apiContent, isLoading: isLoadingOld, error } = useQuery<APIPsychoEducationContent[]>({
@@ -315,48 +317,18 @@ export default function Education() {
 
   // Fonction pour convertir le nouveau contenu éducatif en format frontend
   const convertNewAPIContentToFrontend = (content: EducationalContent): EducationModule => {
-    // Déterminer la catégorie à partir de la structure du contenu
-    let mappedCategory: keyof typeof categories = 'addiction';
-    
-    // Si le contenu a une catégorie via categoryId, utiliser le nom de la catégorie
-    if (content.categoryId && contentCategories.length > 0) {
-      const category = contentCategories.find((cat: any) => cat.id === content.categoryId);
-      if (category) {
-        const categoryName = category.name.toLowerCase();
-        // Mapper le nom de catégorie vers nos catégories frontend
-        if (categoryName.includes('exercice') || categoryName.includes('sport') || categoryName.includes('physique')) {
-          mappedCategory = 'exercise';
-        } else if (categoryName.includes('technique') || categoryName.includes('respiration') || categoryName.includes('méditation')) {
-          mappedCategory = 'techniques';
-        } else if (categoryName.includes('psycho') || categoryName.includes('cognitif') || categoryName.includes('émotion')) {
-          mappedCategory = 'psychology';
-        }
-      }
-    } else {
-      // Fallback: analyser le titre et la description
-      const titleLower = content.title.toLowerCase();
-      const descLower = (content.description || '').toLowerCase();
-      
-      if (titleLower.includes('exercice') || titleLower.includes('sport') || titleLower.includes('physique') ||
-          descLower.includes('exercice') || descLower.includes('sport')) {
-        mappedCategory = 'exercise';
-      } else if (titleLower.includes('technique') || titleLower.includes('respiration') || titleLower.includes('méditation') ||
-                 descLower.includes('technique') || descLower.includes('respiration')) {
-        mappedCategory = 'techniques';
-      } else if (titleLower.includes('psycho') || titleLower.includes('cognitif') || titleLower.includes('émotion') ||
-                 descLower.includes('psycho') || descLower.includes('cognitif')) {
-        mappedCategory = 'psychology';
-      }
-    }
-    
     // Parser le contenu markdown
     const sections = parseContentSections(content.content);
+    
+    // Trouver la catégorie associée
+    const category = contentCategories.find(cat => cat.id === content.categoryId);
     
     return {
       id: content.id,
       title: content.title,
       description: content.description || (content.content.substring(0, 200) + '...'),
-      category: mappedCategory,
+      categoryId: content.categoryId,
+      categoryName: category?.name,
       duration: content.estimatedReadTime || 10,
       difficulty: (content.difficulty === 'easy' ? 'beginner' : content.difficulty) as 'beginner' | 'intermediate' | 'advanced',
       content: {
@@ -380,13 +352,31 @@ export default function Education() {
     educationModules = newApiContent.map(convertNewAPIContentToFrontend);
   } else if (apiContent.length > 0) {
     // Fallback vers l'ancienne API
-    educationModules = apiContent.map(convertAPIContentToFrontend);
+    educationModules = apiContent.map(content => convertAPIContentToFrontend(content, contentCategories));
   } else {
-    // Fallback vers le contenu statique
-    educationModules = fallbackEducationModules;
+    // Fallback vers le contenu statique - assigner des categoryId basés sur les vraies catégories
+    const fallbackWithCategories = fallbackEducationModules.map(module => {
+      const category = contentCategories.find(cat => {
+        const catName = cat.name.toLowerCase();
+        const moduleCategory = module.category;
+        if (moduleCategory === 'addiction' && catName.includes('addiction')) return true;
+        if (moduleCategory === 'exercise' && catName.includes('exercice')) return true;
+        if (moduleCategory === 'psychology' && catName.includes('psycholog')) return true;
+        if (moduleCategory === 'techniques' && catName.includes('technique')) return true;
+        return false;
+      });
+      return {
+        ...module,
+        categoryId: category?.id,
+        categoryName: category?.name
+      };
+    });
+    educationModules = fallbackWithCategories;
   }
 
-  const filteredModules = educationModules.filter(module => module.category === selectedCategory);
+  const filteredModules = educationModules.filter(module => 
+    selectedCategory ? module.categoryId === selectedCategory : true
+  );
 
   if (isLoading) {
     return (
@@ -437,22 +427,6 @@ export default function Education() {
     }
   };
 
-  // Utilisation de Material Icons pour éviter les problèmes avec lucide-react
-  const getCategoryIcon = (category: keyof typeof categories) => {
-    switch (category) {
-      case 'addiction':
-        return 'psychology';
-      case 'exercise':
-        return 'fitness_center';
-      case 'psychology':
-        return 'lightbulb';
-      case 'techniques':
-        return 'self_improvement';
-      default:
-        return 'school';
-    }
-  };
-
   return (
     <>
       <Navigation />
@@ -477,19 +451,19 @@ export default function Education() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {Object.entries(categories).map(([key, label]) => {
-                  const categoryModules = educationModules.filter(m => m.category === key);
+                {contentCategories.sort((a, b) => a.order - b.order).map((category) => {
+                  const categoryModules = educationModules.filter(m => m.categoryId === category.id);
                   const completed = categoryModules.filter(m => completedModules.includes(m.id)).length;
-                  const progress = (completed / categoryModules.length) * 100;
+                  const progress = categoryModules.length > 0 ? (completed / categoryModules.length) * 100 : 0;
                   
                   return (
-                    <div key={key} className="text-center" data-testid={`progress-${key}`}>
+                    <div key={category.id} className="text-center" data-testid={`progress-${category.id}`}>
                       <div className="mb-2">
                         <span className="material-icons text-2xl text-primary">
-                          {getCategoryIcon(key as keyof typeof categories)}
+                          {category.icon || 'school'}
                         </span>
                       </div>
-                      <h4 className="font-medium text-sm text-foreground mb-1">{label}</h4>
+                      <h4 className="font-medium text-sm text-foreground mb-1">{category.name}</h4>
                       <div className="text-xs text-muted-foreground mb-2">
                         {completed}/{categoryModules.length} modules
                       </div>
@@ -515,18 +489,18 @@ export default function Education() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Object.entries(categories).map(([key, label]) => (
+                {contentCategories.sort((a, b) => a.order - b.order).map((category) => (
                   <Button
-                    key={key}
-                    variant={selectedCategory === key ? "default" : "outline"}
+                    key={category.id}
+                    variant={selectedCategory === category.id ? "default" : "outline"}
                     className="h-auto p-4 flex flex-col items-center gap-2"
-                    onClick={() => setSelectedCategory(key as keyof typeof categories)}
-                    data-testid={`button-category-${key}`}
+                    onClick={() => setSelectedCategory(category.id)}
+                    data-testid={`button-category-${category.id}`}
                   >
                     <span className="material-icons text-2xl">
-                      {getCategoryIcon(key as keyof typeof categories)}
+                      {category.icon || 'school'}
                     </span>
-                    <span className="text-sm font-medium text-center">{label}</span>
+                    <span className="text-sm font-medium text-center">{category.name}</span>
                   </Button>
                 ))}
               </div>
@@ -538,7 +512,7 @@ export default function Education() {
         <section>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-medium text-foreground">
-              {categories[selectedCategory]}
+              {selectedCategory ? contentCategories.find(cat => cat.id === selectedCategory)?.name || 'Tous les contenus' : 'Tous les contenus'}
             </h2>
             <span className="text-sm text-muted-foreground" data-testid="text-module-count">
               {filteredModules.length} module{filteredModules.length !== 1 ? 's' : ''}
@@ -687,7 +661,12 @@ export default function Education() {
                     }
                   </p>
                   <Button
-                    onClick={() => setSelectedCategory('addiction')}
+                    onClick={() => {
+                      const firstCategory = contentCategories.find(cat => cat.name.includes('Addiction'));
+                      if (firstCategory) {
+                        setSelectedCategory(firstCategory.id);
+                      }
+                    }}
                   >
                     Voir la catégorie Addiction
                   </Button>

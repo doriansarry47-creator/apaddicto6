@@ -103,7 +103,8 @@ export default function Tracking() {
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000,
     onError: (err) => console.error("Erreur de chargement des statistiques de craving:", err)
   });
 
@@ -142,7 +143,8 @@ export default function Tracking() {
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000,
     onError: (err) => console.error("Erreur de chargement des statistiques utilisateur:", err)
   });
 
