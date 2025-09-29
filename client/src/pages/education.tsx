@@ -269,18 +269,8 @@ export default function Education() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [completedModules, setCompletedModules] = useState<string[]>([]);
 
-  // Récupération du contenu éducationnel depuis l'API (nouvelle version)
-  const { data: newApiContent, isLoading: isLoadingNew } = useQuery<EducationalContent[]>({
-    queryKey: ['educational-contents'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/educational-contents?status=published');
-      return response.json();
-    },
-    initialData: []
-  });
-
-  // Récupération des catégories de contenu
-  const { data: contentCategories = [] } = useQuery<ContentCategory[]>({
+  // Récupération des catégories de contenu en priorité
+  const { data: contentCategories = [], isLoading: isLoadingCategories } = useQuery<ContentCategory[]>({
     queryKey: ['content-categories'],
     queryFn: async () => {
       try {
@@ -295,6 +285,33 @@ export default function Education() {
     initialData: []
   });
 
+  // Récupération du contenu éducationnel depuis l'API (nouvelle version) - PRIORITAIRE
+  const { data: newApiContent, isLoading: isLoadingNew } = useQuery<EducationalContent[]>({
+    queryKey: ['educational-contents'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', '/api/educational-contents?status=published');
+        return response.json();
+      } catch (error) {
+        console.log('New educational contents not available, using fallback');
+        return [];
+      }
+    },
+    initialData: [],
+    enabled: contentCategories.length > 0 // Attendre les catégories d'abord
+  });
+
+  // Récupération du contenu psychoéducationnel depuis l'ancienne API (fallback uniquement)
+  const { data: apiContent, isLoading: isLoadingOld, error } = useQuery<APIPsychoEducationContent[]>({
+    queryKey: ['psycho-education'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/psycho-education');
+      return response.json();
+    },
+    initialData: [],
+    enabled: newApiContent.length === 0 && !isLoadingNew // Seulement si pas de nouveau contenu
+  });
+
   // Sélectionner la première catégorie par défaut une fois qu'elles sont chargées
   React.useEffect(() => {
     if (contentCategories.length > 0 && !selectedCategory) {
@@ -303,17 +320,7 @@ export default function Education() {
     }
   }, [contentCategories, selectedCategory]);
 
-  // Récupération du contenu psychoéducationnel depuis l'ancienne API (fallback)
-  const { data: apiContent, isLoading: isLoadingOld, error } = useQuery<APIPsychoEducationContent[]>({
-    queryKey: ['psycho-education'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/psycho-education');
-      return response.json();
-    },
-    initialData: []
-  });
-
-  const isLoading = isLoadingNew || isLoadingOld;
+  const isLoading = isLoadingCategories || isLoadingNew || (newApiContent.length === 0 && isLoadingOld);
 
   // Fonction pour convertir le nouveau contenu éducatif en format frontend
   const convertNewAPIContentToFrontend = (content: EducationalContent): EducationModule => {
@@ -345,24 +352,28 @@ export default function Education() {
     };
   };
 
-  // Conversion du contenu API vers le format frontend
+  // Conversion du contenu API vers le format frontend - NOUVEAU SYSTEME PRIORITAIRE
   let educationModules: EducationModule[];
+  let contentSource = '';
+  
   if (newApiContent.length > 0) {
-    // Utiliser le nouveau contenu éducatif en priorité
+    // Utiliser le nouveau contenu éducatif (système principal)
     educationModules = newApiContent.map(convertNewAPIContentToFrontend);
+    contentSource = 'new-system';
   } else if (apiContent.length > 0) {
     // Fallback vers l'ancienne API
     educationModules = apiContent.map(content => convertAPIContentToFrontend(content, contentCategories));
+    contentSource = 'legacy-system';
   } else {
-    // Fallback vers le contenu statique - assigner des categoryId basés sur les vraies catégories
+    // Fallback vers le contenu statique uniquement si aucune donnée disponible
     const fallbackWithCategories = fallbackEducationModules.map(module => {
       const category = contentCategories.find(cat => {
         const catName = cat.name.toLowerCase();
         const moduleCategory = module.category;
-        if (moduleCategory === 'addiction' && catName.includes('addiction')) return true;
-        if (moduleCategory === 'exercise' && catName.includes('exercice')) return true;
-        if (moduleCategory === 'psychology' && catName.includes('psycholog')) return true;
-        if (moduleCategory === 'techniques' && catName.includes('technique')) return true;
+        if (moduleCategory === 'addiction' && (catName.includes('addiction') || catName.includes('dépendance'))) return true;
+        if (moduleCategory === 'exercise' && (catName.includes('exercice') || catName.includes('activité'))) return true;
+        if (moduleCategory === 'psychology' && (catName.includes('psycholog') || catName.includes('cognitif'))) return true;
+        if (moduleCategory === 'techniques' && (catName.includes('technique') || catName.includes('méthode'))) return true;
         return false;
       });
       return {
@@ -372,6 +383,7 @@ export default function Education() {
       };
     });
     educationModules = fallbackWithCategories;
+    contentSource = 'fallback-static';
   }
 
   const filteredModules = educationModules.filter(module => 
@@ -516,8 +528,8 @@ export default function Education() {
             </h2>
             <span className="text-sm text-muted-foreground" data-testid="text-module-count">
               {filteredModules.length} module{filteredModules.length !== 1 ? 's' : ''}
-              {newApiContent.length > 0 ? ' (nouveau contenu éducatif)' : 
-               apiContent.length > 0 ? ' (ancien contenu psychoéducatif)' : 
+              {contentSource === 'new-system' ? ' (système éducatif principal)' : 
+               contentSource === 'legacy-system' ? ' (système psychoéducatif legacy)' : 
                ' (contenu de démonstration)'}
             </span>
           </div>
@@ -655,10 +667,9 @@ export default function Education() {
                   <span className="material-icons text-6xl text-muted-foreground mb-4">school</span>
                   <h3 className="text-xl font-medium text-foreground mb-2">Aucun contenu disponible</h3>
                   <p className="text-muted-foreground mb-4">
-                    {newApiContent.length === 0 && apiContent.length === 0 ? 
-                      "Aucun contenu éducatif disponible pour cette catégorie. Les administrateurs peuvent en ajouter via l'interface d'administration." :
-                      "Aucun contenu disponible pour cette catégorie."
-                    }
+                    {contentSource === 'fallback-static' ? 
+                      "Aucun contenu éducatif créé par les administrateurs. Le contenu sera disponible une fois ajouté via l'interface d'administration." :
+                      "Aucun contenu disponible pour cette catégorie sélectionnée."}
                   </p>
                   <Button
                     onClick={() => {
