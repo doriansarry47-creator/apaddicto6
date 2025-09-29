@@ -1,4 +1,4 @@
-import { eq, desc, count, avg, and, sql } from 'drizzle-orm';
+import { eq, desc, count, avg, and, sql, or } from 'drizzle-orm';
 import { getDB } from './db.js';
 import type { 
   User, 
@@ -249,8 +249,8 @@ class Storage {
       const insertData: InsertCravingEntry = {
         userId: cravingData.userId,
         intensity: cravingData.intensity,
-        triggers: (cravingData.triggers as string[] | undefined) || [],
-        emotions: (cravingData.emotions as string[] | undefined) || [],
+        triggers: Array.isArray(cravingData.triggers) ? (cravingData.triggers as string[]) : [],
+        emotions: Array.isArray(cravingData.emotions) ? (cravingData.emotions as string[]) : [],
         notes: cravingData.notes
       };
       
@@ -819,16 +819,33 @@ class Storage {
     userRole: string;
   }) {
     try {
-      let query = this.db.select().from(customSessions);
-      
-      // Filtres selon le rôle
+      const conditions: (SQL | undefined)[] = [];
+
       if (filters.userRole === 'patient') {
-        // Pour les patients, ne montrer que les séances publiées
-        query = query.where(eq(customSessions.status, 'published'));
+        conditions.push(eq(customSessions.status, 'published'));
+      } else if (filters.userRole === 'admin' || filters.userRole === 'superadmin') {
+        // Admins see all
+      } else {
+        conditions.push(
+          or(
+            eq(customSessions.status, 'published'),
+            eq(customSessions.creatorId, filters.userId)
+          )
+        );
       }
-      
-      // TODO: Ajouter les autres filtres (status, tags, category)
-      
+
+      if (filters.status) {
+        conditions.push(eq(customSessions.status, filters.status));
+      }
+      if (filters.category) {
+        conditions.push(eq(customSessions.category, filters.category));
+      }
+
+      const query = this.db
+        .select()
+        .from(customSessions)
+        .where(and(...conditions.filter((c): c is SQL => !!c)));
+
       const sessions = await query.orderBy(desc(customSessions.createdAt));
       return sessions;
     } catch (error) {
@@ -839,7 +856,11 @@ class Storage {
 
   async createSession(sessionData: InsertCustomSession): Promise<CustomSession> {
     try {
-      const result = await this.db.insert(customSessions).values(sessionData).returning();
+      const insertData = {
+        ...sessionData,
+        tags: sessionData.tags ? (sessionData.tags as string[]) : [],
+      };
+      const result = await this.db.insert(customSessions).values(insertData).returning();
       return result[0];
     } catch (error) {
       console.error('Error creating session:', error);

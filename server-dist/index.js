@@ -16,7 +16,7 @@ import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 
 // server/storage.ts
-import { eq, desc, count, avg, and, sql as sql2 } from "drizzle-orm";
+import { eq, desc, count, avg, and, sql as sql2, or } from "drizzle-orm";
 
 // server/db.ts
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -863,8 +863,8 @@ var Storage = class {
       const insertData = {
         userId: cravingData.userId,
         intensity: cravingData.intensity,
-        triggers: cravingData.triggers || [],
-        emotions: cravingData.emotions || [],
+        triggers: Array.isArray(cravingData.triggers) ? cravingData.triggers : [],
+        emotions: Array.isArray(cravingData.emotions) ? cravingData.emotions : [],
         notes: cravingData.notes
       };
       console.log("\u{1F4BE} Processed insert data:", insertData);
@@ -1241,10 +1241,25 @@ var Storage = class {
   // === GESTION DES SÉANCES ===
   async getSessions(filters) {
     try {
-      let query = this.db.select().from(customSessions);
+      const conditions = [];
       if (filters.userRole === "patient") {
-        query = query.where(eq(customSessions.status, "published"));
+        conditions.push(eq(customSessions.status, "published"));
+      } else if (filters.userRole === "admin" || filters.userRole === "superadmin") {
+      } else {
+        conditions.push(
+          or(
+            eq(customSessions.status, "published"),
+            eq(customSessions.creatorId, filters.userId)
+          )
+        );
       }
+      if (filters.status) {
+        conditions.push(eq(customSessions.status, filters.status));
+      }
+      if (filters.category) {
+        conditions.push(eq(customSessions.category, filters.category));
+      }
+      const query = this.db.select().from(customSessions).where(and(...conditions.filter((c) => !!c)));
       const sessions = await query.orderBy(desc(customSessions.createdAt));
       return sessions;
     } catch (error) {
@@ -1254,7 +1269,11 @@ var Storage = class {
   }
   async createSession(sessionData) {
     try {
-      const result = await this.db.insert(customSessions).values(sessionData).returning();
+      const insertData = {
+        ...sessionData,
+        tags: sessionData.tags ? sessionData.tags : []
+      };
+      const result = await this.db.insert(customSessions).values(insertData).returning();
       return result[0];
     } catch (error) {
       console.error("Error creating session:", error);
@@ -2378,7 +2397,7 @@ function registerRoutes(app2) {
         tags: tags ? tags.split(",") : void 0,
         category: category ? category : void 0,
         userId: req.session.user.id,
-        userRole: req.session.user.role
+        userRole: req.session.user.role || "user"
       });
       res.json(sessions);
     } catch (error) {

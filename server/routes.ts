@@ -875,7 +875,7 @@ export function registerRoutes(app: Application) {
         tags: tags ? (tags as string).split(',') : undefined,
         category: category ? (category as string) : undefined,
         userId: req.session.user!.id,
-        userRole: req.session.user!.role
+        userRole: req.session.user!.role || 'user'
       });
       res.json(sessions);
     } catch (error: any) {
