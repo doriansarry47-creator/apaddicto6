@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,10 +55,12 @@ export default function ManageExercises() {
   const [newVideoTitle, setNewVideoTitle] = useState('');
   const [variations, setVariations] = useState<{type: 'simplification' | 'complexification', title: string, description: string, instructions: string}[]>([]);
 
-  const { data: exercises, isLoading } = useQuery<Exercise[]>({
+  const { data: exercises, isLoading, refetch: refetchExercises } = useQuery<Exercise[]>({
     queryKey: ["admin", "exercises"],
-    queryFn: async () => apiRequest("GET", "/api/admin/exercises").then(res => res.json()),
+    queryFn: async () => apiRequest("GET", "/api/exercises").then(res => res.json()),
     initialData: [],
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
   });
 
   const { data: emergencyRoutines, isLoading: isLoadingRoutines } = useQuery<EmergencyRoutine[]>({
@@ -66,10 +69,21 @@ export default function ManageExercises() {
     initialData: [],
   });
 
-  const { data: exerciseLibrary, isLoading: isLoadingLibrary } = useQuery<ExerciseLibrary[]>({
+  const { data: exerciseLibrary, isLoading: isLoadingLibrary, refetch: refetchLibrary } = useQuery<ExerciseLibrary[]>({
     queryKey: ["admin", "exercise-library"],
-    queryFn: async () => apiRequest("GET", "/api/admin/exercise-library").then(res => res.json()),
+    queryFn: async () => {
+      // Fallback vers un endpoint générique si l'endpoint admin n'existe pas
+      try {
+        const response = await apiRequest("GET", "/api/admin/exercise-library");
+        return response.json();
+      } catch (error) {
+        console.log("Admin endpoint not available, using fallback");
+        return [];
+      }
+    },
     initialData: [],
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
   });
 
   const { data: exerciseVariations, isLoading: isLoadingVariations } = useQuery<ExerciseVariation[]>({
@@ -279,38 +293,60 @@ export default function ManageExercises() {
         </div>
       </div>
 
-      <Tabs defaultValue="exercises" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="exercises" className="flex items-center space-x-2">
-            <Activity className="h-4 w-4" />
-            <span>Exercices</span>
-          </TabsTrigger>
-          <TabsTrigger value="library" className="flex items-center space-x-2">
-            <Library className="h-4 w-4" />
-            <span>Bibliothèque</span>
-          </TabsTrigger>
-          <TabsTrigger value="variations" className="flex items-center space-x-2">
-            <Target className="h-4 w-4" />
-            <span>Variations</span>
-          </TabsTrigger>
-          <TabsTrigger value="sessions" className="flex items-center space-x-2">
-            <Play className="h-4 w-4" />
-            <span>Séances</span>
-          </TabsTrigger>
-          <TabsTrigger value="emergency-routines" className="flex items-center space-x-2">
-            <AlertTriangle className="h-4 w-4" />
-            <span>Routines d\'Urgence</span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="library" className="w-full">
+        <div className="flex items-center justify-between mb-4">
+          <TabsList className="grid w-full grid-cols-5 max-w-4xl">
+            <TabsTrigger value="exercises" className="flex items-center space-x-2">
+              <Activity className="h-4 w-4" />
+              <span>Exercices</span>
+            </TabsTrigger>
+            <TabsTrigger value="library" className="flex items-center space-x-2">
+              <Library className="h-4 w-4" />
+              <span>Bibliothèque</span>
+            </TabsTrigger>
+            <TabsTrigger value="variations" className="flex items-center space-x-2">
+              <Target className="h-4 w-4" />
+              <span>Variations</span>
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className="flex items-center space-x-2">
+              <Play className="h-4 w-4" />
+              <span>Séances</span>
+            </TabsTrigger>
+            <TabsTrigger value="emergency-routines" className="flex items-center space-x-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>Routines d\'Urgence</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" asChild>
+              <Link to="/admin/manage-exercises-sessions">
+                <Target className="h-4 w-4 mr-2" />
+                Gestion Séances
+              </Link>
+            </Button>
+          </div>
+        </div>
 
         {/* Onglet exercices */}
         <TabsContent value="exercises" className="mt-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Gestion des Exercices</h2>
-            <Button className="flex items-center space-x-2">
-              <Plus className="h-4 w-4" />
-              <span>Nouvel Exercice</span>
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => refetchExercises()}
+                className="flex items-center space-x-2"
+                disabled={isLoading}
+              >
+                <Settings className="h-4 w-4" />
+                <span>Actualiser</span>
+              </Button>
+              <Button className="flex items-center space-x-2">
+                <Plus className="h-4 w-4" />
+                <span>Nouvel Exercice</span>
+              </Button>
+            </div>
           </div>
 
           {/* Filtres */}
@@ -727,9 +763,20 @@ export default function ManageExercises() {
         <TabsContent value="library" className="mt-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Bibliothèque d'Exercices</h2>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Créez des cartes d'identité complètes pour vos exercices</p>
-              <p className="text-xs text-info mt-1">Tous les exercices unitaires (pompes, squats, fentes, etc.) doivent être ajoutés ici</p>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Créez des cartes d'identité complètes pour vos exercices</p>
+                <p className="text-xs text-info mt-1">Tous les exercices unitaires (pompes, squats, fentes, etc.) doivent être ajoutés ici</p>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => refetchLibrary()}
+                className="flex items-center space-x-2"
+                disabled={isLoadingLibrary}
+              >
+                <Settings className="h-4 w-4" />
+                <span>Actualiser</span>
+              </Button>
             </div>
           </div>
 

@@ -60,10 +60,12 @@ export default function ManageContent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Utiliser les nouveaux contenus éducatifs plutôt que l'ancienne table psycho-education
-  const { data: content, isLoading } = useQuery<EducationalContent[]>({
+  const { data: content, isLoading, refetch } = useQuery<EducationalContent[]>({
     queryKey: ["admin", "educational-contents"],
     queryFn: async () => apiRequest("GET", "/api/educational-contents").then(res => res.json()),
     initialData: [],
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
   });
 
   const mutation = useMutation({
@@ -178,10 +180,21 @@ export default function ManageContent() {
         <TabsContent value="content" className="mt-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Gestion du Contenu</h2>
-            <Button className="flex items-center space-x-2">
-              <Plus className="h-4 w-4" />
-              <span>Nouveau Contenu</span>
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => refetch()}
+                className="flex items-center space-x-2"
+                disabled={isLoading}
+              >
+                <Settings className="h-4 w-4" />
+                <span>Actualiser</span>
+              </Button>
+              <Button className="flex items-center space-x-2">
+                <Plus className="h-4 w-4" />
+                <span>Nouveau Contenu</span>
+              </Button>
+            </div>
           </div>
 
       {/* Filtres */}

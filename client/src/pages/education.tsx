@@ -298,7 +298,9 @@ export default function Education() {
       }
     },
     initialData: [],
-    enabled: contentCategories.length > 0 // Attendre les catégories d'abord
+    enabled: contentCategories.length > 0, // Attendre les catégories d'abord
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000, // Actualisation automatique toutes les minutes
   });
 
   // Récupération du contenu psychoéducationnel depuis l'ancienne API (fallback uniquement)

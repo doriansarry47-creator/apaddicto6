@@ -25,6 +25,12 @@ export default function AdminDashboard() {
                   Exercices & Séances
                 </Button>
               </Link>
+              <Link to="/admin/manage-exercises">
+                <Button variant="outline" className="w-full">
+                  <span className="material-icons mr-2">local_library</span>
+                  Bibliothèque d'Exercices
+                </Button>
+              </Link>
               <Link to="/admin/manage-content">
                 <Button variant="outline" className="w-full">
                   <span className="material-icons mr-2">article</span>

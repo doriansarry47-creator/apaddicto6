@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, Edit, Activity, Filter, Clock, Target, Users, Play, Settings, Send, Eye, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Trash2, Edit, Activity, Filter, Clock, Target, Users, Play, Settings, Send, Eye, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAutoRefresh } from "@/hooks/useAutoRefresh";
 import { apiRequest } from "@/lib/queryClient";
@@ -56,16 +57,20 @@ export default function ManageExercisesSessions() {
   useAdminAutoRefresh(true);
 
   // Queries
-  const { data: exercises, isLoading: isLoadingExercises } = useQuery<Exercise[]>({
+  const { data: exercises, isLoading: isLoadingExercises, refetch: refetchExercises } = useQuery<Exercise[]>({
     queryKey: ["admin", "exercises"],
     queryFn: async () => apiRequest("GET", "/api/exercises").then(res => res.json()),
     initialData: [],
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
   });
 
-  const { data: sessions, isLoading: isLoadingSessions } = useQuery<CustomSession[]>({
+  const { data: sessions, isLoading: isLoadingSessions, refetch: refetchSessions } = useQuery<CustomSession[]>({
     queryKey: ["admin", "sessions"],
     queryFn: async () => apiRequest("GET", "/api/sessions").then(res => res.json()),
     initialData: [],
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
   });
 
   const { data: patients, isLoading: isLoadingPatients } = useQuery<User[]>({
@@ -264,27 +269,51 @@ export default function ManageExercisesSessions() {
             Créez et gérez la bibliothèque d'exercices et les séances personnalisées pour vos patients
           </p>
         </div>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              refetchExercises();
+              refetchSessions();
+            }}
+            className="flex items-center space-x-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Actualiser</span>
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="exercises">
-            <Activity className="h-4 w-4 mr-2" />
-            Exercices ({filteredExercises.length})
-          </TabsTrigger>
-          <TabsTrigger value="sessions">
-            <Target className="h-4 w-4 mr-2" />
-            Séances ({filteredSessions.length})
-          </TabsTrigger>
-          <TabsTrigger value="session-builder">
-            <Plus className="h-4 w-4 mr-2" />
-            Créer une Séance
-          </TabsTrigger>
-          <TabsTrigger value="patient-assignments">
-            <Users className="h-4 w-4 mr-2" />
-            Assignations Patients
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList className="grid w-full grid-cols-4 max-w-3xl">
+            <TabsTrigger value="exercises">
+              <Activity className="h-4 w-4 mr-2" />
+              Exercices ({filteredExercises.length})
+            </TabsTrigger>
+            <TabsTrigger value="sessions">
+              <Target className="h-4 w-4 mr-2" />
+              Séances ({filteredSessions.length})
+            </TabsTrigger>
+            <TabsTrigger value="session-builder">
+              <Plus className="h-4 w-4 mr-2" />
+              Créer une Séance
+            </TabsTrigger>
+            <TabsTrigger value="patient-assignments">
+              <Users className="h-4 w-4 mr-2" />
+              Assignations Patients
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" asChild>
+              <Link to="/admin/manage-exercises">
+                <span className="material-icons mr-2 text-sm">local_library</span>
+                Bibliothèque Détaillée
+              </Link>
+            </Button>
+          </div>
+        </div>
 
         {/* Onglet Exercices */}
         <TabsContent value="exercises" className="space-y-6">
