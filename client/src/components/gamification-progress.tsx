@@ -2,6 +2,23 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Trophy, 
+  Flame, 
+  Target, 
+  Star, 
+  Award, 
+  TrendingUp,
+  Calendar,
+  CheckCircle,
+  Zap,
+  Medal,
+  Crown
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { User, UserStats, UserBadge } from "@shared/schema";
 
 interface GamificationProgressProps {
@@ -49,9 +66,38 @@ export function GamificationProgress({ userId }: GamificationProgressProps) {
 
   const level = user?.level || 1;
   const points = user?.points || 0;
+  const nextLevelPoints = level * 1000; // Points requis pour le niveau suivant
+  const progressToNextLevel = (points % 1000) / 10; // Pourcentage vers le niveau suivant
+
+  // Badges récents (derniers débloqués)
+  const recentBadges = badges?.slice(0, 3) || [];
+
+  // Statistiques d'amélioration
+  const streak = userStats?.currentStreak || 0;
+  const totalExercises = userStats?.exercisesCompleted || 0;
+  const totalDuration = Math.floor((userStats?.totalDuration || 0) / 60); // en minutes
+
+  // Messages motivants basés sur les performances
+  const getMotivationalMessage = () => {
+    if (streak >= 7) return "🔥 Incroyable ! Vous êtes en feu !";
+    if (streak >= 3) return "💪 Excellente régularité !";
+    if (totalExercises >= 50) return "🏆 Vous êtes un champion !";
+    if (totalExercises >= 10) return "⭐ Très bon progrès !";
+    return "🌱 Continuez comme ça !";
+  };
+
+  // Prochains objectifs à atteindre
+  const getNextGoals = () => {
+    const goals = [];
+    if (streak < 3) goals.push({ label: "Série de 3 jours", progress: (streak / 3) * 100, icon: Flame });
+    if (streak < 7) goals.push({ label: "Série de 7 jours", progress: (streak / 7) * 100, icon: Target });
+    if (totalExercises < 25) goals.push({ label: "25 exercices", progress: (totalExercises / 25) * 100, icon: CheckCircle });
+    if (totalDuration < 180) goals.push({ label: "3h d'activité", progress: (totalDuration / 180) * 100, icon: TrendingUp });
+    return goals.slice(0, 2); // Afficher seulement les 2 premiers
+  };
+
   const exercisesCompleted = userStats?.exercisesCompleted || 0;
   const currentLevelProgress = points % 100;
-  const nextLevelPoints = 100 - currentLevelProgress;
 
   const getBadgeInfo = (badgeType: string) => {
     switch (badgeType) {
@@ -98,7 +144,7 @@ export function GamificationProgress({ userId }: GamificationProgressProps) {
               data-testid="progress-level"
             />
             <p className="text-xs text-muted-foreground" data-testid="text-next-level">
-              {nextLevelPoints} points pour le niveau {level + 1}
+              {100 - currentLevelProgress} points pour le niveau {level + 1}
             </p>
           </div>
 

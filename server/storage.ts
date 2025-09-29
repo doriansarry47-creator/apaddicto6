@@ -1355,6 +1355,102 @@ class Storage {
       throw error;
     }
   }
+
+  // === STATISTIQUES ADMINISTRATEUR ===
+  
+  async getAdminStats(): Promise<{
+    totalPatients: number;
+    activePatients: number;
+    totalExercises: number;
+    totalSessions: number;
+    totalCravings: number;
+    totalContent: number;
+    recentActivity: {
+      newUsers: number;
+      completedSessions: number;
+      cravingEntries: number;
+    };
+  }> {
+    try {
+      // Compter les patients totaux et actifs
+      const [totalPatientsResult] = await this.db
+        .select({ count: count() })
+        .from(users)
+        .where(eq(users.role, 'patient'));
+
+      const [activePatientsResult] = await this.db
+        .select({ count: count() })
+        .from(users)
+        .where(
+          and(
+            eq(users.role, 'patient'),
+            eq(users.isActive, true)
+          )
+        );
+
+      // Compter les exercices
+      const [totalExercisesResult] = await this.db
+        .select({ count: count() })
+        .from(exercises);
+
+      // Compter les sessions d'exercice
+      const [totalSessionsResult] = await this.db
+        .select({ count: count() })
+        .from(exerciseSessions);
+
+      // Compter les entrées de craving
+      const [totalCravingsResult] = await this.db
+        .select({ count: count() })
+        .from(cravingEntries);
+
+      // Compter le contenu éducatif
+      const [totalContentResult] = await this.db
+        .select({ count: count() })
+        .from(educationalContents)
+        .where(eq(educationalContents.isActive, true));
+
+      // Statistiques de la dernière semaine
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      const [newUsersResult] = await this.db
+        .select({ count: count() })
+        .from(users)
+        .where(
+          and(
+            eq(users.role, 'patient'),
+            sql`${users.createdAt} >= ${oneWeekAgo.toISOString()}`
+          )
+        );
+
+      const [recentSessionsResult] = await this.db
+        .select({ count: count() })
+        .from(exerciseSessions)
+        .where(sql`${exerciseSessions.completedAt} >= ${oneWeekAgo.toISOString()}`);
+
+      const [recentCravingsResult] = await this.db
+        .select({ count: count() })
+        .from(cravingEntries)
+        .where(sql`${cravingEntries.timestamp} >= ${oneWeekAgo.toISOString()}`);
+
+      return {
+        totalPatients: totalPatientsResult?.count || 0,
+        activePatients: activePatientsResult?.count || 0,
+        totalExercises: totalExercisesResult?.count || 0,
+        totalSessions: totalSessionsResult?.count || 0,
+        totalCravings: totalCravingsResult?.count || 0,
+        totalContent: totalContentResult?.count || 0,
+        recentActivity: {
+          newUsers: newUsersResult?.count || 0,
+          completedSessions: recentSessionsResult?.count || 0,
+          cravingEntries: recentCravingsResult?.count || 0,
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new Storage();

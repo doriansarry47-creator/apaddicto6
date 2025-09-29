@@ -80,6 +80,11 @@ export function Navigation() {
             </nav>
 
             <div className="flex items-center space-x-2">
+              {/* Bouton d'urgence craving */}
+              <Link to="/emergency-routines" className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 animate-pulse" data-testid="emergency-button">
+                <span className="material-icons text-sm">warning</span>
+                <span className="hidden sm:inline">SOS Craving</span>
+              </Link>
               <ThemeSettingsMenu />
               <Link to="/profile" className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-white text-sm" data-testid="link-profile">
                 <span className="material-icons text-sm">person</span>
@@ -97,6 +102,12 @@ export function Navigation() {
           )} data-testid="nav-mobile-home">
             <span className="material-icons text-lg">dashboard</span>
             <span className="text-xs">Accueil</span>
+          </Link>
+          
+          {/* Bouton d'urgence mobile - position proéminente */}
+          <Link to="/emergency-routines" className="flex flex-col items-center justify-center space-y-1 bg-red-600 text-white animate-pulse" data-testid="nav-mobile-emergency">
+            <span className="material-icons text-lg">warning</span>
+            <span className="text-xs font-medium">SOS</span>
           </Link>
           <Link to="/exercises" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
             isActive("/exercises") ? "text-primary" : "text-muted-foreground hover:text-primary"

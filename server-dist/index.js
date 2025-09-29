@@ -1603,6 +1603,48 @@ var Storage = class {
       throw error;
     }
   }
+  // === STATISTIQUES ADMINISTRATEUR ===
+  async getAdminStats() {
+    try {
+      const [totalPatientsResult] = await this.db.select({ count: count() }).from(users).where(eq(users.role, "patient"));
+      const [activePatientsResult] = await this.db.select({ count: count() }).from(users).where(
+        and(
+          eq(users.role, "patient"),
+          eq(users.isActive, true)
+        )
+      );
+      const [totalExercisesResult] = await this.db.select({ count: count() }).from(exercises);
+      const [totalSessionsResult] = await this.db.select({ count: count() }).from(exerciseSessions);
+      const [totalCravingsResult] = await this.db.select({ count: count() }).from(cravingEntries);
+      const [totalContentResult] = await this.db.select({ count: count() }).from(educationalContents).where(eq(educationalContents.isActive, true));
+      const oneWeekAgo = /* @__PURE__ */ new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const [newUsersResult] = await this.db.select({ count: count() }).from(users).where(
+        and(
+          eq(users.role, "patient"),
+          sql2`${users.createdAt} >= ${oneWeekAgo.toISOString()}`
+        )
+      );
+      const [recentSessionsResult] = await this.db.select({ count: count() }).from(exerciseSessions).where(sql2`${exerciseSessions.completedAt} >= ${oneWeekAgo.toISOString()}`);
+      const [recentCravingsResult] = await this.db.select({ count: count() }).from(cravingEntries).where(sql2`${cravingEntries.timestamp} >= ${oneWeekAgo.toISOString()}`);
+      return {
+        totalPatients: totalPatientsResult?.count || 0,
+        activePatients: activePatientsResult?.count || 0,
+        totalExercises: totalExercisesResult?.count || 0,
+        totalSessions: totalSessionsResult?.count || 0,
+        totalCravings: totalCravingsResult?.count || 0,
+        totalContent: totalContentResult?.count || 0,
+        recentActivity: {
+          newUsers: newUsersResult?.count || 0,
+          completedSessions: recentSessionsResult?.count || 0,
+          cravingEntries: recentCravingsResult?.count || 0
+        }
+      };
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      throw error;
+    }
+  }
 };
 var storage = new Storage();
 
@@ -2305,6 +2347,15 @@ function registerRoutes(app2) {
     } catch (error) {
       console.error("Error fetching relaxation exercises:", error);
       res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des exercices de relaxation" });
+    }
+  });
+  app2.get("/api/admin/stats", requireAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      res.status(500).json({ message: "Erreur lors de la r\xE9cup\xE9ration des statistiques" });
     }
   });
   app2.get("/api/admin/users", requireAdmin, async (req, res) => {

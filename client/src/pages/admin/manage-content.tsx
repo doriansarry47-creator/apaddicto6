@@ -3,7 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPsychoEducationContentSchema } from "../../../../shared/schema";
-import type { PsychoEducationContent, InsertPsychoEducationContent, EducationalContent, InsertEducationalContent, QuickResource, InsertQuickResource } from "../../../../shared/schema";
+import type { 
+  PsychoEducationContent, 
+  InsertPsychoEducationContent, 
+  EducationalContent, 
+  InsertEducationalContent, 
+  QuickResource, 
+  InsertQuickResource 
+} from "../../../../shared/schema";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,41 +21,83 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Edit, Clock, BookOpen, Video, Headphones, Gamepad2, Zap, Pin, Settings, Filter } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Plus, 
+  Trash2, 
+  Edit, 
+  Clock, 
+  BookOpen, 
+  Video, 
+  Headphones, 
+  Gamepad2, 
+  Zap, 
+  Pin, 
+  Settings, 
+  Filter,
+  Search,
+  Eye,
+  EyeOff,
+  FileText,
+  Image,
+  Star,
+  Calendar,
+  User,
+  CheckCircle,
+  XCircle
+} from "lucide-react";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 type FormData = Omit<InsertEducationalContent, 'authorId' | 'publishedAt'>;
 
-// Catégories prédéfinies pour le contenu éducatif
+// 🎯 Catégories organisées par thème selon les besoins exprimés
 const EDUCATION_CATEGORIES = [
-  { value: "addiction", label: "Addiction et Dépendance" },
-  { value: "motivation", label: "Motivation et Objectifs" },
-  { value: "coping", label: "Stratégies d'Adaptation" },
-  { value: "relapse_prevention", label: "Prévention des Rechutes" },
-  { value: "stress_management", label: "Gestion du Stress" },
-  { value: "emotional_regulation", label: "Régulation Émotionnelle" },
-  { value: "mindfulness", label: "Pleine Conscience" },
-  { value: "cognitive_therapy", label: "Thérapie Cognitive" },
-  { value: "social_support", label: "Soutien Social" },
-  { value: "lifestyle", label: "Mode de Vie Sain" },
+  // Gestion des cravings (priorité 1)
+  { value: "craving_management", label: "🧠 Comprendre le Craving", theme: "craving" },
+  { value: "emergency_strategies", label: "🚨 Stratégies d'Urgence", theme: "craving" },
+  
+  // Activité physique et santé mentale (priorité 2)
+  { value: "apa_mental_health", label: "💪 APA et Santé Mentale", theme: "activity" },
+  { value: "exercise_benefits", label: "🏃 Bénéfices de l'Exercice", theme: "activity" },
+  
+  // Respiration et relaxation (priorité 3)
+  { value: "breathing_relaxation", label: "🫁 Respiration & Relaxation", theme: "wellness" },
+  { value: "stress_management", label: "😌 Gestion du Stress", theme: "wellness" },
+  
+  // Autres catégories essentielles
+  { value: "motivation", label: "🎯 Motivation et Objectifs", theme: "psychological" },
+  { value: "relapse_prevention", label: "🛡️ Prévention des Rechutes", theme: "prevention" },
+  { value: "mindfulness", label: "🧘 Pleine Conscience", theme: "wellness" },
+  { value: "cognitive_therapy", label: "🤔 Thérapie Cognitive", theme: "psychological" },
+  { value: "social_support", label: "👥 Soutien Social", theme: "social" },
+  { value: "lifestyle", label: "🌱 Mode de Vie Sain", theme: "lifestyle" },
 ];
 
-// Types de contenu
+// Types de contenu avec icônes et descriptions
 const CONTENT_TYPES = [
-  { value: "text", label: "Texte" },
-  { value: "video", label: "Vidéo" },
-  { value: "audio", label: "Audio" },
-  { value: "pdf", label: "PDF" },
-  { value: "image", label: "Image" },
+  { value: "text", label: "Article", icon: FileText, description: "Article de blog ou guide textuel" },
+  { value: "video", label: "Vidéo", icon: Video, description: "Vidéo éducative ou tutoriel" },
+  { value: "audio", label: "Audio", icon: Headphones, description: "Podcast ou méditation guidée" },
+  { value: "pdf", label: "Document PDF", icon: FileText, description: "Guide détaillé ou fiche pratique" },
+  { value: "image", label: "Infographie", icon: Image, description: "Schéma ou illustration éducative" },
 ];
 
-// Niveaux de difficulté
+// Niveaux de difficulté avec durées estimées
 const DIFFICULTY_LEVELS = [
-  { value: "easy", label: "Facile" },
-  { value: "intermediate", label: "Intermédiaire" },
-  { value: "advanced", label: "Avancé" },
+  { value: "easy", label: "Débutant", color: "bg-green-100 text-green-800", time: "5-10 min" },
+  { value: "intermediate", label: "Intermédiaire", color: "bg-yellow-100 text-yellow-800", time: "10-20 min" },
+  { value: "advanced", label: "Avancé", color: "bg-red-100 text-red-800", time: "20+ min" },
+];
+
+// Statuts de publication
+const PUBLICATION_STATUSES = [
+  { value: "draft", label: "Brouillon", color: "bg-gray-100 text-gray-800", icon: Edit },
+  { value: "published", label: "Publié", color: "bg-green-100 text-green-800", icon: CheckCircle },
+  { value: "archived", label: "Archivé", color: "bg-orange-100 text-orange-800", icon: XCircle },
 ];
 
 export default function ManageContent() {

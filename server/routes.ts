@@ -755,6 +755,17 @@ export function registerRoutes(app: Application) {
 
   // === ROUTES D'ADMINISTRATION ===
   
+  // GET /api/admin/stats - Statistiques globales pour l'admin
+  app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('Error fetching admin stats:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des statistiques' });
+    }
+  });
+
   // GET /api/admin/users - Liste de tous les utilisateurs (admin uniquement)
   app.get('/api/admin/users', requireAdmin, async (req, res) => {
     try {
