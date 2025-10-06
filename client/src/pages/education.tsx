@@ -81,35 +81,59 @@ export default function EducationNew() {
   const queryClient = useQueryClient();
 
   // Récupération des catégories
-  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<ContentCategory[]>({
+  const { data: categories = [], isLoading: isLoadingCategories, error: categoriesError } = useQuery<ContentCategory[]>({
     queryKey: ['content-categories'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/content-categories');
-      const data = await response.json();
-      return Array.isArray(data) ? data.filter(cat => cat.isActive) : [];
+      try {
+        const response = await apiRequest('GET', '/api/content-categories');
+        if (!response.ok) {
+          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data.filter(cat => cat.isActive !== false) : [];
+      } catch (error) {
+        console.error('Erreur lors de la récupération des catégories:', error);
+        throw error;
+      }
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Récupération du contenu éducationnel
   const { data: contents = [], isLoading: isLoadingContents, error } = useQuery<EducationalContent[]>({
     queryKey: ['educational-contents', selectedCategory, difficultyFilter],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      params.append('status', 'published');
-      if (selectedCategory) params.append('categoryId', selectedCategory);
-      if (difficultyFilter) params.append('difficulty', difficultyFilter);
-      
-      const response = await apiRequest('GET', `/api/educational-contents?${params.toString()}`);
-      return response.json();
+      try {
+        const params = new URLSearchParams();
+        params.append('status', 'published');
+        if (selectedCategory) params.append('categoryId', selectedCategory);
+        if (difficultyFilter) params.append('difficulty', difficultyFilter);
+        
+        const response = await apiRequest('GET', `/api/educational-contents?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Erreur lors de la récupération du contenu éducationnel:', error);
+        throw error;
+      }
     },
     refetchOnWindowFocus: false,
+    retry: 3,
+    retryDelay: 1000,
+    enabled: true, // Toujours activer, même si pas de catégories
   });
 
   // Sélectionner automatiquement la première catégorie au chargement
   useEffect(() => {
     if (categories.length > 0 && !selectedCategory) {
-      const firstCategory = categories.sort((a, b) => a.order - b.order)[0];
-      setSelectedCategory(firstCategory.id);
+      const firstCategory = categories.sort((a, b) => (a.order || 0) - (b.order || 0))[0];
+      if (firstCategory && firstCategory.id) {
+        setSelectedCategory(firstCategory.id);
+      }
     }
   }, [categories, selectedCategory]);
 
@@ -235,7 +259,7 @@ export default function EducationNew() {
     );
   }
 
-  if (error) {
+  if (error || categoriesError) {
     return (
       <>
         <Navigation />
@@ -245,11 +269,21 @@ export default function EducationNew() {
               <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-2xl font-semibold text-foreground mb-2">Erreur de chargement</h2>
               <p className="text-muted-foreground mb-6">
-                Impossible de charger le contenu éducatif. Veuillez réessayer.
+                {categoriesError ? 
+                  "Impossible de charger les catégories de contenu. Cela peut indiquer un problème de configuration." :
+                  "Impossible de charger le contenu éducatif. Veuillez réessayer."
+                }
               </p>
-              <Button onClick={() => window.location.reload()}>
-                Réessayer
-              </Button>
+              <div className="space-y-2">
+                <Button onClick={() => window.location.reload()}>
+                  Réessayer
+                </Button>
+                {(categoriesError || (categories.length === 0 && !isLoadingCategories)) && (
+                  <p className="text-sm text-muted-foreground">
+                    Si le problème persiste, contactez l'administrateur.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </main>
