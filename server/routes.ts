@@ -1162,13 +1162,11 @@ export function registerRoutes(app: Application) {
         return res.status(400).json({ message: 'Contenu requis et non vide' });
       }
 
-      // For now, set categoryId to null to avoid foreign key constraint issues
-      // TODO: Implement proper content categories
       const contentData = {
         title: title.trim(),
         description: description?.trim() || null,
         type,
-        categoryId: null, // Temporarily set to null to avoid FK constraint issues
+        categoryId: categoryId?.trim() || null,
         tags: Array.isArray(tags) ? [...tags] : [],
         mediaUrl: mediaUrl?.trim() || null,
         mediaType: mediaType || null,

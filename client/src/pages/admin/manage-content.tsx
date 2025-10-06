@@ -54,7 +54,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 type FormData = Omit<InsertEducationalContent, 'authorId' | 'publishedAt'>;
 
-// 🎯 Catégories organisées par thème selon les besoins exprimés
+// 🎯 Catégories organisées par thème - IDs correspondent à la base de données
 const EDUCATION_CATEGORIES = [
   // Gestion des cravings (priorité 1)
   { value: "craving_management", label: "🧠 Comprendre le Craving", theme: "craving" },
@@ -70,11 +70,7 @@ const EDUCATION_CATEGORIES = [
   
   // Autres catégories essentielles
   { value: "motivation", label: "🎯 Motivation et Objectifs", theme: "psychological" },
-  { value: "relapse_prevention", label: "🛡️ Prévention des Rechutes", theme: "prevention" },
-  { value: "mindfulness", label: "🧘 Pleine Conscience", theme: "wellness" },
   { value: "cognitive_therapy", label: "🤔 Thérapie Cognitive", theme: "psychological" },
-  { value: "social_support", label: "👥 Soutien Social", theme: "social" },
-  { value: "lifestyle", label: "🌱 Mode de Vie Sain", theme: "lifestyle" },
 ];
 
 // Types de contenu avec icônes et descriptions
