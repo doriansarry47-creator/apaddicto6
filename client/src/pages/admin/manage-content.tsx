@@ -109,12 +109,26 @@ export default function ManageContent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Utiliser les nouveaux contenus éducatifs plutôt que l'ancienne table psycho-education
-  const { data: content, isLoading, refetch } = useQuery<EducationalContent[]>({
+  const { data: content, isLoading, refetch, error, isFetching } = useQuery<EducationalContent[]>({
     queryKey: ["admin", "educational-contents"],
-    queryFn: async () => apiRequest("GET", "/api/educational-contents").then(res => res.json()),
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("GET", "/api/educational-contents");
+        if (!response.ok) {
+          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Erreur récupération contenus admin:', error);
+        throw error;
+      }
+    },
     initialData: [],
     refetchOnWindowFocus: true,
     refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const mutation = useMutation({
@@ -191,7 +205,9 @@ export default function ManageContent() {
   };
 
   const filteredContent = content?.filter(item => {
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+    // Vérifier la catégorie en utilisant categoryId ou category
+    const itemCategory = item.categoryId || item.category;
+    const matchesCategory = categoryFilter === "all" || itemCategory === categoryFilter;
     const matchesType = typeFilter === "all" || item.type === typeFilter;
     return matchesCategory && matchesType;
   }) || [];
@@ -234,10 +250,10 @@ export default function ManageContent() {
                 variant="outline" 
                 onClick={() => refetch()}
                 className="flex items-center space-x-2"
-                disabled={isLoading}
+                disabled={isLoading || isFetching}
               >
-                <Settings className="h-4 w-4" />
-                <span>Actualiser</span>
+                <Settings className={`h-4 w-4 ${(isLoading || isFetching) ? 'animate-spin' : ''}`} />
+                <span>{(isLoading || isFetching) ? 'Actualisation...' : 'Actualiser'}</span>
               </Button>
               <Button className="flex items-center space-x-2">
                 <Plus className="h-4 w-4" />
@@ -519,8 +535,38 @@ export default function ManageContent() {
               <CardTitle>Contenus Existants</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <p>Chargement des contenus...</p>
+              {error ? (
+                <div className="text-center py-8">
+                  <XCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">Erreur de chargement</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Impossible de charger les contenus éducationnels
+                  </p>
+                  <Button onClick={() => refetch()} variant="outline">
+                    Réessayer
+                  </Button>
+                </div>
+              ) : isLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Chargement des contenus...</p>
+                </div>
+              ) : filteredContent.length === 0 ? (
+                <div className="text-center py-8">
+                  <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">Aucun contenu trouvé</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {content.length === 0 
+                      ? "Aucun contenu éducationnel n'a encore été créé."
+                      : "Aucun contenu ne correspond aux filtres sélectionnés."
+                    }
+                  </p>
+                  {categoryFilter !== "all" || typeFilter !== "all" ? (
+                    <Button onClick={() => { setCategoryFilter("all"); setTypeFilter("all"); }} variant="outline">
+                      Réinitialiser les filtres
+                    </Button>
+                  ) : null}
+                </div>
               ) : (
                 <div className="space-y-4">
                   {filteredContent.map((item) => (
@@ -530,7 +576,7 @@ export default function ManageContent() {
                           <div className="flex items-center space-x-2 mb-2">
                             <h3 className="font-bold text-lg">{item.title}</h3>
                             <Badge variant="outline">
-                              {EDUCATION_CATEGORIES.find(c => c.value === (item as any).categoryId || (item as any).category)?.label || (item as any).category || 'Sans catégorie'}
+                              {EDUCATION_CATEGORIES.find(c => c.value === (item.categoryId || item.category))?.label || (item.categoryId || item.category) || 'Sans catégorie'}
                             </Badge>
                             <Badge variant="secondary">
                               {CONTENT_TYPES.find(t => t.value === item.type)?.label || item.type}
