@@ -81,7 +81,7 @@ export default function EducationNew() {
   const queryClient = useQueryClient();
 
   // Récupération des catégories
-  const { data: categories = [], isLoading: isLoadingCategories, error: categoriesError } = useQuery<ContentCategory[]>({
+  const { data: categories = [], isLoading: isLoadingCategories, error: categoriesError, refetch: refetchCategories } = useQuery<ContentCategory[]>({
     queryKey: ['content-categories'],
     queryFn: async () => {
       try {
@@ -98,10 +98,12 @@ export default function EducationNew() {
     },
     retry: 3,
     retryDelay: 1000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Récupération du contenu éducationnel
-  const { data: contents = [], isLoading: isLoadingContents, error } = useQuery<EducationalContent[]>({
+  const { data: contents = [], isLoading: isLoadingContents, error, refetch: refetchContents } = useQuery<EducationalContent[]>({
     queryKey: ['educational-contents', selectedCategory, difficultyFilter],
     queryFn: async () => {
       try {
@@ -121,7 +123,8 @@ export default function EducationNew() {
         throw error;
       }
     },
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
     retry: 3,
     retryDelay: 1000,
     enabled: true, // Toujours activer, même si pas de catégories
@@ -307,7 +310,7 @@ export default function EducationNew() {
                 Espace Éducatif
               </h1>
               <p className="text-muted-foreground">
-                Explorez les ressources créées par nos experts pour enrichir votre parcours de récupération
+                Explorez des ressources éducatives pour enrichir votre parcours de récupération
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -329,7 +332,14 @@ export default function EducationNew() {
           </div>
         </section>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value);
+          // Actualiser le contenu lors du changement d'onglet
+          if (value === "explore" || value === "dashboard") {
+            refetchContents();
+            refetchCategories();
+          }
+        }} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
@@ -583,11 +593,6 @@ export default function EducationNew() {
                     : `Tous les contenus (${filteredContents.length})`
                   }
                 </h2>
-                {filteredContents.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Contenu créé par nos experts
-                  </p>
-                )}
               </div>
 
               {filteredContents.length === 0 ? (
