@@ -1,0 +1,25 @@
+{
+  "name": "Apaddicto - Activité Physique Adaptée",
+  "short_name": "Apaddicto",
+  "description": "Application thérapeutique d'activité physique adaptée pour patients en addictologie",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0A5FFF",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["health", "medical", "lifestyle"],
+  "lang": "fr",
+  "dir": "ltr"
+}

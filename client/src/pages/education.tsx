@@ -67,9 +67,9 @@ interface UserProgress {
 export default function EducationNew() {
   // États pour la navigation et filtres
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [difficultyFilter, setDifficultyFilter] = useState<string>("");
+  const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("newest");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   
@@ -107,8 +107,8 @@ export default function EducationNew() {
       try {
         const params = new URLSearchParams();
         params.append('status', 'published');
-        if (selectedCategory) params.append('categoryId', selectedCategory);
-        if (difficultyFilter) params.append('difficulty', difficultyFilter);
+        if (selectedCategory && selectedCategory !== "all") params.append('categoryId', selectedCategory);
+        if (difficultyFilter && difficultyFilter !== "all") params.append('difficulty', difficultyFilter);
         
         const response = await apiRequest('GET', `/api/educational-contents?${params.toString()}`);
         if (!response.ok) {
@@ -129,7 +129,7 @@ export default function EducationNew() {
 
   // Sélectionner automatiquement la première catégorie au chargement
   useEffect(() => {
-    if (categories.length > 0 && !selectedCategory) {
+    if (categories.length > 0 && selectedCategory === "all") {
       const firstCategory = categories.sort((a, b) => (a.order || 0) - (b.order || 0))[0];
       if (firstCategory && firstCategory.id) {
         setSelectedCategory(firstCategory.id);
@@ -514,7 +514,7 @@ export default function EducationNew() {
                         <SelectValue placeholder="Toutes les catégories" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Toutes les catégories</SelectItem>
+                        <SelectItem value="all">Toutes les catégories</SelectItem>
                         {categories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.name}
@@ -528,7 +528,7 @@ export default function EducationNew() {
                         <SelectValue placeholder="Tous les niveaux" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Tous les niveaux</SelectItem>
+                        <SelectItem value="all">Tous les niveaux</SelectItem>
                         <SelectItem value="easy">Facile</SelectItem>
                         <SelectItem value="intermediate">Intermédiaire</SelectItem>
                         <SelectItem value="advanced">Avancé</SelectItem>
@@ -561,7 +561,7 @@ export default function EducationNew() {
                       key={category.id}
                       variant={selectedCategory === category.id ? "default" : "outline"}
                       className="h-auto p-4 flex flex-col items-center gap-2"
-                      onClick={() => setSelectedCategory(category.id === selectedCategory ? "" : category.id)}
+                      onClick={() => setSelectedCategory(category.id === selectedCategory ? "all" : category.id)}
                     >
                       <IconComponent className="h-6 w-6" />
                       <div className="text-center">
@@ -578,7 +578,7 @@ export default function EducationNew() {
             <section>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold">
-                  {selectedCategory 
+                  {selectedCategory && selectedCategory !== "all"
                     ? `${categories.find(c => c.id === selectedCategory)?.name} (${filteredContents.length})`
                     : `Tous les contenus (${filteredContents.length})`
                   }
@@ -601,8 +601,8 @@ export default function EducationNew() {
                         : "Essayez de modifier vos filtres pour voir plus de contenus."
                       }
                     </p>
-                    {selectedCategory && (
-                      <Button onClick={() => setSelectedCategory("")}>
+                    {selectedCategory && selectedCategory !== "all" && (
+                      <Button onClick={() => setSelectedCategory("all")}>
                         Voir tous les contenus
                       </Button>
                     )}

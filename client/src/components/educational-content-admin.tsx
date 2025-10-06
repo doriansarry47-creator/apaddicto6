@@ -86,9 +86,9 @@ export default function EducationalContentAdmin() {
   const [editingContent, setEditingContent] = useState<EducationalContent | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   // Form state for creating/editing content
   const [form, setForm] = useState({
@@ -361,9 +361,9 @@ export default function EducationalContentAdmin() {
         !content.description?.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
-    if (filterType && content.type !== filterType) return false;
-    if (filterCategory && content.categoryId !== filterCategory) return false;
-    if (filterStatus && content.status !== filterStatus) return false;
+    if (filterType && filterType !== "all" && content.type !== filterType) return false;
+    if (filterCategory && filterCategory !== "all" && content.categoryId !== filterCategory) return false;
+    if (filterStatus && filterStatus !== "all" && content.status !== filterStatus) return false;
     return true;
   });
 
@@ -411,7 +411,7 @@ export default function EducationalContentAdmin() {
                     <SelectValue placeholder="Type de contenu" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tous les types</SelectItem>
+                    <SelectItem value="all">Tous les types</SelectItem>
                     <SelectItem value="text">Texte</SelectItem>
                     <SelectItem value="video">Vidéo</SelectItem>
                     <SelectItem value="audio">Audio</SelectItem>
@@ -424,7 +424,7 @@ export default function EducationalContentAdmin() {
                     <SelectValue placeholder="Catégorie" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Toutes les catégories</SelectItem>
+                    <SelectItem value="all">Toutes les catégories</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -437,7 +437,7 @@ export default function EducationalContentAdmin() {
                     <SelectValue placeholder="Statut" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tous les statuts</SelectItem>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
                     <SelectItem value="draft">Brouillon</SelectItem>
                     <SelectItem value="published">Publié</SelectItem>
                     <SelectItem value="archived">Archivé</SelectItem>
