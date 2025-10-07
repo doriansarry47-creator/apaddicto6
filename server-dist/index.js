@@ -2668,8 +2668,7 @@ function registerRoutes(app2) {
         title: title.trim(),
         description: description?.trim() || null,
         type,
-        categoryId: null,
-        // Temporarily set to null to avoid FK constraint issues
+        categoryId: categoryId?.trim() || null,
         tags: Array.isArray(tags) ? [...tags] : [],
         mediaUrl: mediaUrl?.trim() || null,
         mediaType: mediaType || null,
