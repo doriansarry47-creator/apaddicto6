@@ -64,6 +64,192 @@ interface UserProgress {
   lastViewedAt?: string;
 }
 
+interface ContentCardProps {
+  content: EducationalContent;
+  isCompleted: boolean;
+  isLiked: boolean;
+  isBookmarked: boolean;
+  category?: ContentCategory;
+  onLike: () => void;
+  onBookmark: () => void;
+  onComplete: () => void;
+  getTypeIcon: (type: string) => React.ReactNode;
+  getDifficultyColor: (difficulty: string) => string;
+}
+
+function ContentCard({ 
+  content, 
+  isCompleted, 
+  isLiked, 
+  isBookmarked, 
+  category,
+  onLike,
+  onBookmark,
+  onComplete,
+  getTypeIcon,
+  getDifficultyColor 
+}: ContentCardProps) {
+  return (
+    <Card className={`hover:shadow-lg transition-all duration-200 ${isCompleted ? 'bg-green-50 border-green-200' : ''}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              {getTypeIcon(content.type)}
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-lg leading-tight">
+                {content.title}
+                {content.isRecommended && (
+                  <Star className="inline h-4 w-4 text-yellow-500 ml-2 fill-current" />
+                )}
+              </CardTitle>
+              {content.description && (
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  {content.description}
+                </p>
+              )}
+            </div>
+          </div>
+          {content.thumbnailUrl && (
+            <img 
+              src={content.thumbnailUrl} 
+              alt={content.title}
+              className="w-16 h-16 object-cover rounded-lg ml-4"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          )}
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {/* Métadonnées */}
+        <div className="flex flex-wrap gap-2">
+          <Badge className={getDifficultyColor(content.difficulty)}>
+            {content.difficulty === 'easy' ? 'Facile' : 
+             content.difficulty === 'intermediate' ? 'Intermédiaire' : 'Avancé'}
+          </Badge>
+          {category && (
+            <Badge variant="outline">{category.name}</Badge>
+          )}
+          {isCompleted && (
+            <Badge className="bg-green-100 text-green-800">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Complété
+            </Badge>
+          )}
+        </div>
+
+        {/* Statistiques */}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          {content.estimatedReadTime && (
+            <div className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              {content.estimatedReadTime} min
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            <Eye className="h-4 w-4" />
+            {content.viewCount || 0}
+          </div>
+          <div className="flex items-center gap-1">
+            <Heart className="h-4 w-4" />
+            {content.likeCount || 0}
+          </div>
+        </div>
+
+        {/* Tags */}
+        {content.tags && content.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {content.tags.slice(0, 3).map((tag, index) => (
+              <Badge key={index} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+            {content.tags.length > 3 && (
+              <Badge variant="secondary" className="text-xs">
+                +{content.tags.length - 3}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {/* Contenu */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="content">
+            <AccordionTrigger className="text-left hover:no-underline">
+              Lire le contenu
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4 pt-2">
+              <div className="prose prose-sm max-w-none">
+                {content.content.split('\n\n').map((paragraph, index) => (
+                  <p key={index} className="text-foreground leading-relaxed">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+              
+              {content.mediaUrl && (
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium mb-2">Ressource supplémentaire :</p>
+                  <a 
+                    href={content.mediaUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-sm"
+                  >
+                    Accéder à la ressource →
+                  </a>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between pt-4 border-t">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onLike}
+              className={isLiked ? "text-red-500" : ""}
+            >
+              <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onBookmark}
+              className={isBookmarked ? "text-blue-500" : ""}
+            >
+              <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+            </Button>
+          </div>
+          
+          <Button
+            size="sm"
+            onClick={onComplete}
+            disabled={isCompleted}
+            className={isCompleted ? "bg-green-600 text-white" : ""}
+          >
+            {isCompleted ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Complété
+              </>
+            ) : (
+              "Marquer comme lu"
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function EducationNew() {
   // États pour la navigation et filtres
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -181,16 +367,21 @@ export default function EducationNew() {
     }
   });
 
-  // Fonctions de filtrage et tri
+  // Fonctions de filtrage et tri améliorées
   const filteredContents = contents
     .filter(content => {
       if (searchTerm && !content.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-          !content.description?.toLowerCase().includes(searchTerm.toLowerCase())) {
+          !content.description?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !content.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))) {
         return false;
       }
       return true;
     })
     .sort((a, b) => {
+      // Prioriser les contenus recommandés d'abord, puis appliquer le tri secondaire
+      if (a.isRecommended && !b.isRecommended) return -1;
+      if (!a.isRecommended && b.isRecommended) return 1;
+      
       switch (sortBy) {
         case 'newest':
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -200,8 +391,18 @@ export default function EducationNew() {
           return (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0);
         case 'shortest':
           return (a.estimatedReadTime || 0) - (b.estimatedReadTime || 0);
+        case 'difficulty':
+          const difficultyOrder = { easy: 1, intermediate: 2, advanced: 3 };
+          return (difficultyOrder[a.difficulty] || 0) - (difficultyOrder[b.difficulty] || 0);
+        case 'alphabetical':
+          return a.title.localeCompare(b.title, 'fr');
         default:
-          return 0;
+          // Tri par défaut : recommandés d'abord, puis par ordre de difficulté, puis par titre
+          const defaultDifficultyOrder = { easy: 1, intermediate: 2, advanced: 3 };
+          const aDiff = defaultDifficultyOrder[a.difficulty] || 0;
+          const bDiff = defaultDifficultyOrder[b.difficulty] || 0;
+          if (aDiff !== bDiff) return aDiff - bDiff;
+          return a.title.localeCompare(b.title, 'fr');
       }
     });
 
@@ -550,9 +751,11 @@ export default function EducationNew() {
                         <SelectValue placeholder="Trier par..." />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="default">Ordre recommandé</SelectItem>
+                        <SelectItem value="difficulty">Par difficulté</SelectItem>
+                        <SelectItem value="alphabetical">Alphabétique</SelectItem>
                         <SelectItem value="newest">Plus récents</SelectItem>
                         <SelectItem value="popular">Plus populaires</SelectItem>
-                        <SelectItem value="recommended">Recommandés</SelectItem>
                         <SelectItem value="shortest">Plus courts</SelectItem>
                       </SelectContent>
                     </Select>
@@ -560,39 +763,100 @@ export default function EducationNew() {
                 </CardContent>
               </Card>
 
-              {/* Catégories rapides */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {/* Catégories rapides avec progression */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {categories.sort((a, b) => a.order - b.order).map((category) => {
                   const IconComponent = getCategoryIcon(category.name);
                   const categoryContents = contents.filter(c => c.categoryId === category.id);
+                  const completedInCategory = categoryContents.filter(c => completedContents.includes(c.id)).length;
+                  const progressPercentage = categoryContents.length > 0 ? (completedInCategory / categoryContents.length) * 100 : 0;
                   
                   return (
-                    <Button
+                    <Card
                       key={category.id}
-                      variant={selectedCategory === category.id ? "default" : "outline"}
-                      className="h-auto p-4 flex flex-col items-center gap-2"
+                      className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                        selectedCategory === category.id ? 'border-primary shadow-md' : 'border-border'
+                      }`}
                       onClick={() => setSelectedCategory(category.id === selectedCategory ? "all" : category.id)}
                     >
-                      <IconComponent className="h-6 w-6" />
-                      <div className="text-center">
-                        <div className="text-sm font-medium">{category.name}</div>
-                        <div className="text-xs opacity-70">{categoryContents.length} contenus</div>
-                      </div>
-                    </Button>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-2 bg-primary/10 rounded-lg">
+                            <IconComponent className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-sm">{category.name}</h4>
+                            <p className="text-xs text-muted-foreground">{categoryContents.length} contenus</p>
+                          </div>
+                        </div>
+                        
+                        {/* Barre de progression */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Progression</span>
+                            <span className="font-medium">{Math.round(progressPercentage)}%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-primary h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${progressPercentage}%` }}
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Badges d'information */}
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          <Badge variant="secondary" className="text-xs">
+                            {completedInCategory}/{categoryContents.length}
+                          </Badge>
+                          {categoryContents.some(c => c.isRecommended) && (
+                            <Badge className="text-xs bg-yellow-100 text-yellow-800">
+                              <Star className="h-3 w-3 mr-1" />
+                              Recommandé
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   );
                 })}
               </div>
             </section>
 
-            {/* Liste des contenus */}
+            {/* Liste des contenus avec organisation améliorée */}
             <section>
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">
-                  {selectedCategory && selectedCategory !== "all"
-                    ? `${categories.find(c => c.id === selectedCategory)?.name} (${filteredContents.length})`
-                    : `Tous les contenus (${filteredContents.length})`
-                  }
-                </h2>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-semibold">
+                    {selectedCategory && selectedCategory !== "all"
+                      ? `${categories.find(c => c.id === selectedCategory)?.name}`
+                      : `Tous les contenus`
+                    }
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {filteredContents.length} contenu{filteredContents.length !== 1 ? 's' : ''} disponible{filteredContents.length !== 1 ? 's' : ''}
+                    {selectedCategory && selectedCategory !== "all" && (
+                      <span className="ml-2">
+                        • {categories.find(c => c.id === selectedCategory)?.description}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                
+                {/* Résumé rapide des niveaux disponibles */}
+                {filteredContents.length > 0 && (
+                  <div className="flex gap-2">
+                    {['easy', 'intermediate', 'advanced'].map(level => {
+                      const count = filteredContents.filter(c => c.difficulty === level).length;
+                      if (count === 0) return null;
+                      return (
+                        <Badge key={level} className={getDifficultyColor(level)} variant="outline">
+                          {level === 'easy' ? 'Facile' : level === 'intermediate' ? 'Inter.' : 'Avancé'} ({count})
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {filteredContents.length === 0 ? (
@@ -614,176 +878,86 @@ export default function EducationNew() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className={viewMode === "grid" 
-                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" 
-                  : "space-y-4"
-                }>
-                  {filteredContents.map((content) => {
-                    const isCompleted = completedContents.includes(content.id);
-                    const isLiked = likedContents.includes(content.id);
-                    const isBookmarked = bookmarkedContents.includes(content.id);
-                    const category = categories.find(c => c.id === content.categoryId);
-
-                    return (
-                      <Card key={content.id} className={`hover:shadow-lg transition-all duration-200 ${isCompleted ? 'bg-green-50 border-green-200' : ''}`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3 flex-1">
-                              <div className="p-2 bg-primary/10 rounded-lg">
-                                {getTypeIcon(content.type)}
-                              </div>
-                              <div className="flex-1">
-                                <CardTitle className="text-lg leading-tight">
-                                  {content.title}
-                                  {content.isRecommended && (
-                                    <Star className="inline h-4 w-4 text-yellow-500 ml-2 fill-current" />
-                                  )}
-                                </CardTitle>
-                                {content.description && (
-                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                    {content.description}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            {content.thumbnailUrl && (
-                              <img 
-                                src={content.thumbnailUrl} 
-                                alt={content.title}
-                                className="w-16 h-16 object-cover rounded-lg ml-4"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            )}
-                          </div>
-                        </CardHeader>
-                        
-                        <CardContent className="space-y-4">
-                          {/* Métadonnées */}
-                          <div className="flex flex-wrap gap-2">
-                            <Badge className={getDifficultyColor(content.difficulty)}>
-                              {content.difficulty === 'easy' ? 'Facile' : 
-                               content.difficulty === 'intermediate' ? 'Intermédiaire' : 'Avancé'}
+                <div className="space-y-8">
+                  {/* Organisation par niveau de difficulté quand une catégorie spécifique est sélectionnée */}
+                  {selectedCategory !== "all" && selectedCategory ? (
+                    ['easy', 'intermediate', 'advanced'].map(difficulty => {
+                      const contentsForDifficulty = filteredContents.filter(c => c.difficulty === difficulty);
+                      if (contentsForDifficulty.length === 0) return null;
+                      
+                      return (
+                        <div key={difficulty} className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <Badge className={getDifficultyColor(difficulty)}>
+                              {difficulty === 'easy' ? 'Niveau Facile' : 
+                               difficulty === 'intermediate' ? 'Niveau Intermédiaire' : 'Niveau Avancé'}
                             </Badge>
-                            {category && (
-                              <Badge variant="outline">{category.name}</Badge>
-                            )}
-                            {isCompleted && (
-                              <Badge className="bg-green-100 text-green-800">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Complété
-                              </Badge>
-                            )}
+                            <div className="h-px bg-border flex-1" />
+                            <span className="text-sm text-muted-foreground">
+                              {contentsForDifficulty.length} contenu{contentsForDifficulty.length !== 1 ? 's' : ''}
+                            </span>
                           </div>
+                          
+                          <div className={viewMode === "grid" 
+                            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" 
+                            : "space-y-4"
+                          }>
+                            {contentsForDifficulty.map((content) => {
+                              const isCompleted = completedContents.includes(content.id);
+                              const isLiked = likedContents.includes(content.id);
+                              const isBookmarked = bookmarkedContents.includes(content.id);
+                              const category = categories.find(c => c.id === content.categoryId);
 
-                          {/* Statistiques */}
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            {content.estimatedReadTime && (
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
-                                {content.estimatedReadTime} min
-                              </div>
-                            )}
-                            <div className="flex items-center gap-1">
-                              <Eye className="h-4 w-4" />
-                              {content.viewCount || 0}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Heart className="h-4 w-4" />
-                              {content.likeCount || 0}
-                            </div>
+                              return (
+                                <ContentCard 
+                                  key={content.id} 
+                                  content={content} 
+                                  isCompleted={isCompleted}
+                                  isLiked={isLiked} 
+                                  isBookmarked={isBookmarked}
+                                  category={category}
+                                  onLike={() => likeMutation.mutate(content.id)}
+                                  onBookmark={() => bookmarkMutation.mutate(content.id)}
+                                  onComplete={() => completeMutation.mutate(content.id)}
+                                  getTypeIcon={getTypeIcon}
+                                  getDifficultyColor={getDifficultyColor}
+                                />
+                              );
+                            })}
                           </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    /* Vue globale sans regroupement par difficulté */
+                    <div className={viewMode === "grid" 
+                      ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" 
+                      : "space-y-4"
+                    }>
+                      {filteredContents.map((content) => {
+                        const isCompleted = completedContents.includes(content.id);
+                        const isLiked = likedContents.includes(content.id);
+                        const isBookmarked = bookmarkedContents.includes(content.id);
+                        const category = categories.find(c => c.id === content.categoryId);
 
-                          {/* Tags */}
-                          {content.tags && content.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {content.tags.slice(0, 3).map((tag, index) => (
-                                <Badge key={index} variant="secondary" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {content.tags.length > 3 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  +{content.tags.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Contenu */}
-                          <Accordion type="single" collapsible className="w-full">
-                            <AccordionItem value="content">
-                              <AccordionTrigger className="text-left hover:no-underline">
-                                Lire le contenu
-                              </AccordionTrigger>
-                              <AccordionContent className="space-y-4 pt-2">
-                                <div className="prose prose-sm max-w-none">
-                                  {content.content.split('\n\n').map((paragraph, index) => (
-                                    <p key={index} className="text-foreground leading-relaxed">
-                                      {paragraph}
-                                    </p>
-                                  ))}
-                                </div>
-                                
-                                {content.mediaUrl && (
-                                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                                    <p className="text-sm font-medium mb-2">Ressource supplémentaire :</p>
-                                    <a 
-                                      href={content.mediaUrl} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline text-sm"
-                                    >
-                                      Accéder à la ressource →
-                                    </a>
-                                  </div>
-                                )}
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-
-                          {/* Actions */}
-                          <div className="flex items-center justify-between pt-4 border-t">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => likeMutation.mutate(content.id)}
-                                className={isLiked ? "text-red-500" : ""}
-                              >
-                                <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => bookmarkMutation.mutate(content.id)}
-                                className={isBookmarked ? "text-blue-500" : ""}
-                              >
-                                <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
-                              </Button>
-                            </div>
-                            
-                            <Button
-                              size="sm"
-                              onClick={() => completeMutation.mutate(content.id)}
-                              disabled={isCompleted}
-                              className={isCompleted ? "bg-green-600 text-white" : ""}
-                            >
-                              {isCompleted ? (
-                                <>
-                                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                                  Complété
-                                </>
-                              ) : (
-                                "Marquer comme lu"
-                              )}
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                        return (
+                          <ContentCard 
+                            key={content.id} 
+                            content={content} 
+                            isCompleted={isCompleted}
+                            isLiked={isLiked} 
+                            isBookmarked={isBookmarked}
+                            category={category}
+                            onLike={() => likeMutation.mutate(content.id)}
+                            onBookmark={() => bookmarkMutation.mutate(content.id)}
+                            onComplete={() => completeMutation.mutate(content.id)}
+                            getTypeIcon={getTypeIcon}
+                            getDifficultyColor={getDifficultyColor}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </section>
