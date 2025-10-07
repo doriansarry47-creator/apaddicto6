@@ -716,7 +716,7 @@ export default function EducationalContentAdmin() {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <Card className="w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>
                 {editingContent ? 'Modifier le contenu' : 'Nouveau contenu éducatif'}
@@ -725,184 +725,224 @@ export default function EducationalContentAdmin() {
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="flex-1 overflow-y-auto p-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Section Informations de base */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium mb-3 text-gray-700">📝 Informations de base</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="title" className="text-xs">Titre *</Label>
+                      <Input
+                        id="title"
+                        value={form.title}
+                        onChange={(e) => setForm({...form, title: e.target.value})}
+                        placeholder="Titre du contenu"
+                        className="h-9"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="type" className="text-xs">Type de contenu *</Label>
+                      <Select value={form.type} onValueChange={(value) => setForm({...form, type: value as any})}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="text">📄 Texte</SelectItem>
+                          <SelectItem value="video">🎥 Vidéo</SelectItem>
+                          <SelectItem value="audio">🎵 Audio</SelectItem>
+                          <SelectItem value="pdf">📋 PDF</SelectItem>
+                          <SelectItem value="image">🖼️ Image</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <Label htmlFor="description" className="text-xs">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={form.description}
+                      onChange={(e) => setForm({...form, description: e.target.value})}
+                      placeholder="Description courte du contenu"
+                      className="h-20 resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Section Classification */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium mb-3 text-blue-700">🏷️ Classification et Métadonnées</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <Label htmlFor="categoryId" className="text-xs font-medium text-blue-600">Catégorie *</Label>
+                      <Select value={form.categoryId} onValueChange={(value) => setForm({...form, categoryId: value})}>
+                        <SelectTrigger className="h-9 bg-white">
+                          <SelectValue placeholder="📁 Choisir une catégorie..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              📂 {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="difficulty" className="text-xs">Difficulté</Label>
+                      <Select value={form.difficulty} onValueChange={(value) => setForm({...form, difficulty: value as any})}>
+                        <SelectTrigger className="h-9 bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="easy">🟢 Facile</SelectItem>
+                          <SelectItem value="intermediate">🟡 Intermédiaire</SelectItem>
+                          <SelectItem value="advanced">🔴 Avancé</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="estimatedReadTime" className="text-xs">Temps lecture (min)</Label>
+                      <Input
+                        id="estimatedReadTime"
+                        type="number"
+                        value={form.estimatedReadTime}
+                        onChange={(e) => setForm({...form, estimatedReadTime: e.target.value})}
+                        placeholder="10"
+                        className="h-9"
+                        min="1"
+                        max="180"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section Médias (pliable) */}
+                <details className="bg-purple-50 rounded-lg">
+                  <summary className="p-4 cursor-pointer text-sm font-medium text-purple-700 hover:bg-purple-100 rounded-lg">🎬 Médias et ressources (optionnel)</summary>
+                  <div className="p-4 pt-0 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="mediaUrl" className="text-xs">URL du média</Label>
+                        <Input
+                          id="mediaUrl"
+                          value={form.mediaUrl}
+                          onChange={(e) => setForm({...form, mediaUrl: e.target.value})}
+                          placeholder="https://example.com/media.mp4"
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="mediaType" className="text-xs">Type de média</Label>
+                        <Select value={form.mediaType} onValueChange={(value) => setForm({...form, mediaType: value})}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Type de média" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="external_link">🔗 Lien externe</SelectItem>
+                            <SelectItem value="youtube">📺 YouTube</SelectItem>
+                            <SelectItem value="vimeo">🎬 Vimeo</SelectItem>
+                            <SelectItem value="upload">📁 Fichier uploadé</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="thumbnailUrl" className="text-xs">URL de la miniature</Label>
+                      <Input
+                        id="thumbnailUrl"
+                        value={form.thumbnailUrl}
+                        onChange={(e) => setForm({...form, thumbnailUrl: e.target.value})}
+                        placeholder="https://example.com/thumb.jpg"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                </details>
+
+                {/* Section Tags */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium mb-3 text-green-700">🏷️ Tags et mots-clés</h3>
                   <div>
-                    <Label htmlFor="title">Titre *</Label>
+                    <Label htmlFor="tags" className="text-xs">Tags (séparés par des virgules)</Label>
                     <Input
-                      id="title"
-                      value={form.title}
-                      onChange={(e) => setForm({...form, title: e.target.value})}
-                      placeholder="Titre du contenu"
+                      id="tags"
+                      value={form.tags.join(', ')}
+                      onChange={(e) => {
+                        const tagList = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+                        setForm({...form, tags: tagList});
+                      }}
+                      placeholder="addiction, motivation, relaxation, gestion-stress"
+                      className="h-9"
+                    />
+                    <p className="text-xs text-green-600 mt-1">
+                      💡 Suggestions: addiction, motivation, relaxation, gestion-stress, prévention, exercices
+                    </p>
+                  </div>
+                </div>
+
+                {/* Section Contenu principal */}
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium mb-3 text-yellow-700">📝 Contenu principal</h3>
+                  <div>
+                    <Label htmlFor="content" className="text-xs font-medium">Contenu détaillé *</Label>
+                    <Textarea
+                      id="content"
+                      value={form.content}
+                      onChange={(e) => setForm({...form, content: e.target.value})}
+                      placeholder="Rédigez ici le contenu éducatif...&#10;&#10;Conseils:&#10;• Utilisez des paragraphes courts&#10;• Ajoutez des exemples concrets&#10;• Structurez avec des titres&#10;• Markdown supporté (# ## ### ** *)"
+                      className="min-h-[200px] resize-y"
                       required
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="type">Type de contenu *</Label>
-                    <Select value={form.type} onValueChange={(value) => setForm({...form, type: value as any})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="text">Texte</SelectItem>
-                        <SelectItem value="video">Vidéo</SelectItem>
-                        <SelectItem value="audio">Audio</SelectItem>
-                        <SelectItem value="pdf">PDF</SelectItem>
-                        <SelectItem value="image">Image</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <p className="text-xs text-yellow-600 mt-1">
+                      ✏️ Markdown supporté : **gras**, *italique*, # Titre, ## Sous-titre
+                    </p>
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={form.description}
-                    onChange={(e) => setForm({...form, description: e.target.value})}
-                    placeholder="Description courte du contenu"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="difficulty">Difficulté</Label>
-                    <Select value={form.difficulty} onValueChange={(value) => setForm({...form, difficulty: value as any})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="easy">Facile</SelectItem>
-                        <SelectItem value="intermediate">Intermédiaire</SelectItem>
-                        <SelectItem value="advanced">Avancé</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="categoryId">Catégorie</Label>
-                    <Select value={form.categoryId} onValueChange={(value) => setForm({...form, categoryId: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="estimatedReadTime">Temps de lecture (min)</Label>
-                    <Input
-                      id="estimatedReadTime"
-                      type="number"
-                      value={form.estimatedReadTime}
-                      onChange={(e) => setForm({...form, estimatedReadTime: e.target.value})}
-                      placeholder="10"
-                    />
+                {/* Section Publication */}
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium mb-3 text-red-700">🚀 Publication et visibilité</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="status" className="text-xs font-medium">Statut de publication</Label>
+                      <Select value={form.status} onValueChange={(value) => setForm({...form, status: value as any})}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">📝 Brouillon (non visible)</SelectItem>
+                          <SelectItem value="published">✅ Publié (visible patients)</SelectItem>
+                          <SelectItem value="archived">📦 Archivé</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-6">
+                      <Switch
+                        id="isRecommended"
+                        checked={form.isRecommended}
+                        onCheckedChange={(checked) => setForm({...form, isRecommended: checked})}
+                      />
+                      <Label htmlFor="isRecommended" className="text-xs font-medium">⭐ Contenu recommandé</Label>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="mediaUrl">URL du média</Label>
-                    <Input
-                      id="mediaUrl"
-                      value={form.mediaUrl}
-                      onChange={(e) => setForm({...form, mediaUrl: e.target.value})}
-                      placeholder="https://example.com/media.mp4"
-                    />
+                {/* Actions */}
+                <div className="sticky bottom-0 bg-white border-t pt-4 flex justify-between items-center">
+                  <div className="text-xs text-gray-500">
+                    {editingContent ? '✏️ Modification en cours' : '➕ Nouveau contenu'}
                   </div>
-                  <div>
-                    <Label htmlFor="mediaType">Type de média</Label>
-                    <Select value={form.mediaType} onValueChange={(value) => setForm({...form, mediaType: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Type de média" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="external_link">Lien externe</SelectItem>
-                        <SelectItem value="youtube">YouTube</SelectItem>
-                        <SelectItem value="vimeo">Vimeo</SelectItem>
-                        <SelectItem value="upload">Fichier uploadé</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={resetForm} size="sm">
+                      ❌ Annuler
+                    </Button>
+                    <Button type="submit" className="flex items-center gap-2" size="sm">
+                      <Save className="h-4 w-4" />
+                      {editingContent ? '💾 Mettre à jour' : '✨ Créer le contenu'}
+                    </Button>
                   </div>
-                  <div>
-                    <Label htmlFor="thumbnailUrl">URL de la miniature</Label>
-                    <Input
-                      id="thumbnailUrl"
-                      value={form.thumbnailUrl}
-                      onChange={(e) => setForm({...form, thumbnailUrl: e.target.value})}
-                      placeholder="https://example.com/thumb.jpg"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="tags">Tags (séparés par des virgules)</Label>
-                  <Input
-                    id="tags"
-                    value={form.tags.join(', ')}
-                    onChange={(e) => {
-                      const tagList = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
-                      setForm({...form, tags: tagList});
-                    }}
-                    placeholder="addiction, motivation, relaxation"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Tags disponibles: {tags.slice(0, 5).map(tag => tag.name).join(', ')}
-                    {tags.length > 5 && ` et ${tags.length - 5} autres...`}
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="content">Contenu *</Label>
-                  <Textarea
-                    id="content"
-                    value={form.content}
-                    onChange={(e) => setForm({...form, content: e.target.value})}
-                    placeholder="Contenu détaillé (markdown supporté)"
-                    rows={10}
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="status">Statut</Label>
-                    <Select value={form.status} onValueChange={(value) => setForm({...form, status: value as any})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="draft">Brouillon</SelectItem>
-                        <SelectItem value="published">Publié</SelectItem>
-                        <SelectItem value="archived">Archivé</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center space-x-2 pt-6">
-                    <Switch
-                      id="isRecommended"
-                      checked={form.isRecommended}
-                      onCheckedChange={(checked) => setForm({...form, isRecommended: checked})}
-                    />
-                    <Label htmlFor="isRecommended">Contenu recommandé</Label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Annuler
-                  </Button>
-                  <Button type="submit" className="flex items-center gap-2">
-                    <Save className="h-4 w-4" />
-                    {editingContent ? 'Mettre à jour' : 'Créer'}
-                  </Button>
                 </div>
               </form>
             </CardContent>

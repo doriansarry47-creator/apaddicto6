@@ -316,15 +316,8 @@ export default function EducationNew() {
     enabled: true, // Toujours activer, même si pas de catégories
   });
 
-  // Sélectionner automatiquement la première catégorie au chargement
-  useEffect(() => {
-    if (categories.length > 0 && selectedCategory === "all") {
-      const firstCategory = categories.sort((a, b) => (a.order || 0) - (b.order || 0))[0];
-      if (firstCategory && firstCategory.id) {
-        setSelectedCategory(firstCategory.id);
-      }
-    }
-  }, [categories, selectedCategory]);
+  // Ne pas sélectionner automatiquement une catégorie pour afficher tous les contenus initialement
+  // L'utilisateur peut choisir manuellement la catégorie qu'il souhaite explorer
 
   // Mutations pour les interactions
   const likeMutation = useMutation({
