@@ -17,6 +17,7 @@ import ExerciseDetail from "@/pages/exercise-detail";
 import Tracking from "@/pages/tracking";
 import Education from "@/pages/education";
 import Library from "@/pages/library";
+import ContentReader from "@/pages/content-reader";
 import Profile from "@/pages/profile";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -84,6 +85,11 @@ function AppContent() {
       <Route path="/library">
         <ProtectedRoute>
           <Library />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/content/:contentId">
+        <ProtectedRoute>
+          <ContentReader />
         </ProtectedRoute>
       </Route>
       <Route path="/profile">
