@@ -34,8 +34,11 @@ import {
   Upload,
   Link,
   Youtube,
-  ExternalLink
+  ExternalLink,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
+import MarkdownEditor from "@/components/ui/markdown-editor";
 
 interface EducationalContent {
   id: string;
@@ -89,6 +92,8 @@ export default function EducationalContentAdmin() {
   const [filterType, setFilterType] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
 
   // Form state for creating/editing content
   const [form, setForm] = useState({
@@ -158,10 +163,29 @@ export default function EducationalContentAdmin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (saving) return; // Prévenir les soumissions multiples
+    
     try {
+      setSaving(true);
+      setSaveMessage("💾 Sauvegarde en cours...");
+      
+      // Validation côté client
+      if (!form.title.trim()) {
+        setSaveMessage("❌ Le titre est obligatoire");
+        setTimeout(() => setSaveMessage(""), 3000);
+        return;
+      }
+      
+      if (!form.content.trim()) {
+        setSaveMessage("❌ Le contenu est obligatoire");
+        setTimeout(() => setSaveMessage(""), 3000);
+        return;
+      }
+      
       const contentData = {
         ...form,
-        estimatedReadTime: form.estimatedReadTime ? parseInt(form.estimatedReadTime) : null
+        estimatedReadTime: form.estimatedReadTime ? parseInt(form.estimatedReadTime) : null,
+        tags: form.tags.filter(tag => tag.trim().length > 0) // Nettoyer les tags vides
       };
 
       const url = editingContent 
@@ -178,16 +202,28 @@ export default function EducationalContentAdmin() {
       });
 
       if (response.ok) {
+        const savedContent = await response.json();
+        setSaveMessage(editingContent ? "✅ Contenu mis à jour avec succès !" : "✨ Contenu créé avec succès !");
+        
+        // Recharger les données
         await loadData();
-        resetForm();
-        alert(editingContent ? 'Contenu mis à jour avec succès!' : 'Contenu créé avec succès!');
+        
+        // Afficher le message de succès pendant 2 secondes
+        setTimeout(() => {
+          setSaveMessage("");
+          resetForm();
+        }, 2000);
       } else {
         const error = await response.json();
-        alert(`Erreur: ${error.message}`);
+        setSaveMessage(`❌ Erreur: ${error.message}`);
+        setTimeout(() => setSaveMessage(""), 5000);
       }
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Erreur lors de la soumission');
+      setSaveMessage("❌ Erreur de connexion lors de la sauvegarde");
+      setTimeout(() => setSaveMessage(""), 5000);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -882,22 +918,35 @@ export default function EducationalContentAdmin() {
                   </div>
                 </div>
 
-                {/* Section Contenu principal */}
+                {/* Section Contenu principal avec Markdown */}
                 <div className="bg-yellow-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium mb-3 text-yellow-700">📝 Contenu principal</h3>
+                  <h3 className="text-sm font-medium mb-3 text-yellow-700 flex items-center gap-2">
+                    📝 Contenu principal
+                    <Badge variant="secondary" className="text-xs bg-yellow-200 text-yellow-800">
+                      Markdown activé
+                    </Badge>
+                  </h3>
                   <div>
                     <Label htmlFor="content" className="text-xs font-medium">Contenu détaillé *</Label>
-                    <Textarea
-                      id="content"
+                    <MarkdownEditor
                       value={form.content}
-                      onChange={(e) => setForm({...form, content: e.target.value})}
-                      placeholder="Rédigez ici le contenu éducatif...&#10;&#10;Conseils:&#10;• Utilisez des paragraphes courts&#10;• Ajoutez des exemples concrets&#10;• Structurez avec des titres&#10;• Markdown supporté (# ## ### ** *)"
-                      className="min-h-[200px] resize-y"
-                      required
+                      onChange={(value) => setForm({...form, content: value})}
+                      placeholder="Rédigez ici votre contenu éducatif...
+
+# Exemple de structure
+
+## Introduction
+Commencez par présenter le sujet de manière claire et engageante.
+
+## Points clés
+- **Point important** : Explication détaillée
+- *Conseil pratique* : Ajoutez des exemples concrets
+- [Ressource utile](https://example.com) : Liens vers des informations supplémentaires
+
+## Conclusion
+Résumez les points essentiels et donnez des pistes d'action."
+                      minHeight="min-h-[400px]"
                     />
-                    <p className="text-xs text-yellow-600 mt-1">
-                      ✏️ Markdown supporté : **gras**, *italique*, # Titre, ## Sous-titre
-                    </p>
                   </div>
                 </div>
 
@@ -930,21 +979,41 @@ export default function EducationalContentAdmin() {
                 </div>
 
                 {/* Actions */}
-                <div className="sticky bottom-0 bg-white border-t pt-4 flex justify-between items-center">
-                  <div className="text-xs text-gray-500">
-                    {editingContent ? '✏️ Modification en cours' : '➕ Nouveau contenu'}
+                <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-white border-t-2 border-gray-200 p-6 flex justify-between items-center shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm text-gray-600">
+                      {editingContent ? '✏️ Modification en cours' : '✨ Nouveau contenu'}
+                    </div>
+                    {saving && (
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                        <span className="text-sm">Sauvegarde...</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={resetForm} size="sm">
-                      ❌ Annuler
+                  <div className="flex gap-3">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={resetForm} 
+                      disabled={saving}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Annuler
                     </Button>
-                    <Button type="submit" className="flex items-center gap-2" size="sm">
+                    <Button 
+                      type="submit" 
+                      disabled={saving || !form.title.trim() || !form.content.trim()}
+                      className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
                       <Save className="h-4 w-4" />
-                      {editingContent ? '💾 Mettre à jour' : '✨ Créer le contenu'}
+                      {saving ? 'Sauvegarde...' : (editingContent ? '💾 Mettre à jour' : '✨ Créer le contenu')}
                     </Button>
                   </div>
                 </div>
               </form>
+              </div>
             </CardContent>
           </Card>
         </div>

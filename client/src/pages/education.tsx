@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import type { EducationalContent, ContentCategory } from "../../../../shared/schema";
+import MarkdownRenderer from "@/components/ui/markdown-renderer";
 import { 
   BookOpen, 
   Play, 
@@ -43,7 +44,18 @@ import {
   Lightbulb,
   Brain,
   Zap,
-  Shield
+  Shield,
+  ArrowRight,
+  Sparkles,
+  GraduationCap,
+  Users,
+  ThumbsUp,
+  MessageCircle,
+  Share2,
+  Download,
+  Timer,
+  BarChart3,
+  ExternalLink
 } from "lucide-react";
 
 interface ContentStats {
@@ -89,74 +101,103 @@ function ContentCard({
   getTypeIcon,
   getDifficultyColor 
 }: ContentCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   return (
-    <Card className={`hover:shadow-lg transition-all duration-200 ${isCompleted ? 'bg-green-50 border-green-200' : ''}`}>
-      <CardHeader className="pb-3">
+    <Card className={`group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 ${
+      isCompleted 
+        ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-300 shadow-green-100' 
+        : 'bg-gradient-to-br from-white to-blue-50/30 hover:from-blue-50/50 hover:to-purple-50/30'
+    } border-2`}>
+      <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="p-2 bg-primary/10 rounded-lg">
+          <div className="flex items-start gap-4 flex-1">
+            <div className={`p-3 rounded-xl shadow-sm ${
+              isCompleted 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-gradient-to-br from-blue-100 to-purple-100 text-blue-700'
+            }`}>
               {getTypeIcon(content.type)}
             </div>
             <div className="flex-1">
-              <CardTitle className="text-lg leading-tight">
-                {content.title}
+              <div className="flex items-start gap-2 mb-2">
+                <CardTitle className="text-xl leading-tight text-gray-800 group-hover:text-blue-800 transition-colors">
+                  {content.title}
+                </CardTitle>
                 {content.isRecommended && (
-                  <Star className="inline h-4 w-4 text-yellow-500 ml-2 fill-current" />
+                  <div className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-medium">
+                    <Star className="h-3 w-3 fill-current" />
+                    Recommandé
+                  </div>
                 )}
-              </CardTitle>
+                {isCompleted && (
+                  <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Terminé
+                  </div>
+                )}
+              </div>
               {content.description && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
                   {content.description}
                 </p>
               )}
             </div>
           </div>
           {content.thumbnailUrl && (
-            <img 
-              src={content.thumbnailUrl} 
-              alt={content.title}
-              className="w-16 h-16 object-cover rounded-lg ml-4"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
+            <div className="relative overflow-hidden rounded-xl shadow-sm ml-4">
+              <img 
+                src={content.thumbnailUrl} 
+                alt={content.title}
+                className="w-20 h-20 object-cover transition-transform duration-300 group-hover:scale-110"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+            </div>
           )}
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
-        {/* Métadonnées */}
-        <div className="flex flex-wrap gap-2">
-          <Badge className={getDifficultyColor(content.difficulty)}>
-            {content.difficulty === 'easy' ? 'Facile' : 
-             content.difficulty === 'intermediate' ? 'Intermédiaire' : 'Avancé'}
+      <CardContent className="space-y-5">
+        {/* Métadonnées améliorées */}
+        <div className="flex flex-wrap gap-3">
+          <Badge className={`${getDifficultyColor(content.difficulty)} border-0 shadow-sm px-3 py-1`}>
+            {content.difficulty === 'easy' ? '🟢 Facile' : 
+             content.difficulty === 'intermediate' ? '🟡 Intermédiaire' : '🔴 Avancé'}
           </Badge>
           {category && (
-            <Badge variant="outline">{category.name}</Badge>
-          )}
-          {isCompleted && (
-            <Badge className="bg-green-100 text-green-800">
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Complété
+            <Badge variant="outline" className="border-2 border-blue-200 text-blue-700 bg-blue-50 px-3 py-1">
+              📁 {category.name}
             </Badge>
           )}
         </div>
 
-        {/* Statistiques */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        {/* Statistiques améliorées */}
+        <div className="grid grid-cols-3 gap-4">
           {content.estimatedReadTime && (
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              {content.estimatedReadTime} min
+            <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-2">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <div className="text-sm">
+                <div className="font-medium text-blue-800">{content.estimatedReadTime} min</div>
+                <div className="text-xs text-blue-600">Lecture</div>
+              </div>
             </div>
           )}
-          <div className="flex items-center gap-1">
-            <Eye className="h-4 w-4" />
-            {content.viewCount || 0}
+          <div className="flex items-center gap-2 bg-purple-50 rounded-lg p-2">
+            <Eye className="h-4 w-4 text-purple-600" />
+            <div className="text-sm">
+              <div className="font-medium text-purple-800">{content.viewCount || 0}</div>
+              <div className="text-xs text-purple-600">Vues</div>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Heart className="h-4 w-4" />
-            {content.likeCount || 0}
+          <div className="flex items-center gap-2 bg-pink-50 rounded-lg p-2">
+            <Heart className="h-4 w-4 text-pink-600" />
+            <div className="text-sm">
+              <div className="font-medium text-pink-800">{content.likeCount || 0}</div>
+              <div className="text-xs text-pink-600">J'aime</div>
+            </div>
           </div>
         </div>
 
@@ -176,72 +217,132 @@ function ContentCard({
           </div>
         )}
 
-        {/* Contenu */}
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="content">
-            <AccordionTrigger className="text-left hover:no-underline">
-              Lire le contenu
-            </AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              <div className="prose prose-sm max-w-none">
-                {content.content.split('\n\n').map((paragraph, index) => (
-                  <p key={index} className="text-foreground leading-relaxed">
-                    {paragraph}
-                  </p>
-                ))}
+        {/* Contenu avec design thérapeutique */}
+        <div className="border-2 border-gray-100 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`w-full p-4 text-left transition-all duration-200 ${
+              isExpanded 
+                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white' 
+                : 'bg-gradient-to-r from-gray-50 to-blue-50 hover:from-blue-100 hover:to-purple-100 text-gray-700 hover:text-blue-800'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <GraduationCap className={`h-5 w-5 ${isExpanded ? 'text-white' : 'text-blue-600'}`} />
+                <span className="font-medium">
+                  {isExpanded ? '📖 Lecture en cours...' : '🚀 Commencer la lecture'}
+                </span>
+              </div>
+              <ArrowRight className={`h-4 w-4 transition-transform duration-200 ${
+                isExpanded ? 'rotate-90 text-white' : 'text-blue-600'
+              }`} />
+            </div>
+          </button>
+          
+          {isExpanded && (
+            <div className="p-6 bg-white border-t border-gray-100 animate-in slide-in-from-top-2 duration-300">
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <h3 className="text-lg font-semibold text-gray-800">Contenu pédagogique</h3>
+                </div>
+                <MarkdownRenderer 
+                  content={content.content} 
+                  className="bg-gradient-to-br from-blue-50/50 to-purple-50/30 p-6 rounded-xl border border-blue-100"
+                />
               </div>
               
               {content.mediaUrl && (
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm font-medium mb-2">Ressource supplémentaire :</p>
+                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-4 rounded-xl border-2 border-teal-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-teal-100 rounded-lg">
+                      <ExternalLink className="h-4 w-4 text-teal-700" />
+                    </div>
+                    <h4 className="font-medium text-teal-800">Ressource complémentaire</h4>
+                  </div>
                   <a 
                     href={content.mediaUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline text-sm"
+                    className="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors font-medium"
                   >
-                    Accéder à la ressource →
+                    <Download className="h-4 w-4" />
+                    Accéder à la ressource
                   </a>
                 </div>
               )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+              
+              {/* Barre de progression simulée */}
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Progression de lecture</span>
+                  <span className="text-sm text-gray-500">{isExpanded ? '100%' : '0%'}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className={`bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-1000 ${
+                    isExpanded ? 'w-full' : 'w-0'
+                  }`}></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-2">
+        {/* Actions modernisées */}
+        <div className="flex items-center justify-between pt-6 border-t-2 border-gray-100">
+          <div className="flex items-center gap-3">
             <Button
               size="sm"
               variant="ghost"
               onClick={onLike}
-              className={isLiked ? "text-red-500" : ""}
+              className={`group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 ${
+                isLiked 
+                  ? 'bg-pink-100 text-pink-700 hover:bg-pink-200' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-pink-100 hover:text-pink-700'
+              }`}
             >
-              <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`h-4 w-4 transition-transform group-hover:scale-110 ${
+                isLiked ? 'fill-current' : ''
+              }`} />
+              <span className="text-sm font-medium">J'aime</span>
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={onBookmark}
-              className={isBookmarked ? "text-blue-500" : ""}
+              className={`group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 ${
+                isBookmarked 
+                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-700'
+              }`}
             >
-              <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+              <Bookmark className={`h-4 w-4 transition-transform group-hover:scale-110 ${
+                isBookmarked ? 'fill-current' : ''
+              }`} />
+              <span className="text-sm font-medium">Sauvegarder</span>
             </Button>
           </div>
           
           <Button
-            size="sm"
             onClick={onComplete}
             disabled={isCompleted}
-            className={isCompleted ? "bg-green-600 text-white" : ""}
+            className={`flex items-center gap-2 px-6 py-2 rounded-full font-medium transition-all duration-200 ${
+              isCompleted 
+                ? 'bg-green-600 text-white cursor-default shadow-lg'
+                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
+            }`}
           >
             {isCompleted ? (
               <>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Complété
+                <CheckCircle2 className="h-4 w-4" />
+                ✅ Terminé
               </>
             ) : (
-              "Marquer comme lu"
+              <>
+                <Timer className="h-4 w-4" />
+                📚 Marquer comme lu
+              </>
             )}
           </Button>
         </div>
@@ -493,35 +594,73 @@ export default function EducationNew() {
       <Navigation />
       <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
         
-        {/* En-tête de la page */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl text-white">
-                  <BookOpen className="h-8 w-8" />
+        {/* En-tête modernisé */}
+        <section className="mb-10">
+          <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-3xl p-8 border border-blue-100 shadow-lg">
+            <div className="flex items-center justify-between flex-wrap gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-4 bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl text-white shadow-lg transform rotate-3">
+                    <BookOpen className="h-10 w-10" />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">
+                      🎓 Bibliothèque Pédagogique
+                    </h1>
+                    <p className="text-lg text-gray-600 leading-relaxed">
+                      🌱 Découvrez des ressources adaptées pour votre parcours de guérison et d'apprentissage
+                    </p>
+                  </div>
                 </div>
-                Espace Éducatif
-              </h1>
-              <p className="text-muted-foreground">
-                Explorez des ressources éducatives pour enrichir votre parcours de récupération
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={viewMode === "grid" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("grid")}
-              >
-                <Grid3x3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
+                
+                {/* Statistiques rapides */}
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="flex items-center gap-2 bg-white/70 rounded-full px-3 py-2">
+                    <BarChart3 className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-800">{contents.length} contenus disponibles</span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white/70 rounded-full px-3 py-2">
+                    <Users className="h-4 w-4 text-green-600" />
+                    <span className="font-medium text-green-800">{completedContents.length} terminés</span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white/70 rounded-full px-3 py-2">
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="font-medium text-purple-800">{categories.length} catégories</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Contrôles d'affichage améliorés */}
+              <div className="flex items-center gap-3">
+                <div className="bg-white/80 rounded-xl p-1 shadow-sm border border-white/50">
+                  <Button
+                    variant={viewMode === "grid" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("grid")}
+                    className={`rounded-lg transition-all duration-200 ${
+                      viewMode === "grid" 
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'hover:bg-blue-50 text-gray-600'
+                    }`}
+                  >
+                    <Grid3x3 className="h-4 w-4 mr-2" />
+                    Grille
+                  </Button>
+                  <Button
+                    variant={viewMode === "list" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("list")}
+                    className={`rounded-lg transition-all duration-200 ${
+                      viewMode === "list" 
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'hover:bg-blue-50 text-gray-600'
+                    }`}
+                  >
+                    <List className="h-4 w-4 mr-2" />
+                    Liste
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
