@@ -17,7 +17,10 @@ interface SessionExercise {
   exerciseId: string;
   title: string;
   duration: number; // en secondes
-  repetitions: number;
+  repetitions: number; // pour compatibilité
+  sets?: number; // nombre de séries
+  repetitionCount?: number; // nombre de répétitions par série
+  exerciseMode?: 'duration' | 'repetitions' | 'interval';
   restTime: number; // en secondes
   intervals?: {
     work: number;
@@ -49,7 +52,7 @@ interface EnhancedSessionBuilderProps {
     duration: number;
     difficulty: string;
   }>;
-  onSave: (session: SessionTemplate) => void;
+  onSave: (session: SessionTemplate) => Promise<void>;
   onPublish?: (sessionId: string, patientIds: string[]) => Promise<void>;
   existingSession?: SessionTemplate;
   patients?: Array<{
@@ -76,12 +79,13 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
   const [selectedExercise, setSelectedExercise] = useState<string>("");
   const [exerciseConfig, setExerciseConfig] = useState({
     duration: 300, // 5 minutes par défaut
-    repetitions: 1,
+    sets: 1, // Nombre de séries (remplace repetitions pour éviter confusion)
     restTime: 60,
-    intervalType: 'continuous' as 'continuous' | 'interval',
-    workTime: 30,
-    restInterval: 10,
-    cycles: 5,
+    exerciseMode: 'duration' as 'duration' | 'repetitions' | 'interval',
+    repetitionCount: 10, // Nombre de répétitions par série
+    workTime: 30, // Pour le mode fractionné
+    restInterval: 10, // Pour le mode fractionné
+    cycles: 5, // Pour le mode fractionné
     isOptional: false,
     notes: ""
   });
@@ -132,13 +136,20 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
       id: `session-exercise-${Date.now()}`,
       exerciseId: exercise.id,
       title: exercise.title,
-      duration: exerciseConfig.duration,
-      repetitions: exerciseConfig.repetitions,
+      duration: exerciseConfig.exerciseMode === 'duration' ? exerciseConfig.duration : 
+                exerciseConfig.exerciseMode === 'repetitions' ? exerciseConfig.repetitionCount * 3 : // Estimation 3s par rép
+                (exerciseConfig.workTime + exerciseConfig.restInterval) * exerciseConfig.cycles,
+      repetitions: exerciseConfig.exerciseMode === 'repetitions' ? exerciseConfig.repetitionCount : exerciseConfig.sets,
+      sets: exerciseConfig.sets,
       restTime: exerciseConfig.restTime,
       isOptional: exerciseConfig.isOptional,
       order: session.exercises.length,
       notes: exerciseConfig.notes || undefined,
-      ...(exerciseConfig.intervalType === 'interval' && {
+      exerciseMode: exerciseConfig.exerciseMode,
+      ...(exerciseConfig.exerciseMode === 'repetitions' && {
+        repetitionCount: exerciseConfig.repetitionCount
+      }),
+      ...(exerciseConfig.exerciseMode === 'interval' && {
         intervals: {
           work: exerciseConfig.workTime,
           rest: exerciseConfig.restInterval,
@@ -156,9 +167,10 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
     setSelectedExercise("");
     setExerciseConfig({
       duration: 300,
-      repetitions: 1,
+      sets: 1,
       restTime: 60,
-      intervalType: 'continuous',
+      exerciseMode: 'duration',
+      repetitionCount: 10,
       workTime: 30,
       restInterval: 10,
       cycles: 5,
@@ -228,7 +240,7 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
     setPreviewTimer(0);
   };
 
-  const saveSession = () => {
+  const saveSession = async () => {
     if (!session.title.trim()) {
       toast({
         title: "Erreur",
@@ -247,11 +259,20 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
       return;
     }
 
-    onSave(session);
-    toast({
-      title: "Séance sauvegardée",
-      description: `"${session.title}" a été sauvegardée avec succès`
-    });
+    try {
+      await onSave(session);
+      toast({
+        title: "Séance sauvegardée",
+        description: `"${session.title}" a été sauvegardée avec succès`
+      });
+    } catch (error) {
+      console.error('Error saving session:', error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la sauvegarde de la séance",
+        variant: "destructive"
+      });
+    }
   };
 
   const handlePublish = async () => {
@@ -336,27 +357,33 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
                 {selectedExercise && (
                   <>
                     <div>
-                      <Label>Type de timing</Label>
+                      <Label>Mode d'exécution</Label>
                       <Select
-                        value={exerciseConfig.intervalType}
-                        onValueChange={(value: 'continuous' | 'interval') => 
-                          setExerciseConfig(prev => ({ ...prev, intervalType: value }))
+                        value={exerciseConfig.exerciseMode}
+                        onValueChange={(value: 'duration' | 'repetitions' | 'interval') => 
+                          setExerciseConfig(prev => ({ ...prev, exerciseMode: value }))
                         }
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="continuous">Continu</SelectItem>
-                          <SelectItem value="interval">Fractionné</SelectItem>
+                          <SelectItem value="duration">Durée (en temps)</SelectItem>
+                          <SelectItem value="repetitions">Répétitions (nombre de mouvements)</SelectItem>
+                          <SelectItem value="interval">Fractionné (travail/repos)</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {exerciseConfig.exerciseMode === 'duration' && "L'exercice se fait pendant une durée définie"}
+                        {exerciseConfig.exerciseMode === 'repetitions' && "L'exercice se fait sur un nombre de mouvements"}
+                        {exerciseConfig.exerciseMode === 'interval' && "L'exercice alterne phases de travail et de repos"}
+                      </p>
                     </div>
 
-                    {exerciseConfig.intervalType === 'continuous' ? (
+                    {exerciseConfig.exerciseMode === 'duration' ? (
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label>Durée (sec)</Label>
+                          <Label>Durée par série (sec)</Label>
                           <Input
                             type="number"
                             value={exerciseConfig.duration}
@@ -367,19 +394,60 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
                             min="10"
                             max="1800"
                           />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Durée de l'exercice en secondes
+                          </p>
                         </div>
                         <div>
-                          <Label>Répétitions</Label>
+                          <Label>Nombre de séries</Label>
                           <Input
                             type="number"
-                            value={exerciseConfig.repetitions}
+                            value={exerciseConfig.sets}
                             onChange={(e) => setExerciseConfig(prev => ({
                               ...prev,
-                              repetitions: Number(e.target.value)
+                              sets: Number(e.target.value)
                             }))}
                             min="1"
                             max="10"
                           />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Nombre de fois à répéter l'exercice
+                          </p>
+                        </div>
+                      </div>
+                    ) : exerciseConfig.exerciseMode === 'repetitions' ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label>Répétitions par série</Label>
+                          <Input
+                            type="number"
+                            value={exerciseConfig.repetitionCount}
+                            onChange={(e) => setExerciseConfig(prev => ({
+                              ...prev,
+                              repetitionCount: Number(e.target.value)
+                            }))}
+                            min="1"
+                            max="100"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Nombre de mouvements par série (ex: 10 pompes)
+                          </p>
+                        </div>
+                        <div>
+                          <Label>Nombre de séries</Label>
+                          <Input
+                            type="number"
+                            value={exerciseConfig.sets}
+                            onChange={(e) => setExerciseConfig(prev => ({
+                              ...prev,
+                              sets: Number(e.target.value)
+                            }))}
+                            min="1"
+                            max="10"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Nombre de séries à effectuer
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -425,9 +493,12 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
                             />
                           </div>
                         </div>
-                        <div className="p-3 bg-info/10 rounded-lg">
-                          <p className="text-sm text-info">
-                            Durée totale: {formatDuration((exerciseConfig.workTime + exerciseConfig.restInterval) * exerciseConfig.cycles)}
+                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <p className="text-sm text-blue-800">
+                            <strong>Durée totale:</strong> {formatDuration((exerciseConfig.workTime + exerciseConfig.restInterval) * exerciseConfig.cycles)}
+                          </p>
+                          <p className="text-xs text-blue-600 mt-1">
+                            {exerciseConfig.cycles} cycles de {exerciseConfig.workTime}s travail + {exerciseConfig.restInterval}s repos
                           </p>
                         </div>
                       </div>
@@ -524,8 +595,10 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
                               <div className="flex items-center">
                                 <Clock className="h-3 w-3 mr-1" />
                                 {exercise.intervals ? 
-                                  `${exercise.intervals.work}s/${exercise.intervals.rest}s × ${exercise.intervals.cycles}` :
-                                  `${formatDuration(exercise.duration)} × ${exercise.repetitions}`
+                                  `${exercise.intervals.work}s/${exercise.intervals.rest}s × ${exercise.intervals.cycles} cycles` :
+                                  exercise.exerciseMode === 'repetitions' ?
+                                  `${exercise.repetitionCount || exercise.repetitions} rép × ${exercise.sets || 1} séries` :
+                                  `${formatDuration(exercise.duration)} × ${exercise.sets || exercise.repetitions || 1} séries`
                                 }
                               </div>
                               <div>Repos: {formatDuration(exercise.restTime)}</div>
@@ -653,7 +726,9 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
                           <Badge variant="outline" className="text-xs">
                             {exercise.intervals ? 
                               formatDuration((exercise.intervals.work + exercise.intervals.rest) * exercise.intervals.cycles) :
-                              formatDuration(exercise.duration * exercise.repetitions)
+                              exercise.exerciseMode === 'repetitions' ?
+                              `${exercise.repetitionCount || exercise.repetitions} rép` :
+                              formatDuration(exercise.duration * (exercise.sets || exercise.repetitions || 1))
                             }
                           </Badge>
                         </div>

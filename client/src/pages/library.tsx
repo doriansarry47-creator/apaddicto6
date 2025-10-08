@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const DIFFICULTY_LABELS = {
 };
 
 export default function Library() {
+  const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedDifficulty, setSelectedDifficulty] = useState("all");
@@ -203,12 +205,17 @@ export default function Library() {
           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
             {item.description || (item.content?.substring(0, 120) + "...")}
           </p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Clock className="h-4 w-4 mr-1" />
-              <span>{item.estimatedReadTime || 5} min</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center text-sm text-muted-foreground min-w-0">
+              <Clock className="h-4 w-4 mr-1 flex-shrink-0" />
+              <span className="truncate">{item.estimatedReadTime || 5} min</span>
             </div>
-            <Button variant="ghost" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="group-hover:bg-primary group-hover:text-primary-foreground flex-shrink-0"
+              onClick={() => navigate(`/content/${item.id}`)}
+            >
               Lire
             </Button>
           </div>
@@ -243,12 +250,17 @@ export default function Library() {
           <CardDescription>{exercise.description}</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Clock className="h-4 w-4 mr-1" />
-              <span>{exercise.duration} min</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center text-sm text-muted-foreground min-w-0">
+              <Clock className="h-4 w-4 mr-1 flex-shrink-0" />
+              <span className="truncate">{exercise.duration} min</span>
             </div>
-            <Button variant="ghost" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="group-hover:bg-primary group-hover:text-primary-foreground flex-shrink-0"
+              onClick={() => navigate(`/exercises/${exercise.id}`)}
+            >
               Commencer
             </Button>
           </div>
@@ -283,12 +295,17 @@ export default function Library() {
           <CardDescription>{session.description}</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Clock className="h-4 w-4 mr-1" />
-              <span>{Math.round((session.totalDuration || 0) / 60)} min</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center text-sm text-muted-foreground min-w-0">
+              <Clock className="h-4 w-4 mr-1 flex-shrink-0" />
+              <span className="truncate">{Math.round((session.totalDuration || 0) / 60)} min</span>
             </div>
-            <Button variant="ghost" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="group-hover:bg-primary group-hover:text-primary-foreground flex-shrink-0"
+              onClick={() => navigate(`/sessions/${session.id}`)}
+            >
               <Play className="h-4 w-4 mr-1" />
               Démarrer
             </Button>

@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/hooks/use-theme";
 // Page Imports
 import Dashboard from "@/pages/dashboard";
 import Exercises from "@/pages/exercises";
+import LibraryExercises from "@/pages/library-exercises";
 import ExerciseDetail from "@/pages/exercise-detail";
 // Note: Pages supprimées - fonctionnalités intégrées dans /exercises
 // import TherapeuticExercises from "@/pages/therapeutic-exercises";
@@ -17,6 +18,7 @@ import ExerciseDetail from "@/pages/exercise-detail";
 import Tracking from "@/pages/tracking";
 import Education from "@/pages/education";
 import Library from "@/pages/library";
+import ContentReader from "@/pages/content-reader";
 import Profile from "@/pages/profile";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -84,6 +86,16 @@ function AppContent() {
       <Route path="/library">
         <ProtectedRoute>
           <Library />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/library-exercises">
+        <ProtectedRoute>
+          <LibraryExercises />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/content/:contentId">
+        <ProtectedRoute>
+          <ContentReader />
         </ProtectedRoute>
       </Route>
       <Route path="/profile">
