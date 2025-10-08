@@ -715,16 +715,17 @@ export default function EducationalContentAdmin() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>
-                {editingContent ? 'Modifier le contenu' : 'Nouveau contenu éducatif'}
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={resetForm}>
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8">
+            <Card className="w-full max-h-[calc(100vh-4rem)] overflow-y-auto">
+              <CardHeader className="flex flex-row items-center justify-between sticky top-0 bg-white border-b z-10">
+                <CardTitle>
+                  {editingContent ? 'Modifier le contenu' : 'Nouveau contenu éducatif'}
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={resetForm}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -906,7 +907,8 @@ export default function EducationalContentAdmin() {
                 </div>
               </form>
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         </div>
       )}
     </div>

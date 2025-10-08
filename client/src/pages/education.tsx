@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Navigation } from "@/components/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ interface ContentCardProps {
   onLike: () => void;
   onBookmark: () => void;
   onComplete: () => void;
+  onRead: () => void;
   getTypeIcon: (type: string) => React.ReactNode;
   getDifficultyColor: (difficulty: string) => string;
 }
@@ -86,6 +88,7 @@ function ContentCard({
   onLike,
   onBookmark,
   onComplete,
+  onRead,
   getTypeIcon,
   getDifficultyColor 
 }: ContentCardProps) {
@@ -176,37 +179,17 @@ function ContentCard({
           </div>
         )}
 
-        {/* Contenu */}
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="content">
-            <AccordionTrigger className="text-left hover:no-underline">
-              Lire le contenu
-            </AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-2">
-              <div className="prose prose-sm max-w-none">
-                {content.content.split('\n\n').map((paragraph, index) => (
-                  <p key={index} className="text-foreground leading-relaxed">
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-              
-              {content.mediaUrl && (
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm font-medium mb-2">Ressource supplémentaire :</p>
-                  <a 
-                    href={content.mediaUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline text-sm"
-                  >
-                    Accéder à la ressource →
-                  </a>
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        {/* Aperçu du contenu */}
+        <div className="space-y-2">
+          <div className="prose prose-sm max-w-none">
+            <p className="text-muted-foreground leading-relaxed text-sm line-clamp-3">
+              {content.content.length > 150 
+                ? content.content.substring(0, 150) + "..."
+                : content.content
+              }
+            </p>
+          </div>
+        </div>
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-4 border-t">
@@ -229,21 +212,33 @@ function ContentCard({
             </Button>
           </div>
           
-          <Button
-            size="sm"
-            onClick={onComplete}
-            disabled={isCompleted}
-            className={isCompleted ? "bg-green-600 text-white" : ""}
-          >
-            {isCompleted ? (
-              <>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Complété
-              </>
-            ) : (
-              "Marquer comme lu"
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRead}
+            >
+              <BookOpen className="h-4 w-4 mr-1" />
+              Lire
+            </Button>
+            
+            {!isCompleted && (
+              <Button
+                size="sm"
+                onClick={onComplete}
+                variant="ghost"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </Button>
             )}
-          </Button>
+            
+            {isCompleted && (
+              <Badge className="bg-green-100 text-green-800 text-xs">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Lu
+              </Badge>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -251,6 +246,8 @@ function ContentCard({
 }
 
 export default function EducationNew() {
+  const [, navigate] = useLocation();
+  
   // États pour la navigation et filtres
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -692,7 +689,7 @@ export default function EducationNew() {
                               {content.estimatedReadTime} min • {categories.find(c => c.id === content.categoryId)?.name}
                             </p>
                           </div>
-                          <Button size="sm" variant="ghost" onClick={() => setActiveTab("explore")}>
+                          <Button size="sm" variant="ghost" onClick={() => navigate(`/content/${content.id}`)}>
                             Lire
                           </Button>
                         </div>
@@ -919,6 +916,7 @@ export default function EducationNew() {
                                   onLike={() => likeMutation.mutate(content.id)}
                                   onBookmark={() => bookmarkMutation.mutate(content.id)}
                                   onComplete={() => completeMutation.mutate(content.id)}
+                                  onRead={() => navigate(`/content/${content.id}`)}
                                   getTypeIcon={getTypeIcon}
                                   getDifficultyColor={getDifficultyColor}
                                 />
@@ -951,6 +949,7 @@ export default function EducationNew() {
                             onLike={() => likeMutation.mutate(content.id)}
                             onBookmark={() => bookmarkMutation.mutate(content.id)}
                             onComplete={() => completeMutation.mutate(content.id)}
+                            onRead={() => navigate(`/content/${content.id}`)}
                             getTypeIcon={getTypeIcon}
                             getDifficultyColor={getDifficultyColor}
                           />
@@ -999,7 +998,7 @@ export default function EducationNew() {
                               {content.estimatedReadTime} min
                             </p>
                           </div>
-                          <Button size="sm" variant="ghost" onClick={() => setActiveTab("explore")}>
+                          <Button size="sm" variant="ghost" onClick={() => navigate(`/content/${content.id}`)}>
                             Lire
                           </Button>
                         </div>
