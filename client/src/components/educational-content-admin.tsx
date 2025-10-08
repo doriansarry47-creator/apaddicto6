@@ -158,11 +158,28 @@ export default function EducationalContentAdmin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validation côté client
+    if (!form.title.trim()) {
+      alert('Le titre est obligatoire');
+      return;
+    }
+    
+    if (!form.content.trim()) {
+      alert('Le contenu est obligatoire');
+      return;
+    }
+    
     try {
       const contentData = {
         ...form,
-        estimatedReadTime: form.estimatedReadTime ? parseInt(form.estimatedReadTime) : null
+        estimatedReadTime: form.estimatedReadTime ? parseInt(form.estimatedReadTime) : null,
+        // S'assurer que les champs requis ne sont pas vides
+        title: form.title.trim(),
+        content: form.content.trim(),
+        description: form.description?.trim() || null
       };
+
+      console.log('Submitting content data:', contentData);
 
       const url = editingContent 
         ? `/api/educational-contents/${editingContent.id}`
@@ -172,22 +189,40 @@ export default function EducationalContentAdmin() {
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         credentials: 'include',
         body: JSON.stringify(contentData)
       });
 
+      console.log('Response status:', response.status);
+      
       if (response.ok) {
+        const result = await response.json();
+        console.log('Save successful:', result);
+        
         await loadData();
         resetForm();
         alert(editingContent ? 'Contenu mis à jour avec succès!' : 'Contenu créé avec succès!');
       } else {
-        const error = await response.json();
-        alert(`Erreur: ${error.message}`);
+        const errorText = await response.text();
+        console.error('Save failed:', errorText);
+        
+        let errorMessage;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || 'Erreur inconnue';
+        } catch {
+          errorMessage = 'Erreur de communication avec le serveur';
+        }
+        
+        alert(`Erreur: ${errorMessage}`);
       }
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Erreur lors de la soumission');
+      alert('Erreur lors de la soumission. Vérifiez la connexion.');
     }
   };
 
@@ -715,10 +750,10 @@ export default function EducationalContentAdmin() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="w-full max-w-2xl my-8">
-            <Card className="w-full max-h-[calc(100vh-4rem)] overflow-y-auto">
-              <CardHeader className="flex flex-row items-center justify-between sticky top-0 bg-white border-b z-10">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <Card className="w-full h-full flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between border-b bg-white z-10 flex-shrink-0">
                 <CardTitle>
                   {editingContent ? 'Modifier le contenu' : 'Nouveau contenu éducatif'}
                 </CardTitle>
@@ -726,7 +761,7 @@ export default function EducationalContentAdmin() {
                   <X className="h-4 w-4" />
                 </Button>
               </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-y-auto p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -896,17 +931,21 @@ export default function EducationalContentAdmin() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Annuler
-                  </Button>
-                  <Button type="submit" className="flex items-center gap-2">
-                    <Save className="h-4 w-4" />
-                    {editingContent ? 'Mettre à jour' : 'Créer'}
-                  </Button>
-                </div>
               </form>
             </CardContent>
+            <div className="border-t bg-white p-4 flex justify-end gap-2 flex-shrink-0">
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Annuler
+              </Button>
+              <Button 
+                type="submit" 
+                className="flex items-center gap-2"
+                onClick={handleSubmit}
+              >
+                <Save className="h-4 w-4" />
+                {editingContent ? 'Mettre à jour' : 'Créer'}
+              </Button>
+            </div>
             </Card>
           </div>
         </div>

@@ -61,6 +61,16 @@ export function Navigation() {
                 Éducation
               </Link>
 
+              {user?.role === 'patient' && (
+                <Link to="/library-exercises" className={cn("px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive("/library-exercises") 
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )} data-testid="nav-library-exercises">
+                  Exercices
+                </Link>
+              )}
+
               {user?.role === 'admin' && (
                 <Link to="/admin" className={cn("px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive("/admin")
@@ -89,7 +99,7 @@ export function Navigation() {
 
       {/* Bottom navigation for mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-40">
-        <div className={cn("grid h-16", user?.role === 'admin' ? 'grid-cols-6' : 'grid-cols-5')}>
+        <div className={cn("grid h-16", user?.role === 'admin' ? 'grid-cols-6' : user?.role === 'patient' ? 'grid-cols-6' : 'grid-cols-5')}>
           <Link to="/" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
             isActive("/") ? "text-primary" : "text-muted-foreground hover:text-primary"
           )} data-testid="nav-mobile-home">
@@ -121,6 +131,14 @@ export function Navigation() {
             <span className="material-icons text-lg">school</span>
             <span className="text-xs">Éducation</span>
           </Link>
+          {user?.role === 'patient' && (
+            <Link to="/library-exercises" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
+              isActive("/library-exercises") ? "text-primary" : "text-muted-foreground hover:text-primary"
+            )} data-testid="nav-mobile-library-exercises">
+              <span className="material-icons text-lg">local_library</span>
+              <span className="text-xs">Exercices</span>
+            </Link>
+          )}
           <Link to="/profile" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
             isActive("/profile") ? "text-primary" : "text-muted-foreground hover:text-primary"
           )} data-testid="nav-mobile-profile">

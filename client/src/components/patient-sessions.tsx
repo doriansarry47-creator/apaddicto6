@@ -25,6 +25,14 @@ import {
   TrendingUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  SESSION_CATEGORIES, 
+  DIFFICULTY_LEVELS, 
+  PATIENT_SESSION_STATUSES,
+  getCategoryByValue,
+  getDifficultyByValue,
+  getStatusByValue
+} from "../../../../shared/constants";
 
 interface PatientSession {
   id: string;
@@ -146,25 +154,12 @@ export function PatientSessions({
   };
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'bg-green-100 text-green-800 border-green-200';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'advanced': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+    return getDifficultyByValue(difficulty).color;
   };
 
   const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'cardio': return '🏃';
-      case 'strength': return '💪';
-      case 'flexibility': return '🤸';
-      case 'mindfulness': return '🧘';
-      case 'breathing': return '🌬️';
-      case 'relaxation': return '😌';
-      case 'emergency': return '🚨';
-      default: return '📋';
-    }
+    const categoryInfo = SESSION_CATEGORIES.find(cat => cat.value === category);
+    return categoryInfo ? categoryInfo.icon : '📋';
   };
 
   const getStatusIcon = (status: string) => {
@@ -192,7 +187,7 @@ export function PatientSessions({
               
               <div className="flex flex-wrap gap-2 mb-3">
                 <Badge className={getDifficultyColor(session.session.difficulty)}>
-                  {session.session.difficulty}
+                  {getDifficultyByValue(session.session.difficulty).label}
                 </Badge>
                 <Badge variant="outline">
                   {getCategoryIcon(session.session.category)} {session.session.category}
