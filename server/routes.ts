@@ -1071,7 +1071,8 @@ export function registerRoutes(app: Application) {
   app.get('/api/educational-contents', requireAuth, async (req, res) => {
     try {
       const { 
-        category, 
+        category,
+        categoryId, 
         type, 
         difficulty, 
         status, 
@@ -1083,7 +1084,7 @@ export function registerRoutes(app: Application) {
       } = req.query;
 
       const filters = {
-        categoryId: category as string,
+        categoryId: (categoryId || category) as string,
         type: type as string,
         difficulty: difficulty as string,
         status: status as string,

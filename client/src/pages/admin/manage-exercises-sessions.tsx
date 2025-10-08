@@ -73,10 +73,17 @@ export default function ManageExercisesSessions() {
     refetchInterval: 30000, // Actualisation automatique toutes les 30 secondes
   });
 
-  const { data: patients, isLoading: isLoadingPatients } = useQuery<User[]>({
+  const { data: patients, isLoading: isLoadingPatients, error: patientsError } = useQuery<User[]>({
     queryKey: ["admin", "patients"],
-    queryFn: async () => apiRequest("GET", "/api/admin/patients").then(res => res.json()),
+    queryFn: async () => {
+      console.log('Fetching patients...');
+      const response = await apiRequest("GET", "/api/admin/patients");
+      const data = await response.json();
+      console.log('Patients data:', data);
+      return data;
+    },
     initialData: [],
+    retry: 3,
   });
 
   const { data: patientSessions, isLoading: isLoadingPatientSessions } = useQuery<PatientSession[]>({
@@ -188,11 +195,12 @@ export default function ManageExercisesSessions() {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de créer la séance",
-        variant: "destructive",
+        variant: "destructive"
       });
     },
   });
 
+  // Mutation pour publier une séance
   const publishSessionMutation = useMutation({
     mutationFn: async ({ sessionId, patientIds }: { sessionId: string; patientIds: string[] }) => {
       const response = await apiRequest("POST", `/api/sessions/${sessionId}/publish`, { patientIds });
@@ -212,6 +220,55 @@ export default function ManageExercisesSessions() {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de publier la séance",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation pour assigner un exercice individuel
+  const assignExerciseMutation = useMutation({
+    mutationFn: async ({ exerciseId, patientIds }: { exerciseId: string; patientIds: string[] }) => {
+      // Créer une séance temporaire avec cet exercice
+      const sessionData = {
+        title: `Exercice: ${exercises.find(e => e.id === exerciseId)?.title || 'Exercice'}`,
+        description: `Séance individuelle créée automatiquement pour l'exercice`,
+        category: 'maintenance',
+        difficulty: exercises.find(e => e.id === exerciseId)?.difficulty || 'beginner',
+        exercises: [{
+          exerciseId: exerciseId,
+          title: exercises.find(e => e.id === exerciseId)?.title || 'Exercice',
+          duration: (exercises.find(e => e.id === exerciseId)?.duration || 15) * 60, // Convert to seconds
+          repetitions: 1,
+          restTime: 60,
+          isOptional: false,
+          order: 0
+        }],
+        isPublic: false,
+        status: 'published'
+      };
+      
+      // Créer la séance
+      const sessionResponse = await apiRequest("POST", "/api/sessions", sessionData);
+      const session = await sessionResponse.json();
+      
+      // Publier la séance aux patients
+      const publishResponse = await apiRequest("POST", `/api/sessions/${session.id}/publish`, { patientIds });
+      return publishResponse.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "patient-sessions"] });
+      toast({
+        title: "Exercice assigné",
+        description: "L'exercice a été assigné aux patients sélectionnés.",
+      });
+      setSelectedPatients([]);
+      setSelectedSessionId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'assigner l'exercice",
         variant: "destructive",
       });
     },
@@ -244,6 +301,22 @@ export default function ManageExercisesSessions() {
 
     publishSessionMutation.mutate({
       sessionId: selectedSessionId,
+      patientIds: selectedPatients,
+    });
+  };
+
+  const handleAssignExercise = (exerciseId: string) => {
+    if (!exerciseId || selectedPatients.length === 0) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner au moins un patient",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    assignExerciseMutation.mutate({
+      exerciseId,
       patientIds: selectedPatients,
     });
   };
@@ -513,6 +586,73 @@ export default function ManageExercisesSessions() {
                           <Button size="sm" variant="outline">
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                size="sm" 
+                                variant="default"
+                                onClick={() => setSelectedSessionId(exercise.id)}
+                              >
+                                <Send className="h-4 w-4 mr-1" />
+                                Assigner
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Assigner l'exercice aux patients</DialogTitle>
+                                <DialogDescription>
+                                  Sélectionnez les patients qui recevront cet exercice comme séance individuelle
+                                </DialogDescription>
+                              </DialogHeader>
+                              {patients.length > 0 ? (
+                                <div className="space-y-3 max-h-60 overflow-y-auto">
+                                  {patients.filter(p => p.role === 'patient').map((patient) => (
+                                    <div key={patient.id} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`exercise-${exercise.id}-patient-${patient.id}`}
+                                        checked={selectedPatients.includes(patient.id)}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            setSelectedPatients([...selectedPatients, patient.id]);
+                                          } else {
+                                            setSelectedPatients(selectedPatients.filter(id => id !== patient.id));
+                                          }
+                                        }}
+                                      />
+                                      <Label htmlFor={`exercise-${exercise.id}-patient-${patient.id}`} className="flex-1 cursor-pointer">
+                                        <div className="text-sm font-medium">{patient.firstName} {patient.lastName}</div>
+                                        <div className="text-xs text-muted-foreground">{patient.email}</div>
+                                      </Label>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-4 text-muted-foreground">
+                                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                  <p>Aucun patient disponible</p>
+                                  <p className="text-xs">Ajoutez des patients pour pouvoir assigner des exercices</p>
+                                </div>
+                              )}
+                              <div className="flex justify-end gap-2 pt-4">
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => {
+                                    setSelectedSessionId(null);
+                                    setSelectedPatients([]);
+                                  }}
+                                >
+                                  Annuler
+                                </Button>
+                                <Button 
+                                  onClick={() => handleAssignExercise(exercise.id)}
+                                  disabled={selectedPatients.length === 0}
+                                >
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Assigner ({selectedPatients.length})
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button size="sm" variant="destructive">
@@ -632,26 +772,51 @@ export default function ManageExercisesSessions() {
                                 Sélectionnez les patients qui recevront cette séance
                               </DialogDescription>
                             </DialogHeader>
-                            <div className="space-y-3 max-h-64 overflow-y-auto">
-                              {patients.filter(p => p.role === 'patient').map((patient) => (
-                                <div key={patient.id} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={patient.id}
-                                    checked={selectedPatients.includes(patient.id)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setSelectedPatients([...selectedPatients, patient.id]);
-                                      } else {
-                                        setSelectedPatients(selectedPatients.filter(id => id !== patient.id));
-                                      }
-                                    }}
-                                  />
-                                  <Label htmlFor={patient.id} className="flex-1">
-                                    {patient.firstName} {patient.lastName} ({patient.email})
-                                  </Label>
-                                </div>
-                              ))}
+                            <div className="text-xs text-muted-foreground mb-2">
+                              {isLoadingPatients ? 'Chargement...' : 
+                               patientsError ? 'Erreur de chargement' :
+                               `${patients.filter(p => p.role === 'patient').length} patient(s) disponible(s)`}
                             </div>
+                            {patients.filter(p => p.role === 'patient').length > 0 ? (
+                              <div className="space-y-3 max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                                {isLoadingPatients ? (
+                                  <div className="flex items-center justify-center py-4">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                                    <span className="ml-2 text-sm text-muted-foreground">Chargement des patients...</span>
+                                  </div>
+                                ) : patients.filter(p => p.role === 'patient').map((patient) => (
+                                  <div key={patient.id} className="flex items-center space-x-3 p-2 bg-white rounded border hover:bg-gray-50 transition-colors">
+                                    <Checkbox
+                                      id={`session-patient-${patient.id}`}
+                                      checked={selectedPatients.includes(patient.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedPatients([...selectedPatients, patient.id]);
+                                        } else {
+                                          setSelectedPatients(selectedPatients.filter(id => id !== patient.id));
+                                        }
+                                      }}
+                                    />
+                                    <Label htmlFor={`session-patient-${patient.id}`} className="flex-1 cursor-pointer">
+                                      <div className="text-sm font-medium">{patient.firstName} {patient.lastName}</div>
+                                      <div className="text-xs text-muted-foreground">{patient.email}</div>
+                                    </Label>
+                                  </div>
+                                ))}
+                                {patientsError && (
+                                  <div className="text-center py-4 text-red-600">
+                                    <p className="text-sm">Erreur lors du chargement des patients</p>
+                                    <p className="text-xs">{patientsError.message}</p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                                <p className="font-medium">Aucun patient disponible</p>
+                                <p className="text-sm">Ajoutez des patients pour pouvoir assigner des séances</p>
+                              </div>
+                            )}
                             <div className="flex justify-end gap-2 pt-4">
                               <Button 
                                 variant="outline" 
@@ -693,8 +858,23 @@ export default function ManageExercisesSessions() {
             <CardContent>
               <EnhancedSessionBuilder
                 exercises={exercises || []}
-                onSaveSession={(sessionData) => createSessionMutation.mutate(sessionData)}
-                isLoading={createSessionMutation.isPending}
+                onSave={async (sessionData) => {
+                  return new Promise((resolve, reject) => {
+                    createSessionMutation.mutate(sessionData, {
+                      onSuccess: (data) => resolve(data),
+                      onError: (error) => reject(error)
+                    });
+                  });
+                }}
+                onPublish={async (sessionId, patientIds) => {
+                  return new Promise((resolve, reject) => {
+                    publishSessionMutation.mutate({ sessionId, patientIds }, {
+                      onSuccess: (data) => resolve(data),
+                      onError: (error) => reject(error)
+                    });
+                  });
+                }}
+                patients={patients || []}
               />
             </CardContent>
           </Card>
