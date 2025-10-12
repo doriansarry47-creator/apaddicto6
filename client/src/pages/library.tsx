@@ -15,12 +15,12 @@ import type {
   CustomSession, 
   EducationalContent, 
   ContentCategory 
-} from "../../../shared/schema";
+} from "@shared/schema";
 import { 
   EXERCISE_CATEGORIES, 
   SESSION_CATEGORIES, 
   getCategoryByValue 
-} from "../../../shared/constants";
+} from "@shared/constants";
 
 const DIFFICULTY_COLORS = {
   beginner: "bg-green-100 text-green-800",

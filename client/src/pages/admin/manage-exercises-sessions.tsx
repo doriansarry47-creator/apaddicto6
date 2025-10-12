@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertExerciseSchema } from "../../../../shared/schema";
+import { insertExerciseSchema } from "@shared/schema";
 import type { 
   Exercise, 
   InsertExercise, 
@@ -13,7 +13,7 @@ import type {
   InsertSessionElement,
   PatientSession,
   User
-} from "../../../../shared/schema";
+} from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,7 @@ import {
   getCategoryByValue,
   getDifficultyByValue,
   getStatusByValue
-} from "../../../../shared/constants";
+} from "@shared/constants";
 
 export default function ManageExercisesSessions() {
   const { toast } = useToast();

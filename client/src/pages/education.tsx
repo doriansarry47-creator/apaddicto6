@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
-import type { EducationalContent, ContentCategory } from "../../../../shared/schema";
+import type { EducationalContent, ContentCategory } from "@shared/schema";
 import MarkdownRenderer from "@/components/ui/markdown-renderer";
 import { 
   BookOpen, 

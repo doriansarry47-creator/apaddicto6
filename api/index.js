@@ -1,4 +1,9 @@
 // Configuration des variables d'environnement
+console.log('🚀 Starting Apaddicto API on Vercel...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('SESSION_SECRET exists:', !!process.env.SESSION_SECRET);
+
 if (!process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL is required');
 }
@@ -12,29 +17,48 @@ import cors from 'cors';
 import { Pool } from 'pg';
 
 // Imports conditionnels pour éviter les erreurs Vercel
-let registerRoutes, debugTablesRouter;
-try {
-  const routesModule = await import('../server/routes.js');
-  registerRoutes = routesModule.registerRoutes;
-} catch (e) {
-  console.warn('Could not load routes, using fallback');
-  registerRoutes = (app) => {
-    app.get('/api/fallback', (req, res) => res.json({ message: 'Routes not available' }));
-  };
+let registerRoutes = null;
+let debugTablesRouter = null;
+let migrationRun = false;
+
+// Tentative de chargement des routes avec fallbacks sûrs
+async function loadModules() {
+  // Tentative de chargement des routes
+  try {
+    const routesModule = await import('../server/routes.js');
+    registerRoutes = routesModule.registerRoutes;
+    console.log('✅ Routes loaded successfully');
+  } catch (e) {
+    console.warn('⚠️ Could not load routes:', e.message);
+    registerRoutes = (app) => {
+      app.get('/api/fallback', (req, res) => res.json({ 
+        message: 'Routes not available', 
+        error: e.message 
+      }));
+    };
+  }
+
+  // Tentative de chargement du debug
+  try {
+    const debugModule = await import('../server/debugTables.js');
+    debugTablesRouter = debugModule.debugTablesRouter;
+    console.log('✅ Debug tables loaded successfully');
+  } catch (e) {
+    console.warn('⚠️ Could not load debug tables:', e.message);
+  }
+
+  // Tentative de migration
+  try {
+    await import('../server/migrate.js');
+    migrationRun = true;
+    console.log('✅ Migrations run successfully');
+  } catch (e) {
+    console.warn('⚠️ Could not run migrations:', e.message);
+  }
 }
 
-try {
-  const debugModule = await import('../server/debugTables.js');
-  debugTablesRouter = debugModule.debugTablesRouter;
-} catch (e) {
-  console.warn('Could not load debug tables');
-}
-
-try {
-  await import('../server/migrate.js');
-} catch (e) {
-  console.warn('Could not run migrations:', e.message);
-}
+// Charger les modules de façon asynchrone
+await loadModules();
 
 // === INITIALISATION EXPRESS ===
 const app = express();
@@ -63,14 +87,49 @@ app.use(session({
 
 // === ENDPOINTS DE BASE ===
 app.get('/', (_req, res) => {
-  res.send('API Apaddicto est en ligne !');
+  res.json({
+    message: '✅ API Apaddicto est en ligne sur Vercel!',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'production',
+    modules: {
+      routes: !!registerRoutes,
+      debug: !!debugTablesRouter,
+      migrations: migrationRun
+    }
+  });
 });
 
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
+    message: 'API is running on Vercel!',
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
+    env: process.env.NODE_ENV || 'production',
+    database: !!process.env.DATABASE_URL,
+    session: !!process.env.SESSION_SECRET,
+    modules: {
+      routes: !!registerRoutes,
+      debug: !!debugTablesRouter,
+      migrations: migrationRun
+    }
+  });
+});
+
+// Endpoint de debug pour diagnostiquer les problèmes
+app.get('/api/debug', (_req, res) => {
+  res.json({
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
+      SESSION_SECRET: process.env.SESSION_SECRET ? 'SET' : 'NOT_SET',
+    },
+    modules: {
+      routes: !!registerRoutes,
+      debug: !!debugTablesRouter,
+      migrations: migrationRun
+    },
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
   });
 });
 

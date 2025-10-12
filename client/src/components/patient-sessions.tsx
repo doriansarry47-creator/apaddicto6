@@ -32,7 +32,7 @@ import {
   getCategoryByValue,
   getDifficultyByValue,
   getStatusByValue
-} from "../../../../shared/constants";
+} from "@shared/constants";
 
 interface PatientSession {
   id: string;

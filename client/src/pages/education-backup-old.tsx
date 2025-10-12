@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { apiRequest } from "@/lib/queryClient";
-import type { EducationalContent, PsychoEducationContent as APIPsychoEducationContent } from "../../../../shared/schema";
+import type { EducationalContent, PsychoEducationContent as APIPsychoEducationContent } from "@shared/schema";
 
 interface EducationModule {
   id: string;
