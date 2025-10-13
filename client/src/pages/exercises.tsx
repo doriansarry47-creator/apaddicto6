@@ -94,7 +94,7 @@ export default function Exercises() {
   // Afficher la bibliothèque d'exercices pour les administrateurs, séances pour les patients
   if (user?.role === 'admin') {
     // Rediriger les administrateurs vers la gestion d'exercices
-    window.location.href = '/admin/exercises-sessions';
+    window.location.href = '/admin/manage-exercises-sessions';
     return null;
   }
 
