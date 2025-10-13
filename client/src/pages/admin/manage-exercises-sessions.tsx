@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminAutoRefresh } from "@/hooks/useAutoRefresh";
 import { apiRequest } from "@/lib/queryClient";
 import { EnhancedSessionBuilder } from "@/components/enhanced-session-builder";
+import { AdvancedSessionBuilder } from "@/components/advanced-session-builder";
 
 type ExerciseFormData = InsertExercise;
 type SessionFormData = InsertCustomSession;
@@ -359,7 +360,7 @@ export default function ManageExercisesSessions() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex items-center justify-between mb-4">
-          <TabsList className="grid w-full grid-cols-4 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-5 max-w-4xl">
             <TabsTrigger value="exercises">
               <Activity className="h-4 w-4 mr-2" />
               Exercices ({filteredExercises.length})
@@ -372,9 +373,13 @@ export default function ManageExercisesSessions() {
               <Plus className="h-4 w-4 mr-2" />
               Créer une Séance
             </TabsTrigger>
+            <TabsTrigger value="advanced-builder">
+              <Settings className="h-4 w-4 mr-2" />
+              Protocoles Avancés
+            </TabsTrigger>
             <TabsTrigger value="patient-assignments">
               <Users className="h-4 w-4 mr-2" />
-              Assignations Patients
+              Assignations
             </TabsTrigger>
           </TabsList>
           
@@ -859,6 +864,40 @@ export default function ManageExercisesSessions() {
               <EnhancedSessionBuilder
                 exercises={exercises || []}
                 onSave={async (sessionData) => {
+                  return new Promise((resolve, reject) => {
+                    createSessionMutation.mutate(sessionData, {
+                      onSuccess: (data) => resolve(data),
+                      onError: (error) => reject(error)
+                    });
+                  });
+                }}
+                onPublish={async (sessionId, patientIds) => {
+                  return new Promise((resolve, reject) => {
+                    publishSessionMutation.mutate({ sessionId, patientIds }, {
+                      onSuccess: (data) => resolve(data),
+                      onError: (error) => reject(error)
+                    });
+                  });
+                }}
+                patients={patients || []}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Onglet Constructeur Avancé avec Protocoles */}
+        <TabsContent value="advanced-builder" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Créateur de Séances avec Protocoles</CardTitle>
+              <CardDescription>
+                Créez des séances avancées avec HIIT, TABATA, HICT, EMOM, AMRAP et plus
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AdvancedSessionBuilder
+                exercises={exercises || []}
+                onSave={async (sessionData: any) => {
                   return new Promise((resolve, reject) => {
                     createSessionMutation.mutate(sessionData, {
                       onSuccess: (data) => resolve(data),
