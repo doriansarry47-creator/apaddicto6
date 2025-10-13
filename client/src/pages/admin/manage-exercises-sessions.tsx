@@ -42,7 +42,7 @@ import {
   getCategoryByValue,
   getDifficultyByValue,
   getStatusByValue
-} from "@shared/constants";
+} from "@shared/constants.ts";
 
 export default function ManageExercisesSessions() {
   const { toast } = useToast();
