@@ -2590,6 +2590,7 @@ function registerRoutes(app2) {
     try {
       const {
         category,
+        categoryId,
         type,
         difficulty,
         status,
@@ -2600,7 +2601,7 @@ function registerRoutes(app2) {
         offset = 0
       } = req.query;
       const filters = {
-        categoryId: category,
+        categoryId: categoryId || category,
         type,
         difficulty,
         status,
