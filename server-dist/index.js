@@ -41,6 +41,7 @@ __export(schema_exports, {
   exerciseSessions: () => exerciseSessions,
   exerciseVariations: () => exerciseVariations,
   exercises: () => exercises,
+  favoriteSessions: () => favoriteSessions,
   insertAntiCravingStrategySchema: () => insertAntiCravingStrategySchema,
   insertAudioContentSchema: () => insertAudioContentSchema,
   insertBeckAnalysisSchema: () => insertBeckAnalysisSchema,
@@ -57,6 +58,7 @@ __export(schema_exports, {
   insertExerciseSchema: () => insertExerciseSchema,
   insertExerciseSessionSchema: () => insertExerciseSessionSchema,
   insertExerciseVariationSchema: () => insertExerciseVariationSchema,
+  insertFavoriteSessionSchema: () => insertFavoriteSessionSchema,
   insertPatientSessionSchema: () => insertPatientSessionSchema,
   insertProfessionalReportSchema: () => insertProfessionalReportSchema,
   insertPsychoEducationContentSchema: () => insertPsychoEducationContentSchema,
@@ -451,6 +453,10 @@ var customSessions = pgTable("custom_sessions", {
   description: text("description"),
   category: varchar("category").notNull(),
   // 'morning', 'evening', 'crisis', 'maintenance'
+  protocol: varchar("protocol").default("standard"),
+  // 'standard', 'hiit', 'tabata', 'hict', 'emom', 'e2mom', 'amrap'
+  protocolConfig: jsonb("protocol_config"),
+  // Configuration spécifique du protocole
   totalDuration: integer("total_duration"),
   // durée totale calculée en minutes
   difficulty: varchar("difficulty").default("beginner"),
@@ -475,9 +481,16 @@ var sessionElements = pgTable("session_elements", {
   // ordre dans la séance
   duration: integer("duration"),
   // durée spécifique pour cette séance (peut override l'exercice)
-  repetitions: integer("repetitions").default(1),
+  repetitions: integer("repetitions").default(0),
+  // nombre de répétitions (obligatoire pour HICT, EMOM, AMRAP)
+  sets: integer("sets").default(1),
+  // nombre de séries
   restTime: integer("rest_time").default(0),
   // temps de repos après en secondes
+  workTime: integer("work_time"),
+  // durée d'effort pour protocoles intervalles (en secondes)
+  restInterval: integer("rest_interval"),
+  // durée de repos dans l'intervalle (en secondes)
   timerSettings: jsonb("timer_settings"),
   // configuration timer spécifique
   notes: text("notes"),
@@ -705,6 +718,30 @@ var userEmergencyRoutines = pgTable("user_emergency_routines", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 var insertUserEmergencyRoutineSchema = createInsertSchema(userEmergencyRoutines).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var favoriteSessions = pgTable("favorite_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sourceSessionId: varchar("source_session_id").references(() => customSessions.id, { onDelete: "set null" }),
+  // séance originale si basée sur une existante
+  title: varchar("title").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(),
+  protocol: varchar("protocol").default("standard"),
+  protocolConfig: jsonb("protocol_config"),
+  totalDuration: integer("total_duration"),
+  difficulty: varchar("difficulty").default("beginner"),
+  exercises: jsonb("exercises").$type().notNull(),
+  tags: jsonb("tags").$type().default([]),
+  imageUrl: varchar("image_url"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var insertFavoriteSessionSchema = createInsertSchema(favoriteSessions).omit({
   id: true,
   createdAt: true,
   updatedAt: true
@@ -1261,7 +1298,17 @@ var Storage = class {
       }
       const query = this.db.select().from(customSessions).where(and(...conditions.filter((c) => !!c)));
       const sessions = await query.orderBy(desc(customSessions.createdAt));
-      return sessions;
+      const sessionsWithExercises = await Promise.all(
+        sessions.map(async (session2) => {
+          const elements = await this.db.select().from(sessionElements).where(eq(sessionElements.sessionId, session2.id)).orderBy(sessionElements.order);
+          return {
+            ...session2,
+            exercises: elements,
+            exerciseCount: elements.length
+          };
+        })
+      );
+      return sessionsWithExercises;
     } catch (error) {
       console.error("Error fetching sessions:", error);
       throw error;
@@ -1269,12 +1316,54 @@ var Storage = class {
   }
   async createSession(sessionData) {
     try {
+      const { exercises: exercises2, blocks, ...sessionInfo } = sessionData;
       const insertData = {
-        ...sessionData,
-        tags: sessionData.tags ? sessionData.tags : []
+        ...sessionInfo,
+        tags: sessionInfo.tags ? sessionInfo.tags : [],
+        protocolConfig: sessionInfo.protocolConfig || null
       };
       const result = await this.db.insert(customSessions).values(insertData).returning();
-      return result[0];
+      const createdSession = result[0];
+      if (exercises2 && Array.isArray(exercises2) && exercises2.length > 0) {
+        const sessionExercises = exercises2.map((exercise, index) => ({
+          sessionId: createdSession.id,
+          exerciseId: exercise.exerciseId,
+          order: exercise.order ?? index,
+          duration: exercise.duration || 0,
+          repetitions: exercise.repetitions || exercise.repetitionCount || 0,
+          sets: exercise.sets || 1,
+          restTime: exercise.restTime || 0,
+          workTime: exercise.intervals?.work || null,
+          restInterval: exercise.intervals?.rest || null,
+          timerSettings: exercise.intervals ? JSON.stringify(exercise.intervals) : null,
+          notes: exercise.notes || null,
+          isOptional: exercise.isOptional || false
+        }));
+        await this.db.insert(sessionElements).values(sessionExercises);
+      }
+      if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+        let globalOrder = 0;
+        for (const block of blocks) {
+          if (block.exercises && Array.isArray(block.exercises)) {
+            const blockExercises = block.exercises.map((exercise, index) => ({
+              sessionId: createdSession.id,
+              exerciseId: exercise.exerciseId,
+              order: globalOrder++,
+              duration: block.protocol?.workDuration || exercise.duration || 0,
+              repetitions: block.protocol?.repsPerExercise || block.protocol?.repsPerMinute || 0,
+              sets: block.protocol?.rounds || block.protocol?.cycles || 1,
+              restTime: block.protocol?.restDuration || 0,
+              workTime: block.protocol?.workDuration || null,
+              restInterval: block.protocol?.restDuration || null,
+              timerSettings: block.protocol ? JSON.stringify(block.protocol) : null,
+              notes: block.notes || exercise.notes || null,
+              isOptional: false
+            }));
+            await this.db.insert(sessionElements).values(blockExercises);
+          }
+        }
+      }
+      return createdSession;
     } catch (error) {
       console.error("Error creating session:", error);
       throw error;

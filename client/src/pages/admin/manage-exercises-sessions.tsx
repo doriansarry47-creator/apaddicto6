@@ -382,15 +382,6 @@ export default function ManageExercisesSessions() {
               Assignations
             </TabsTrigger>
           </TabsList>
-          
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" asChild>
-              <Link to="/admin/manage-exercises">
-                <span className="material-icons mr-2 text-sm">local_library</span>
-                Bibliothèque Détaillée
-              </Link>
-            </Button>
-          </div>
         </div>
 
         {/* Onglet Exercices */}

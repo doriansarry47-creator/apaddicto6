@@ -898,17 +898,26 @@ export function registerRoutes(app: Application) {
   // POST /api/sessions - Créer une séance (admin)
   app.post('/api/sessions', requireAdmin, async (req, res) => {
     try {
+      console.log('[POST /api/sessions] Received session data:', JSON.stringify(req.body, null, 2));
+      
       const sessionData = {
         ...req.body,
         creatorId: req.session.user!.id,
         status: req.body.status || 'draft'
       };
       
+      console.log('[POST /api/sessions] Prepared session data with creatorId:', sessionData.creatorId);
+      
       const session = await storage.createSession(sessionData);
+      console.log('[POST /api/sessions] Session created successfully:', session.id);
       res.json(session);
     } catch (error: any) {
-      console.error('Error creating session:', error);
-      res.status(500).json({ message: 'Erreur lors de la création de la séance' });
+      console.error('[POST /api/sessions] Error creating session:', error);
+      console.error('[POST /api/sessions] Error details:', error.message, error.stack);
+      res.status(500).json({ 
+        message: 'Erreur lors de la création de la séance',
+        error: error.message || 'Unknown error'
+      });
     }
   });
 

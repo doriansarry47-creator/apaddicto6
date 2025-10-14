@@ -790,6 +790,33 @@ export default function Tracking() {
                             <Badge variant="outline">
                               {strategy.duration} min
                             </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={async () => {
+                                if (window.confirm('Êtes-vous sûr de vouloir supprimer cette stratégie ?')) {
+                                  try {
+                                    const response = await fetch(`/api/strategies/${strategy.id}`, {
+                                      method: 'DELETE',
+                                      credentials: 'include'
+                                    });
+                                    if (response.ok) {
+                                      queryClient.invalidateQueries({ queryKey: ["/api/strategies"] });
+                                      queryClient.refetchQueries({ queryKey: ["/api/strategies"] });
+                                    } else {
+                                      alert('Erreur lors de la suppression de la stratégie');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error deleting strategy:', error);
+                                    alert('Erreur lors de la suppression de la stratégie');
+                                  }
+                                }
+                              }}
+                              data-testid={`delete-strategy-${strategy.id}`}
+                            >
+                              <span className="material-icons text-sm">delete</span>
+                            </Button>
                           </div>
                         </div>
                         
