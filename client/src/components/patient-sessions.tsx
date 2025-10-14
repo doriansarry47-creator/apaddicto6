@@ -58,6 +58,7 @@ interface PatientSessionsProps {
   sessions: PatientSession[];
   onCompleteSession: (sessionId: string, feedback: string, effort: number, duration: number) => Promise<void>;
   onSkipSession: (sessionId: string) => Promise<void>;
+  onStartSession: (sessionId: string) => void;
   onRefresh: () => void;
 }
 
@@ -65,6 +66,7 @@ export function PatientSessions({
   sessions, 
   onCompleteSession, 
   onSkipSession, 
+  onStartSession,
   onRefresh 
 }: PatientSessionsProps) {
   const { toast } = useToast();
@@ -253,11 +255,18 @@ export function PatientSessions({
 
         {showActions && session.status === 'assigned' && (
           <div className="flex gap-2">
+            <Button 
+              className="flex-1" 
+              onClick={() => onStartSession(session.sessionId)}
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Commencer la séance
+            </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="flex-1" onClick={() => setFeedbackDialog(session.id)}>
-                  <Play className="h-4 w-4 mr-2" />
-                  Commencer la séance
+                <Button variant="outline" onClick={() => setFeedbackDialog(session.id)}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Marquer terminée
                 </Button>
               </DialogTrigger>
               <DialogContent>

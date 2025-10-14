@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Navigation } from "@/components/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ interface ContentCardProps {
   onLike: () => void;
   onBookmark: () => void;
   onComplete: () => void;
+  onRead: () => void;
   getTypeIcon: (type: string) => React.ReactNode;
   getDifficultyColor: (difficulty: string) => string;
 }
@@ -98,10 +100,10 @@ function ContentCard({
   onLike,
   onBookmark,
   onComplete,
+  onRead,
   getTypeIcon,
   getDifficultyColor 
 }: ContentCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   
   return (
     <Card className={`group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 ${
@@ -217,76 +219,25 @@ function ContentCard({
           </div>
         )}
 
-        {/* Contenu avec design thérapeutique */}
+        {/* Bouton de lecture - Ouvre une page dédiée */}
         <div className="border-2 border-gray-100 rounded-xl overflow-hidden">
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={`w-full p-4 text-left transition-all duration-200 ${
-              isExpanded 
-                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white' 
-                : 'bg-gradient-to-r from-gray-50 to-blue-50 hover:from-blue-100 hover:to-purple-100 text-gray-700 hover:text-blue-800'
-            }`}
+            onClick={onRead}
+            className="w-full p-4 text-left transition-all duration-200 bg-gradient-to-r from-gray-50 to-blue-50 hover:from-blue-100 hover:to-purple-100 text-gray-700 hover:text-blue-800"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <GraduationCap className={`h-5 w-5 ${isExpanded ? 'text-white' : 'text-blue-600'}`} />
+                <GraduationCap className="h-5 w-5 text-blue-600" />
                 <span className="font-medium">
-                  {isExpanded ? '📖 Lecture en cours...' : '🚀 Commencer la lecture'}
+                  📖 Lire l'article complet
                 </span>
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                  Page dédiée
+                </Badge>
               </div>
-              <ArrowRight className={`h-4 w-4 transition-transform duration-200 ${
-                isExpanded ? 'rotate-90 text-white' : 'text-blue-600'
-              }`} />
+              <ExternalLink className="h-4 w-4 text-blue-600" />
             </div>
           </button>
-          
-          {isExpanded && (
-            <div className="p-6 bg-white border-t border-gray-100 animate-in slide-in-from-top-2 duration-300">
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Sparkles className="h-5 w-5 text-purple-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">Contenu pédagogique</h3>
-                </div>
-                <MarkdownRenderer 
-                  content={content.content} 
-                  className="bg-gradient-to-br from-blue-50/50 to-purple-50/30 p-6 rounded-xl border border-blue-100"
-                />
-              </div>
-              
-              {content.mediaUrl && (
-                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-4 rounded-xl border-2 border-teal-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-teal-100 rounded-lg">
-                      <ExternalLink className="h-4 w-4 text-teal-700" />
-                    </div>
-                    <h4 className="font-medium text-teal-800">Ressource complémentaire</h4>
-                  </div>
-                  <a 
-                    href={content.mediaUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors font-medium"
-                  >
-                    <Download className="h-4 w-4" />
-                    Accéder à la ressource
-                  </a>
-                </div>
-              )}
-              
-              {/* Barre de progression simulée */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-600">Progression de lecture</span>
-                  <span className="text-sm text-gray-500">{isExpanded ? '100%' : '0%'}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className={`bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-1000 ${
-                    isExpanded ? 'w-full' : 'w-0'
-                  }`}></div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Actions modernisées */}
@@ -352,6 +303,9 @@ function ContentCard({
 }
 
 export default function EducationNew() {
+  // Navigation
+  const [, setLocation] = useLocation();
+  
   // États pour la navigation et filtres
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -1051,6 +1005,7 @@ export default function EducationNew() {
                                   onLike={() => likeMutation.mutate(content.id)}
                                   onBookmark={() => bookmarkMutation.mutate(content.id)}
                                   onComplete={() => completeMutation.mutate(content.id)}
+                                  onRead={() => setLocation(`/content/${content.id}`)}
                                   getTypeIcon={getTypeIcon}
                                   getDifficultyColor={getDifficultyColor}
                                 />
@@ -1083,6 +1038,7 @@ export default function EducationNew() {
                             onLike={() => likeMutation.mutate(content.id)}
                             onBookmark={() => bookmarkMutation.mutate(content.id)}
                             onComplete={() => completeMutation.mutate(content.id)}
+                            onRead={() => setLocation(`/content/${content.id}`)}
                             getTypeIcon={getTypeIcon}
                             getDifficultyColor={getDifficultyColor}
                           />

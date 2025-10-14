@@ -1316,38 +1316,58 @@ var Storage = class {
   }
   async createSession(sessionData) {
     try {
+      console.log("[DEBUG] Creating session with data:", JSON.stringify(sessionData, null, 2));
       const { exercises: exercises2, blocks, ...sessionInfo } = sessionData;
       const insertData = {
-        ...sessionInfo,
+        title: sessionInfo.title || "Sans titre",
+        description: sessionInfo.description || "",
+        category: sessionInfo.category || "maintenance",
+        difficulty: sessionInfo.difficulty || "beginner",
+        protocol: sessionInfo.protocol || "standard",
+        totalDuration: sessionInfo.totalDuration || 0,
+        creatorId: sessionInfo.creatorId,
+        status: sessionInfo.status || "draft",
         tags: sessionInfo.tags ? sessionInfo.tags : [],
-        protocolConfig: sessionInfo.protocolConfig || null
+        protocolConfig: sessionInfo.protocolConfig || null,
+        isPublic: sessionInfo.isPublic !== void 0 ? sessionInfo.isPublic : false,
+        imageUrl: sessionInfo.imageUrl || null,
+        warmupVideo: sessionInfo.warmupVideo || null,
+        cooldownNotes: sessionInfo.cooldownNotes || null
       };
+      console.log("[DEBUG] Insert data prepared:", insertData);
       const result = await this.db.insert(customSessions).values(insertData).returning();
       const createdSession = result[0];
+      console.log("[DEBUG] Session created with ID:", createdSession.id);
       if (exercises2 && Array.isArray(exercises2) && exercises2.length > 0) {
+        console.log("[DEBUG] Processing", exercises2.length, "exercises");
         const sessionExercises = exercises2.map((exercise, index) => ({
           sessionId: createdSession.id,
           exerciseId: exercise.exerciseId,
+          variationId: exercise.variationId || null,
           order: exercise.order ?? index,
           duration: exercise.duration || 0,
           repetitions: exercise.repetitions || exercise.repetitionCount || 0,
           sets: exercise.sets || 1,
           restTime: exercise.restTime || 0,
-          workTime: exercise.intervals?.work || null,
-          restInterval: exercise.intervals?.rest || null,
+          workTime: exercise.intervals?.work || exercise.workTime || null,
+          restInterval: exercise.intervals?.rest || exercise.restInterval || null,
           timerSettings: exercise.intervals ? JSON.stringify(exercise.intervals) : null,
           notes: exercise.notes || null,
           isOptional: exercise.isOptional || false
         }));
+        console.log("[DEBUG] Inserting session exercises:", sessionExercises);
         await this.db.insert(sessionElements).values(sessionExercises);
+        console.log("[DEBUG] Session exercises inserted successfully");
       }
       if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+        console.log("[DEBUG] Processing", blocks.length, "blocks");
         let globalOrder = 0;
         for (const block of blocks) {
           if (block.exercises && Array.isArray(block.exercises)) {
             const blockExercises = block.exercises.map((exercise, index) => ({
               sessionId: createdSession.id,
               exerciseId: exercise.exerciseId,
+              variationId: exercise.variationId || null,
               order: globalOrder++,
               duration: block.protocol?.workDuration || exercise.duration || 0,
               repetitions: block.protocol?.repsPerExercise || block.protocol?.repsPerMinute || 0,
@@ -1359,13 +1379,20 @@ var Storage = class {
               notes: block.notes || exercise.notes || null,
               isOptional: false
             }));
+            console.log("[DEBUG] Inserting block exercises:", blockExercises);
             await this.db.insert(sessionElements).values(blockExercises);
           }
         }
+        console.log("[DEBUG] All blocks processed successfully");
       }
+      console.log("[DEBUG] Session creation completed:", createdSession.id);
       return createdSession;
     } catch (error) {
-      console.error("Error creating session:", error);
+      console.error("[ERROR] Error creating session:", error);
+      if (error instanceof Error) {
+        console.error("[ERROR] Error message:", error.message);
+        console.error("[ERROR] Error stack:", error.stack);
+      }
       throw error;
     }
   }
@@ -2547,16 +2574,23 @@ function registerRoutes(app2) {
   });
   app2.post("/api/sessions", requireAdmin, async (req, res) => {
     try {
+      console.log("[POST /api/sessions] Received session data:", JSON.stringify(req.body, null, 2));
       const sessionData = {
         ...req.body,
         creatorId: req.session.user.id,
         status: req.body.status || "draft"
       };
+      console.log("[POST /api/sessions] Prepared session data with creatorId:", sessionData.creatorId);
       const session2 = await storage.createSession(sessionData);
+      console.log("[POST /api/sessions] Session created successfully:", session2.id);
       res.json(session2);
     } catch (error) {
-      console.error("Error creating session:", error);
-      res.status(500).json({ message: "Erreur lors de la cr\xE9ation de la s\xE9ance" });
+      console.error("[POST /api/sessions] Error creating session:", error);
+      console.error("[POST /api/sessions] Error details:", error.message, error.stack);
+      res.status(500).json({
+        message: "Erreur lors de la cr\xE9ation de la s\xE9ance",
+        error: error.message || "Unknown error"
+      });
     }
   });
   app2.put("/api/sessions/:id", requireAdmin, async (req, res) => {

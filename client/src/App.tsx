@@ -19,6 +19,7 @@ import Tracking from "@/pages/tracking";
 import Education from "@/pages/education";
 import Library from "@/pages/library";
 import ContentReader from "@/pages/content-reader";
+import SessionDetail from "@/pages/session-detail";
 import Profile from "@/pages/profile";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -96,6 +97,11 @@ function AppContent() {
       <Route path="/content/:contentId">
         <ProtectedRoute>
           <ContentReader />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/session/:sessionId">
+        <ProtectedRoute>
+          <SessionDetail />
         </ProtectedRoute>
       </Route>
       <Route path="/profile">

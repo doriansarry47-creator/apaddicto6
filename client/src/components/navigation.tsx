@@ -44,7 +44,7 @@ export function Navigation() {
                   ? "bg-primary text-primary-foreground" 
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )} data-testid="nav-exercises">
-                Séances
+                Séances Assignées
               </Link>
               <Link to="/tracking" className={cn("px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 isActive("/tracking") 
@@ -67,7 +67,7 @@ export function Navigation() {
                     ? "bg-primary text-primary-foreground" 
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )} data-testid="nav-library-exercises">
-                  Exercices
+                  Bibliothèque de Séances
                 </Link>
               )}
 
@@ -116,7 +116,7 @@ export function Navigation() {
             isActive("/exercises") ? "text-primary" : "text-muted-foreground hover:text-primary"
           )} data-testid="nav-mobile-exercises">
             <span className="material-icons text-lg">fitness_center</span>
-            <span className="text-xs">Séances</span>
+            <span className="text-xs">Assignées</span>
           </Link>
 
           <Link to="/tracking" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",
@@ -136,7 +136,7 @@ export function Navigation() {
               isActive("/library-exercises") ? "text-primary" : "text-muted-foreground hover:text-primary"
             )} data-testid="nav-mobile-library-exercises">
               <span className="material-icons text-lg">local_library</span>
-              <span className="text-xs">Exercices</span>
+              <span className="text-xs">Bibliothèque</span>
             </Link>
           )}
           <Link to="/profile" className={cn("flex flex-col items-center justify-center space-y-1 transition-colors",

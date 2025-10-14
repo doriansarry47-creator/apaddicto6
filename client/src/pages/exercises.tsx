@@ -35,6 +35,7 @@ export default function Exercises() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: user } = useAuthQuery();
+  const [, setLocation] = useLocation();
 
   // Récupération des séances assignées au patient
   const { data: patientSessions, isLoading, error, refetch: refetchSessions } = useQuery<PatientSession[]>({
@@ -84,6 +85,11 @@ export default function Exercises() {
       });
       throw error;
     }
+  };
+
+  // Démarrer une séance
+  const handleStartSession = (sessionId: string) => {
+    setLocation(`/session/${sessionId}`);
   };
 
   // Rafraîchir les séances
@@ -138,6 +144,7 @@ export default function Exercises() {
           sessions={patientSessions || []}
           onCompleteSession={handleCompleteSession}
           onSkipSession={handleSkipSession}
+          onStartSession={handleStartSession}
           onRefresh={handleRefresh}
         />
       </main>
