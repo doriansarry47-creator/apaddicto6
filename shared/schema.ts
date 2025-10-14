@@ -365,6 +365,8 @@ export const customSessions = pgTable("custom_sessions", {
   title: varchar("title").notNull(),
   description: text("description"),
   category: varchar("category").notNull(), // 'morning', 'evening', 'crisis', 'maintenance'
+  protocol: varchar("protocol").default("standard"), // 'standard', 'hiit', 'tabata', 'hict', 'emom', 'e2mom', 'amrap'
+  protocolConfig: jsonb("protocol_config"), // Configuration spécifique du protocole
   totalDuration: integer("total_duration"), // durée totale calculée en minutes
   difficulty: varchar("difficulty").default("beginner"),
   status: varchar("status").default("draft"), // 'draft', 'published', 'archived'
@@ -385,8 +387,11 @@ export const sessionElements = pgTable("session_elements", {
   variationId: varchar("variation_id").references(() => exerciseVariations.id, { onDelete: 'cascade' }),
   order: integer("order").notNull(), // ordre dans la séance
   duration: integer("duration"), // durée spécifique pour cette séance (peut override l'exercice)
-  repetitions: integer("repetitions").default(1),
+  repetitions: integer("repetitions").default(0), // nombre de répétitions (obligatoire pour HICT, EMOM, AMRAP)
+  sets: integer("sets").default(1), // nombre de séries
   restTime: integer("rest_time").default(0), // temps de repos après en secondes
+  workTime: integer("work_time"), // durée d'effort pour protocoles intervalles (en secondes)
+  restInterval: integer("rest_interval"), // durée de repos dans l'intervalle (en secondes)
   timerSettings: jsonb("timer_settings"), // configuration timer spécifique
   notes: text("notes"), // notes spécifiques pour cet élément
   isOptional: boolean("is_optional").default(false),
@@ -680,3 +685,44 @@ export const insertUserEmergencyRoutineSchema = createInsertSchema(userEmergency
 
 export type UserEmergencyRoutine = typeof userEmergencyRoutines.$inferSelect;
 export type InsertUserEmergencyRoutine = z.infer<typeof insertUserEmergencyRoutineSchema>;
+
+// Séances favorites des patients (séances personnalisées par les patients)
+export const favoriteSessions = pgTable("favorite_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sourceSessionId: varchar("source_session_id").references(() => customSessions.id, { onDelete: 'set null' }), // séance originale si basée sur une existante
+  title: varchar("title").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(),
+  protocol: varchar("protocol").default("standard"),
+  protocolConfig: jsonb("protocol_config"),
+  totalDuration: integer("total_duration"),
+  difficulty: varchar("difficulty").default("beginner"),
+  exercises: jsonb("exercises").$type<{
+    id: string;
+    exerciseId: string;
+    title: string;
+    duration: number;
+    repetitions: number;
+    sets: number;
+    restTime: number;
+    workTime?: number;
+    restInterval?: number;
+    notes?: string;
+    order: number;
+  }[]>().notNull(),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  imageUrl: varchar("image_url"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFavoriteSessionSchema = createInsertSchema(favoriteSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type FavoriteSession = typeof favoriteSessions.$inferSelect;
+export type InsertFavoriteSession = z.infer<typeof insertFavoriteSessionSchema>;
