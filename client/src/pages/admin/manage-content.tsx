@@ -614,7 +614,7 @@ export default function ManageContent() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            <AlertDialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Modifier le contenu</AlertDialogTitle>
                                 <AlertDialogDescription>
@@ -622,10 +622,14 @@ export default function ManageContent() {
                                   définitivement le contenu.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
+                              <div className="overflow-y-auto flex-1 pr-2">
                               <form
                                 onSubmit={handleSubmit((data) => {
                                   // Logic for updating content
-                                  console.log("Update data:", data);
+                                  updateContentMutation.mutate({
+                                    contentId: item.id,
+                                    data: data
+                                  });
                                 })}
                                 className="space-y-4"
                               >
@@ -733,11 +737,12 @@ export default function ManageContent() {
                                     {...register("thumbnailUrl")}
                                   />
                                 </div>
-                                <AlertDialogFooter>
+                                <div className="flex justify-end gap-2 pt-4">
                                   <AlertDialogCancel>Annuler</AlertDialogCancel>
                                   <Button type="submit">Sauvegarder</Button>
-                                </AlertDialogFooter>
+                                </div>
                               </form>
+                              </div>
                             </AlertDialogContent>
                           </AlertDialog>
 

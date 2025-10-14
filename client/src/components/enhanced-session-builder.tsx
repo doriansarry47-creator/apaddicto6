@@ -260,7 +260,11 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
     }
 
     try {
-      await onSave(session);
+      const savedSession = await onSave(session);
+      // Mettre à jour l'état de la séance avec l'ID retourné par le serveur
+      if (savedSession && savedSession.id) {
+        setSession(prev => ({ ...prev, id: savedSession.id }));
+      }
       toast({
         title: "Séance sauvegardée",
         description: `"${session.title}" a été sauvegardée avec succès`

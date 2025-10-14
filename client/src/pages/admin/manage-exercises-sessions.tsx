@@ -183,16 +183,23 @@ export default function ManageExercisesSessions() {
   const createSessionMutation = useMutation({
     mutationFn: async (sessionData: any) => {
       const response = await apiRequest("POST", "/api/sessions", sessionData);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Impossible de créer la séance");
+      }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "sessions"] });
       toast({
         title: "Séance créée",
         description: "La séance a été créée avec succès.",
       });
+      // Retourner les données pour que les composants puissent les utiliser
+      return data;
     },
     onError: (error: any) => {
+      console.error('Error creating session:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible de créer la séance",
@@ -857,7 +864,10 @@ export default function ManageExercisesSessions() {
                 onSave={async (sessionData) => {
                   return new Promise((resolve, reject) => {
                     createSessionMutation.mutate(sessionData, {
-                      onSuccess: (data) => resolve(data),
+                      onSuccess: (data) => {
+                        refetchSessions(); // Forcer le rechargement des séances
+                        resolve(data);
+                      },
                       onError: (error) => reject(error)
                     });
                   });
@@ -865,7 +875,10 @@ export default function ManageExercisesSessions() {
                 onPublish={async (sessionId, patientIds) => {
                   return new Promise((resolve, reject) => {
                     publishSessionMutation.mutate({ sessionId, patientIds }, {
-                      onSuccess: (data) => resolve(data),
+                      onSuccess: (data) => {
+                        refetchSessions(); // Forcer le rechargement des séances
+                        resolve(data);
+                      },
                       onError: (error) => reject(error)
                     });
                   });
@@ -891,7 +904,10 @@ export default function ManageExercisesSessions() {
                 onSave={async (sessionData: any) => {
                   return new Promise((resolve, reject) => {
                     createSessionMutation.mutate(sessionData, {
-                      onSuccess: (data) => resolve(data),
+                      onSuccess: (data) => {
+                        refetchSessions(); // Forcer le rechargement des séances
+                        resolve(data);
+                      },
                       onError: (error) => reject(error)
                     });
                   });
@@ -899,7 +915,10 @@ export default function ManageExercisesSessions() {
                 onPublish={async (sessionId, patientIds) => {
                   return new Promise((resolve, reject) => {
                     publishSessionMutation.mutate({ sessionId, patientIds }, {
-                      onSuccess: (data) => resolve(data),
+                      onSuccess: (data) => {
+                        refetchSessions(); // Forcer le rechargement des séances
+                        resolve(data);
+                      },
                       onError: (error) => reject(error)
                     });
                   });
