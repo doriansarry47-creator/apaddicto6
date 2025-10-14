@@ -847,21 +847,93 @@ class Storage {
         .where(and(...conditions.filter((c): c is SQL => !!c)));
 
       const sessions = await query.orderBy(desc(customSessions.createdAt));
-      return sessions;
+      
+      // Récupérer les exercices pour chaque séance
+      const sessionsWithExercises = await Promise.all(
+        sessions.map(async (session) => {
+          const elements = await this.db
+            .select()
+            .from(sessionElements)
+            .where(eq(sessionElements.sessionId, session.id))
+            .orderBy(sessionElements.order);
+          
+          return {
+            ...session,
+            exercises: elements,
+            exerciseCount: elements.length
+          };
+        })
+      );
+      
+      return sessionsWithExercises;
     } catch (error) {
       console.error('Error fetching sessions:', error);
       throw error;
     }
   }
 
-  async createSession(sessionData: InsertCustomSession): Promise<CustomSession> {
+  async createSession(sessionData: any): Promise<CustomSession> {
     try {
+      // Extraire les exercices de la session
+      const { exercises, blocks, ...sessionInfo } = sessionData;
+      
+      // Préparer les données de session
       const insertData = {
-        ...sessionData,
-        tags: sessionData.tags ? (sessionData.tags as string[]) : [],
+        ...sessionInfo,
+        tags: sessionInfo.tags ? (sessionInfo.tags as string[]) : [],
+        protocolConfig: sessionInfo.protocolConfig || null,
       };
+      
+      // Créer la session
       const result = await this.db.insert(customSessions).values(insertData).returning();
-      return result[0];
+      const createdSession = result[0];
+      
+      // Insérer les exercices si présents (format simple)
+      if (exercises && Array.isArray(exercises) && exercises.length > 0) {
+        const sessionExercises = exercises.map((exercise: any, index: number) => ({
+          sessionId: createdSession.id,
+          exerciseId: exercise.exerciseId,
+          order: exercise.order ?? index,
+          duration: exercise.duration || 0,
+          repetitions: exercise.repetitions || exercise.repetitionCount || 0,
+          sets: exercise.sets || 1,
+          restTime: exercise.restTime || 0,
+          workTime: exercise.intervals?.work || null,
+          restInterval: exercise.intervals?.rest || null,
+          timerSettings: exercise.intervals ? JSON.stringify(exercise.intervals) : null,
+          notes: exercise.notes || null,
+          isOptional: exercise.isOptional || false,
+        }));
+        
+        await this.db.insert(sessionElements).values(sessionExercises);
+      }
+      
+      // Insérer les blocs si présents (format avancé avec protocoles)
+      if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+        let globalOrder = 0;
+        for (const block of blocks) {
+          if (block.exercises && Array.isArray(block.exercises)) {
+            const blockExercises = block.exercises.map((exercise: any, index: number) => ({
+              sessionId: createdSession.id,
+              exerciseId: exercise.exerciseId,
+              order: globalOrder++,
+              duration: block.protocol?.workDuration || exercise.duration || 0,
+              repetitions: block.protocol?.repsPerExercise || block.protocol?.repsPerMinute || 0,
+              sets: block.protocol?.rounds || block.protocol?.cycles || 1,
+              restTime: block.protocol?.restDuration || 0,
+              workTime: block.protocol?.workDuration || null,
+              restInterval: block.protocol?.restDuration || null,
+              timerSettings: block.protocol ? JSON.stringify(block.protocol) : null,
+              notes: block.notes || exercise.notes || null,
+              isOptional: false,
+            }));
+            
+            await this.db.insert(sessionElements).values(blockExercises);
+          }
+        }
+      }
+      
+      return createdSession;
     } catch (error) {
       console.error('Error creating session:', error);
       throw error;
