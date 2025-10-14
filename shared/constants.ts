@@ -71,3 +71,61 @@ export function getStatusByValue(value: string, statuses = SESSION_STATUSES) {
     color: "bg-gray-100 text-gray-800"
   };
 }
+
+// Protocoles d'entraînement avancés
+export const TRAINING_PROTOCOLS = [
+  { 
+    value: "standard", 
+    label: "Standard", 
+    icon: "📋", 
+    color: "bg-gray-100 text-gray-800",
+    description: "Séance classique sans protocole spécifique"
+  },
+  { 
+    value: "hiit", 
+    label: "HIIT", 
+    icon: "⚡", 
+    color: "bg-red-100 text-red-800",
+    description: "High Intensity Interval Training - Alternance haute intensité/repos"
+  },
+  { 
+    value: "tabata", 
+    label: "TABATA", 
+    icon: "🔥", 
+    color: "bg-orange-100 text-orange-800",
+    description: "8 intervalles de 20s d'effort / 10s de repos"
+  },
+  { 
+    value: "hict", 
+    label: "HICT", 
+    icon: "🧱", 
+    color: "bg-purple-100 text-purple-800",
+    description: "High Intensity Circuit Training - Circuit basé sur répétitions"
+  },
+  { 
+    value: "emom", 
+    label: "EMOM", 
+    icon: "🕐", 
+    color: "bg-blue-100 text-blue-800",
+    description: "Every Minute On the Minute - Répétitions chaque minute"
+  },
+  { 
+    value: "e2mom", 
+    label: "E2MOM", 
+    icon: "🕑", 
+    color: "bg-cyan-100 text-cyan-800",
+    description: "Every 2 Minutes On the Minute - Répétitions toutes les 2 minutes"
+  },
+  { 
+    value: "amrap", 
+    label: "AMRAP", 
+    icon: "🔁", 
+    color: "bg-green-100 text-green-800",
+    description: "As Many Rounds As Possible - Maximum de tours en temps donné"
+  },
+];
+
+// Fonction pour obtenir un protocole par valeur
+export function getProtocolByValue(value: string) {
+  return TRAINING_PROTOCOLS.find(protocol => protocol.value === value) || TRAINING_PROTOCOLS[0];
+}
