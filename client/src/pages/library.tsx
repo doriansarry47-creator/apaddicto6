@@ -259,7 +259,7 @@ export default function Library() {
               variant="ghost" 
               size="sm" 
               className="group-hover:bg-primary group-hover:text-primary-foreground flex-shrink-0"
-              onClick={() => navigate(`/exercises/${exercise.id}`)}
+              onClick={() => navigate(`/exercise/${exercise.id}`)}
             >
               Commencer
             </Button>
@@ -304,7 +304,7 @@ export default function Library() {
               variant="ghost" 
               size="sm" 
               className="group-hover:bg-primary group-hover:text-primary-foreground flex-shrink-0"
-              onClick={() => navigate(`/sessions/${session.id}`)}
+              onClick={() => navigate(`/session/${session.id}`)}
             >
               <Play className="h-4 w-4 mr-1" />
               Démarrer

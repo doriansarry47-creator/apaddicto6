@@ -1030,7 +1030,29 @@ class Storage {
         .where(eq(patientSessions.patientId, patientId))
         .orderBy(desc(patientSessions.assignedAt));
       
-      return sessions;
+      // Pour chaque séance, récupérer les éléments (exercices)
+      const sessionsWithElements = await Promise.all(
+        sessions.map(async (session) => {
+          if (session.sessionId) {
+            const elements = await this.db
+              .select()
+              .from(sessionElements)
+              .where(eq(sessionElements.sessionId, session.sessionId))
+              .orderBy(sessionElements.order);
+            
+            return {
+              ...session,
+              session: session.session ? {
+                ...session.session,
+                elements: elements
+              } : null
+            };
+          }
+          return session;
+        })
+      );
+      
+      return sessionsWithElements;
     } catch (error) {
       console.error('Error fetching patient sessions:', error);
       throw error;
