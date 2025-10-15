@@ -273,7 +273,10 @@ export function SessionLibrary({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleOpenCustomize(session)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenCustomize(session);
+              }}
               className="flex-1"
             >
               <Info className="h-4 w-4 mr-1" />
@@ -282,7 +285,8 @@ export function SessionLibrary({
 
             <Button
               size="sm"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 // Vérifier si c'est une séance de respiration
                 if (session.category === 'breathing' && session.protocolConfig?.pattern) {
                   // Redirection vers le composant de respiration approprié
@@ -303,7 +307,10 @@ export function SessionLibrary({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleSaveAsFavorite(session)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveAsFavorite(session);
+                }}
               >
                 <Star className="h-4 w-4" />
               </Button>
@@ -313,7 +320,10 @@ export function SessionLibrary({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleRemoveFavorite(session.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveFavorite(session.id);
+                }}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

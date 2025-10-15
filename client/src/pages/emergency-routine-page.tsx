@@ -545,12 +545,12 @@ export default function EmergencyRoutinePage() {
                   </div>
                 )}
 
-                {/* Exercise/Session Selection */}
+                {/* Exercise/Session Selection - Avec ScrollArea pour améliorer l'ergonomie */}
                 {showExerciseLibrary && (
                   <Card className="border-secondary/20 bg-secondary/5">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Bibliothèque</CardTitle>
+                        <CardTitle className="text-lg">Bibliothèque d'Exercices</CardTitle>
                         <Button
                           onClick={() => setShowExerciseLibrary(false)}
                           variant="ghost"
@@ -579,7 +579,7 @@ export default function EmergencyRoutinePage() {
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="max-h-[500px] overflow-y-auto pr-2">
                       {/* Affichage des exercices */}
                       {libraryTab === 'exercises' && (
                         <div>
@@ -594,11 +594,11 @@ export default function EmergencyRoutinePage() {
                               <p className="text-sm text-muted-foreground">Aucun exercice disponible</p>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {availableExercises.map((exercise) => (
                                 <Card
                                   key={exercise.id}
-                                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                                  className="cursor-pointer hover:border-primary/50 transition-colors hover:shadow-md"
                                   onClick={() => addExerciseToRoutine(exercise)}
                                 >
                                   <CardContent className="p-3">
@@ -610,9 +610,22 @@ export default function EmergencyRoutinePage() {
                                       <Badge variant="outline" className="text-xs">
                                         {exercise.category}
                                       </Badge>
-                                      <span className="text-muted-foreground">
-                                        {exercise.duration || 5} min
-                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground">
+                                          {exercise.duration || 5} min
+                                        </span>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 px-2"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            addExerciseToRoutine(exercise);
+                                          }}
+                                        >
+                                          <span className="material-icons text-sm">add</span>
+                                        </Button>
+                                      </div>
                                     </div>
                                   </CardContent>
                                 </Card>
@@ -636,19 +649,18 @@ export default function EmergencyRoutinePage() {
                               <p className="text-sm text-muted-foreground">Aucune séance disponible</p>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {availableSessions.filter(s => s.status === 'published' && s.isPublic).map((session) => (
                                 <Card
                                   key={session.id}
-                                  className="cursor-pointer hover:border-primary/50 transition-colors"
-                                  onClick={() => addSessionToRoutine(session)}
+                                  className="hover:border-primary/50 transition-colors hover:shadow-md"
                                 >
                                   <CardContent className="p-3">
                                     <h4 className="font-medium text-sm text-foreground mb-1">{session.title}</h4>
                                     <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                                       {session.description}
                                     </p>
-                                    <div className="flex justify-between items-center text-xs">
+                                    <div className="flex justify-between items-center text-xs mb-2">
                                       <Badge variant="outline" className="text-xs">
                                         {session.category}
                                       </Badge>
@@ -656,6 +668,15 @@ export default function EmergencyRoutinePage() {
                                         {session.exercises?.length || 0} ex. • {session.totalDuration || 0} min
                                       </span>
                                     </div>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="w-full"
+                                      onClick={() => addSessionToRoutine(session)}
+                                    >
+                                      <span className="material-icons text-sm mr-1">add</span>
+                                      Ajouter à la routine
+                                    </Button>
                                   </CardContent>
                                 </Card>
                               ))}
@@ -792,18 +813,37 @@ export default function EmergencyRoutinePage() {
                 <div className="flex gap-3 pt-4">
                   <Button
                     onClick={saveCurrentRoutine}
-                    disabled={!routineName.trim() || currentExercises.length === 0 || saveRoutineMutation.isPending}
+                    disabled={saveRoutineMutation.isPending}
                     className="flex-1"
+                    variant={routineName.trim() && currentExercises.length > 0 ? "default" : "secondary"}
                   >
-                    {saveRoutineMutation.isPending ? "Sauvegarde..." : "Sauvegarder la Routine"}
+                    {saveRoutineMutation.isPending ? (
+                      <>
+                        <span className="material-icons text-sm mr-2 animate-spin">refresh</span>
+                        Sauvegarde...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-icons text-sm mr-2">save</span>
+                        Sauvegarder la Routine
+                      </>
+                    )}
                   </Button>
                   <Button
                     onClick={resetForm}
                     variant="outline"
                   >
+                    <span className="material-icons text-sm mr-1">cancel</span>
                     Annuler
                   </Button>
                 </div>
+                {/* Message de validation */}
+                {!routineName.trim() && (
+                  <p className="text-sm text-warning">⚠️ Veuillez donner un nom à votre routine</p>
+                )}
+                {currentExercises.length === 0 && (
+                  <p className="text-sm text-warning">⚠️ Veuillez ajouter au moins un exercice</p>
+                )}
               </CardContent>
             </Card>
           </section>
