@@ -20,7 +20,8 @@ export const SESSION_CATEGORIES = [
   { value: "recovery", label: "Récupération", icon: "🔄", color: "bg-green-100 text-green-800" },
   { value: "energy", label: "Boost d'Énergie", icon: "⚡", color: "bg-yellow-100 text-yellow-800" },
   { value: "stress", label: "Anti-Stress", icon: "😌", color: "bg-teal-100 text-teal-800" },
-  { value: "sleep", label: "Sommeil", icon: "😴", color: "bg-indigo-100 text-indigo-800" }
+  { value: "sleep", label: "Sommeil", icon: "😴", color: "bg-indigo-100 text-indigo-800" },
+  { value: "breathing", label: "🧘 Respiration & Relaxation", icon: "🧘", color: "bg-cyan-100 text-cyan-800" }
 ];
 
 // Niveaux de difficulté

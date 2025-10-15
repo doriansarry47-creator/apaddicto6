@@ -282,7 +282,17 @@ export function SessionLibrary({
 
             <Button
               size="sm"
-              onClick={() => onStartSession(session.id)}
+              onClick={() => {
+                // Vérifier si c'est une séance de respiration
+                if (session.category === 'breathing' && session.protocolConfig?.pattern) {
+                  // Redirection vers le composant de respiration approprié
+                  const pattern = session.protocolConfig.pattern;
+                  window.location.href = `/breathing/${pattern}?sessionId=${session.id}`;
+                } else {
+                  // Démarrer une séance normale
+                  onStartSession(session.id);
+                }
+              }}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               <Play className="h-4 w-4 mr-1" />

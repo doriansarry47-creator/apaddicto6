@@ -49,6 +49,7 @@ export default function EmergencyRoutinePage() {
   const [routineDescription, setRoutineDescription] = useState("");
   const [currentExercises, setCurrentExercises] = useState<RoutineExercise[]>([]);
   const [showExerciseLibrary, setShowExerciseLibrary] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<'exercises' | 'sessions'>('exercises');
 
   // Récupération des routines existantes
   const { data: routines = [], isLoading: routinesLoading } = useQuery<EmergencyRoutine[]>({
@@ -65,6 +66,16 @@ export default function EmergencyRoutinePage() {
     queryKey: ["/api/exercises"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/exercises");
+      return response.json();
+    },
+    enabled: !!authenticatedUser,
+  });
+
+  // Récupération des séances disponibles
+  const { data: availableSessions = [], isLoading: sessionsLoading } = useQuery<any[]>({
+    queryKey: ["/api/sessions"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/sessions");
       return response.json();
     },
     enabled: !!authenticatedUser,
@@ -152,6 +163,28 @@ export default function EmergencyRoutinePage() {
     };
     setCurrentExercises([...currentExercises, newRoutineExercise]);
     setShowExerciseLibrary(false);
+  };
+
+  const addSessionToRoutine = (session: any) => {
+    // Ajouter tous les exercices de la séance à la routine
+    const sessionExercises = session.exercises?.map((ex: any, index: number) => ({
+      id: `temp-${Date.now()}-${index}`,
+      exerciseId: ex.exerciseId || ex.id,
+      title: ex.title,
+      duration: ex.duration || 5,
+      repetitions: ex.repetitions || 1,
+      restTime: ex.restTime || 30,
+      intensity: 'medium' as 'low' | 'medium' | 'high',
+      order: currentExercises.length + index,
+    })) || [];
+    
+    setCurrentExercises([...currentExercises, ...sessionExercises]);
+    setShowExerciseLibrary(false);
+    
+    toast({
+      title: "Séance ajoutée",
+      description: `${sessionExercises.length} exercices ont été ajoutés à votre routine.`,
+    });
   };
 
   const removeExerciseFromRoutine = (exerciseId: string) => {
@@ -507,17 +540,17 @@ export default function EmergencyRoutinePage() {
                       className="w-full"
                     >
                       <span className="material-icons mr-2">add</span>
-                      Ajouter un Exercice
+                      Ajouter des Exercices ou une Séance
                     </Button>
                   </div>
                 )}
 
-                {/* Exercise Selection */}
+                {/* Exercise/Session Selection */}
                 {showExerciseLibrary && (
                   <Card className="border-secondary/20 bg-secondary/5">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Bibliothèque d'Exercices</CardTitle>
+                        <CardTitle className="text-lg">Bibliothèque</CardTitle>
                         <Button
                           onClick={() => setShowExerciseLibrary(false)}
                           variant="ghost"
@@ -526,32 +559,110 @@ export default function EmergencyRoutinePage() {
                           <span className="material-icons">close</span>
                         </Button>
                       </div>
+                      {/* Tabs pour exercices et séances */}
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant={libraryTab === 'exercises' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setLibraryTab('exercises')}
+                        >
+                          <span className="material-icons text-sm mr-1">fitness_center</span>
+                          Exercices
+                        </Button>
+                        <Button
+                          variant={libraryTab === 'sessions' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setLibraryTab('sessions')}
+                        >
+                          <span className="material-icons text-sm mr-1">library_books</span>
+                          Séances
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {availableExercises.map((exercise) => (
-                          <Card
-                            key={exercise.id}
-                            className="cursor-pointer hover:border-primary/50 transition-colors"
-                            onClick={() => addExerciseToRoutine(exercise)}
-                          >
-                            <CardContent className="p-3">
-                              <h4 className="font-medium text-sm text-foreground mb-1">{exercise.title}</h4>
-                              <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                                {exercise.description}
-                              </p>
-                              <div className="flex justify-between items-center text-xs">
-                                <Badge variant="outline" className="text-xs">
-                                  {exercise.category}
-                                </Badge>
-                                <span className="text-muted-foreground">
-                                  {exercise.duration || 5} min
-                                </span>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                      {/* Affichage des exercices */}
+                      {libraryTab === 'exercises' && (
+                        <div>
+                          {exercisesLoading ? (
+                            <div className="text-center py-8">
+                              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto"></div>
+                              <p className="text-sm text-muted-foreground mt-2">Chargement des exercices...</p>
+                            </div>
+                          ) : availableExercises.length === 0 ? (
+                            <div className="text-center py-8">
+                              <span className="material-icons text-4xl text-muted-foreground mb-2">fitness_center</span>
+                              <p className="text-sm text-muted-foreground">Aucun exercice disponible</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {availableExercises.map((exercise) => (
+                                <Card
+                                  key={exercise.id}
+                                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                                  onClick={() => addExerciseToRoutine(exercise)}
+                                >
+                                  <CardContent className="p-3">
+                                    <h4 className="font-medium text-sm text-foreground mb-1">{exercise.title}</h4>
+                                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                                      {exercise.description}
+                                    </p>
+                                    <div className="flex justify-between items-center text-xs">
+                                      <Badge variant="outline" className="text-xs">
+                                        {exercise.category}
+                                      </Badge>
+                                      <span className="text-muted-foreground">
+                                        {exercise.duration || 5} min
+                                      </span>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Affichage des séances */}
+                      {libraryTab === 'sessions' && (
+                        <div>
+                          {sessionsLoading ? (
+                            <div className="text-center py-8">
+                              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto"></div>
+                              <p className="text-sm text-muted-foreground mt-2">Chargement des séances...</p>
+                            </div>
+                          ) : availableSessions.length === 0 ? (
+                            <div className="text-center py-8">
+                              <span className="material-icons text-4xl text-muted-foreground mb-2">library_books</span>
+                              <p className="text-sm text-muted-foreground">Aucune séance disponible</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {availableSessions.filter(s => s.status === 'published' && s.isPublic).map((session) => (
+                                <Card
+                                  key={session.id}
+                                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                                  onClick={() => addSessionToRoutine(session)}
+                                >
+                                  <CardContent className="p-3">
+                                    <h4 className="font-medium text-sm text-foreground mb-1">{session.title}</h4>
+                                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                                      {session.description}
+                                    </p>
+                                    <div className="flex justify-between items-center text-xs">
+                                      <Badge variant="outline" className="text-xs">
+                                        {session.category}
+                                      </Badge>
+                                      <span className="text-muted-foreground">
+                                        {session.exercises?.length || 0} ex. • {session.totalDuration || 0} min
+                                      </span>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
