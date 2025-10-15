@@ -45,7 +45,8 @@ export default function Exercises() {
       return response.json();
     },
     initialData: [],
-    staleTime: 0,
+    staleTime: 30000, // 30 secondes au lieu de 0 pour réduire les requêtes
+    refetchOnWindowFocus: true, // Rafraîchir quand l'utilisateur revient sur la page
     enabled: !!user && user.role === 'patient'
   });
 

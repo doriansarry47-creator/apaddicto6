@@ -59,6 +59,8 @@ export default function Library() {
       }
     },
     initialData: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes de cache
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Récupération des catégories de contenu éducatif
@@ -75,6 +77,8 @@ export default function Library() {
       }
     },
     initialData: [],
+    staleTime: 10 * 60 * 1000, // 10 minutes de cache (les catégories changent rarement)
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
   // Récupération du contenu legacy (fallback)
@@ -90,6 +94,8 @@ export default function Library() {
     queryKey: ["exercises"],
     queryFn: async () => apiRequest("GET", "/api/exercises").then(res => res.json()),
     initialData: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes de cache
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Récupération des SÉANCES (différent des exercices)
@@ -104,6 +110,8 @@ export default function Library() {
       }
     },
     initialData: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes de cache
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Combiner le contenu éducatif (nouveau + legacy)
@@ -635,6 +643,10 @@ export default function Library() {
             </p>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}    </Card>
       )}
     </div>
   );

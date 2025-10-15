@@ -214,20 +214,23 @@ export default function ManageExercisesSessions() {
       const response = await apiRequest("POST", `/api/sessions/${sessionId}/publish`, { patientIds });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "sessions"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "patient-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["patient-sessions"] });
+      
+      const count = data.assignedPatients || selectedPatients.length;
       toast({
-        title: "Séance publiée",
-        description: "La séance a été assignée aux patients sélectionnés.",
+        title: "Séance publiée avec succès",
+        description: `La séance a été assignée à ${count} patient${count > 1 ? 's' : ''}.`,
       });
       setSelectedPatients([]);
       setSelectedSessionId(null);
     },
     onError: (error: any) => {
       toast({
-        title: "Erreur",
-        description: error.message || "Impossible de publier la séance",
+        title: "Erreur lors de la publication",
+        description: error.message || "Impossible de publier la séance. Veuillez réessayer.",
         variant: "destructive",
       });
     },
@@ -266,17 +269,20 @@ export default function ManageExercisesSessions() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "sessions"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "patient-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["patient-sessions"] });
+      
+      const count = selectedPatients.length;
       toast({
-        title: "Exercice assigné",
-        description: "L'exercice a été assigné aux patients sélectionnés.",
+        title: "Exercice assigné avec succès",
+        description: `L'exercice a été assigné à ${count} patient${count > 1 ? 's' : ''}.`,
       });
       setSelectedPatients([]);
       setSelectedSessionId(null);
     },
     onError: (error: any) => {
       toast({
-        title: "Erreur",
-        description: error.message || "Impossible d'assigner l'exercice",
+        title: "Erreur lors de l'assignation",
+        description: error.message || "Impossible d'assigner l'exercice. Veuillez réessayer.",
         variant: "destructive",
       });
     },

@@ -371,6 +371,14 @@ export function PatientSessions({
             Suivez vos exercices personnalisés et partagez vos retours
           </p>
         </div>
+        <Button 
+          variant="outline" 
+          onClick={onRefresh}
+          className="flex items-center space-x-2"
+        >
+          <Activity className="h-4 w-4" />
+          <span>Actualiser</span>
+        </Button>
       </div>
 
       {/* Statistiques rapides */}
@@ -469,12 +477,25 @@ export function PatientSessions({
             <Card>
               <CardContent className="text-center py-12">
                 <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
+                <h3 className="text-lg font-semibold mb-2">
                   {assignedSessions.length === 0 
                     ? "Aucune séance assignée pour le moment"
                     : "Aucune séance ne correspond aux filtres sélectionnés"
                   }
-                </p>
+                </h3>
+                {assignedSessions.length === 0 && (
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Votre thérapeute vous assignera bientôt des séances personnalisées. En attendant, vous pouvez explorer la bibliothèque d'exercices.
+                  </p>
+                )}
+                {assignedSessions.length === 0 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => window.location.href = '/library'}
+                  >
+                    Explorer la bibliothèque
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
