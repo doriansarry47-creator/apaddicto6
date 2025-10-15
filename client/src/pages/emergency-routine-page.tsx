@@ -192,10 +192,32 @@ export default function EmergencyRoutinePage() {
   };
 
   const saveCurrentRoutine = () => {
-    if (!routineName.trim() || currentExercises.length === 0) {
+    console.log('saveCurrentRoutine called', { routineName: routineName.trim(), exerciseCount: currentExercises.length });
+    
+    if (!routineName.trim()) {
       toast({
         title: "Erreur de validation",
-        description: "Veuillez renseigner un nom et ajouter au moins un exercice.",
+        description: "Veuillez renseigner un nom pour la routine.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (currentExercises.length === 0) {
+      toast({
+        title: "Erreur de validation",
+        description: "Veuillez ajouter au moins un exercice à votre routine.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Vérifier que tous les exercices ont des données valides
+    const invalidExercises = currentExercises.filter(ex => !ex.title || ex.duration <= 0);
+    if (invalidExercises.length > 0) {
+      toast({
+        title: "Exercices invalides",
+        description: `${invalidExercises.length} exercice(s) ont des données invalides. Vérifiez les titres et durées.`,
         variant: "destructive",
       });
       return;
@@ -206,10 +228,17 @@ export default function EmergencyRoutinePage() {
       name: routineName.trim(),
       description: routineDescription.trim() || undefined,
       totalDuration: calculateTotalDuration(),
-      exercises: currentExercises,
+      exercises: currentExercises.map((ex, index) => ({
+        ...ex,
+        order: index, // S'assurer que l'ordre est correct
+        duration: Math.max(5, ex.duration), // Minimum 5 secondes
+        repetitions: Math.max(1, ex.repetitions || 1),
+        restTime: Math.max(0, ex.restTime || 0)
+      })),
       isDefault: routines.length === 0, // Première routine devient par défaut
     };
 
+    console.log('About to save routine:', routine);
     saveRoutineMutation.mutate(routine);
   };
 

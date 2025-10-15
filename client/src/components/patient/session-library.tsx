@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search,
   Filter,
@@ -90,6 +91,7 @@ export function SessionLibrary({
   const [customizingSession, setCustomizingSession] = useState<Session | null>(null);
   const [saveFavoriteName, setSaveFavoriteName] = useState("");
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Filtrer les séances
@@ -113,6 +115,38 @@ export function SessionLibrary({
   const handleOpenCustomize = (session: Session) => {
     setSelectedSession(session);
     setCustomizingSession(JSON.parse(JSON.stringify(session))); // Deep copy
+    setShowDetailsDialog(true);
+  };
+
+  const handleUpdateExercise = (exerciseIndex: number, field: string, value: any) => {
+    if (!customizingSession) return;
+    const updatedSession = { ...customizingSession };
+    updatedSession.exercises[exerciseIndex] = {
+      ...updatedSession.exercises[exerciseIndex],
+      [field]: value
+    };
+    setCustomizingSession(updatedSession);
+  };
+
+  const handleSaveCustomizedSession = async () => {
+    if (!customizingSession) return;
+    
+    try {
+      await onSaveFavorite(customizingSession, customizingSession.title + " (Personnalisée)");
+      toast({
+        title: "✅ Séance personnalisée sauvegardée",
+        description: "Vos modifications ont été enregistrées dans vos favoris"
+      });
+      setShowDetailsDialog(false);
+      setCustomizingSession(null);
+      onRefresh();
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder la séance personnalisée",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSaveAsFavorite = async (session: Session) => {
@@ -238,51 +272,41 @@ export function SessionLibrary({
           <div className="flex flex-wrap gap-2 pt-2 border-t">
             <Button
               size="sm"
-              onClick={() => onStartSession(session.id)}
+              variant="outline"
+              onClick={() => handleOpenCustomize(session)}
               className="flex-1"
+            >
+              <Info className="h-4 w-4 mr-1" />
+              Détails
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() => onStartSession(session.id)}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               <Play className="h-4 w-4 mr-1" />
               Démarrer
             </Button>
 
             {!isFavorite && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleOpenCustomize(session)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleSaveAsFavorite(session)}
-                >
-                  <Star className="h-4 w-4" />
-                </Button>
-              </>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleSaveAsFavorite(session)}
+              >
+                <Star className="h-4 w-4" />
+              </Button>
             )}
 
             {isFavorite && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleOpenCustomize(session)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleRemoveFavorite(session.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleRemoveFavorite(session.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </CardContent>
@@ -442,6 +466,159 @@ export function SessionLibrary({
               disabled={!saveFavoriteName.trim() || isSaving}
             >
               {isSaving ? "Sauvegarde..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog pour détails et personnalisation */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Détails et Personnalisation - {selectedSession?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Consultez les exercices de cette séance et personnalisez les paramètres selon vos besoins
+            </DialogDescription>
+          </DialogHeader>
+
+          {customizingSession && (
+            <div className="space-y-6">
+              {/* Informations générales */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Informations Générales</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>Durée totale : {formatDuration(customizingSession.totalDuration || 0)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                      <span>Exercices : {customizingSession.exercises?.length || 0}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-muted-foreground" />
+                      <span>Difficulté : {customizingSession.difficulty}</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-3">{customizingSession.description}</p>
+                </CardContent>
+              </Card>
+
+              {/* Liste des exercices personnalisables */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Edit2 className="h-5 w-5" />
+                    Exercices de la Séance
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Modifiez les paramètres de chaque exercice selon vos capacités
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {customizingSession.exercises?.map((exercise, index) => (
+                      <Card key={exercise.id} className="border border-gray-200">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base">
+                              {index + 1}. {exercise.title}
+                            </CardTitle>
+                            <Badge variant="outline">Ordre {exercise.order}</Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                              <Label className="text-xs">Durée (min)</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="60"
+                                value={exercise.duration}
+                                onChange={(e) => handleUpdateExercise(index, 'duration', parseInt(e.target.value))}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Répétitions</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={exercise.repetitions || 1}
+                                onChange={(e) => handleUpdateExercise(index, 'repetitions', parseInt(e.target.value))}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Séries</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={exercise.sets || 1}
+                                onChange={(e) => handleUpdateExercise(index, 'sets', parseInt(e.target.value))}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Repos (sec)</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="300"
+                                value={exercise.restTime || 30}
+                                onChange={(e) => handleUpdateExercise(index, 'restTime', parseInt(e.target.value))}
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                          {exercise.notes && (
+                            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                              <Label className="text-xs font-medium">Notes :</Label>
+                              <Textarea
+                                value={exercise.notes}
+                                onChange={(e) => handleUpdateExercise(index, 'notes', e.target.value)}
+                                className="mt-1 text-xs"
+                                rows={2}
+                              />
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDetailsDialog(false)}
+            >
+              Fermer
+            </Button>
+            <Button
+              onClick={() => customizingSession && onStartSession(customizingSession.id)}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Démarrer cette séance
+            </Button>
+            <Button
+              onClick={handleSaveCustomizedSession}
+              disabled={isSaving}
+            >
+              {isSaving ? "Sauvegarde..." : "Sauvegarder dans Mes Favoris"}
             </Button>
           </DialogFooter>
         </DialogContent>
