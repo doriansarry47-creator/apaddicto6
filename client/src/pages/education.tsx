@@ -219,7 +219,7 @@ function ContentCard({
           </div>
         )}
 
-        {/* Bouton de lecture - Ouvre une page dédiée */}
+        {/* Bouton de lecture */}
         <div className="border-2 border-gray-100 rounded-xl overflow-hidden">
           <button
             onClick={onRead}
@@ -231,9 +231,6 @@ function ContentCard({
                 <span className="font-medium">
                   📖 Lire l'article complet
                 </span>
-                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                  Page dédiée
-                </Badge>
               </div>
               <ExternalLink className="h-4 w-4 text-blue-600" />
             </div>
@@ -278,21 +275,22 @@ function ContentCard({
           <Button
             onClick={onComplete}
             disabled={isCompleted}
-            className={`flex items-center gap-2 px-6 py-2 rounded-full font-medium transition-all duration-200 ${
+            size="sm"
+            className={`flex items-center gap-1 px-3 py-2 rounded-full font-medium transition-all duration-200 text-xs ${
               isCompleted 
                 ? 'bg-green-600 text-white cursor-default shadow-lg'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
+                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl'
             }`}
           >
             {isCompleted ? (
               <>
-                <CheckCircle2 className="h-4 w-4" />
-                ✅ Terminé
+                <CheckCircle2 className="h-3 w-3" />
+                ✅ Lu
               </>
             ) : (
               <>
-                <Timer className="h-4 w-4" />
-                📚 Marquer comme lu
+                <Timer className="h-3 w-3" />
+                Marquer comme lu
               </>
             )}
           </Button>
