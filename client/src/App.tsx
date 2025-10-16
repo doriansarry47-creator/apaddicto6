@@ -2,6 +2,7 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AdminRoute } from "@/components/admin-route";
@@ -188,6 +189,16 @@ function App() {
         <TooltipProvider>
           <div className="min-h-screen bg-background text-foreground font-roboto">
             <Toaster />
+            <SonnerToaster 
+              position="top-right" 
+              richColors 
+              closeButton 
+              visibleToasts={5}
+              toastOptions={{
+                className: 'animate-slide-in-right',
+                duration: 4000,
+              }}
+            />
             <AppContent />
           </div>
         </TooltipProvider>

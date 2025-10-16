@@ -16,8 +16,8 @@ import type {
   AntiCravingStrategy,
   InsertAntiCravingStrategy,
   UserStats,
-  UserEmergencyRoutine,
-  InsertUserEmergencyRoutine,
+  EmergencyRoutine,
+  InsertEmergencyRoutine,
   CustomSession,
   InsertCustomSession,
   PatientSession,
@@ -41,7 +41,7 @@ import {
   antiCravingStrategies,
   userStats,
   userBadges,
-  userEmergencyRoutines,
+  emergencyRoutines,
   customSessions,
   sessionElements,
   patientSessions,
@@ -735,11 +735,12 @@ class Storage {
   // === USER EMERGENCY ROUTINES ===
   async getEmergencyRoutines(userId: string) {
     try {
+      // emergencyRoutines est une table globale, pas par utilisateur
       const result = await this.db
         .select()
-        .from(userEmergencyRoutines)
-        .where(eq(userEmergencyRoutines.userId, userId))
-        .orderBy(desc(userEmergencyRoutines.updatedAt));
+        .from(emergencyRoutines)
+        .where(eq(emergencyRoutines.isActive, true))
+        .orderBy(desc(emergencyRoutines.updatedAt));
       return result;
     } catch (error) {
       console.error('Error fetching emergency routines:', error);
@@ -751,8 +752,8 @@ class Storage {
     try {
       const result = await this.db
         .select()
-        .from(userEmergencyRoutines)
-        .where(eq(userEmergencyRoutines.id, routineId))
+        .from(emergencyRoutines)
+        .where(eq(emergencyRoutines.id, routineId))
         .limit(1);
       return result[0] || null;
     } catch (error) {
@@ -761,14 +762,13 @@ class Storage {
     }
   }
 
-  async createEmergencyRoutine(routineData: InsertUserEmergencyRoutine) {
+  async createEmergencyRoutine(routineData: InsertEmergencyRoutine) {
     try {
       const result = await this.db
-        .insert(userEmergencyRoutines)
+        .insert(emergencyRoutines)
         .values({
           ...routineData,
           updatedAt: new Date(),
-          exercises: routineData.exercises ? JSON.parse(JSON.stringify(routineData.exercises)) : [],
         })
         .returning();
       return result[0];
@@ -778,15 +778,15 @@ class Storage {
     }
   }
 
-  async updateEmergencyRoutine(routineId: string, updateData: Partial<InsertUserEmergencyRoutine>) {
+  async updateEmergencyRoutine(routineId: string, updateData: Partial<InsertEmergencyRoutine>) {
     try {
       const result = await this.db
-        .update(userEmergencyRoutines)
+        .update(emergencyRoutines)
         .set({
           ...updateData,
           updatedAt: new Date()
         })
-        .where(eq(userEmergencyRoutines.id, routineId))
+        .where(eq(emergencyRoutines.id, routineId))
         .returning();
       return result[0];
     } catch (error) {
@@ -798,8 +798,8 @@ class Storage {
   async deleteEmergencyRoutine(routineId: string): Promise<boolean> {
     try {
       const result = await this.db
-        .delete(userEmergencyRoutines)
-        .where(eq(userEmergencyRoutines.id, routineId))
+        .delete(emergencyRoutines)
+        .where(eq(emergencyRoutines.id, routineId))
         .returning();
       return result.length > 0;
     } catch (error) {

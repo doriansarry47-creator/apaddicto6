@@ -817,11 +817,12 @@ export function registerRoutes(app: Application) {
   // POST /api/emergency-routines - Créer une routine d'urgence
   app.post('/api/emergency-routines', requireAuth, async (req, res) => {
     try {
-      const routineData = {
-        ...req.body,
-        userId: req.session.user!.id
-      };
-      const routine = await storage.createEmergencyRoutine(routineData);
+      // Vérifier que l'utilisateur est admin (les routines sont globales)
+      if (req.session.user!.role !== 'admin') {
+        return res.status(403).json({ message: 'Seuls les admins peuvent créer des routines d\'urgence' });
+      }
+      
+      const routine = await storage.createEmergencyRoutine(req.body);
       res.json(routine);
     } catch (error: any) {
       console.error('Error creating emergency routine:', error);
@@ -833,12 +834,15 @@ export function registerRoutes(app: Application) {
   app.put('/api/emergency-routines/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user!.id;
       
-      // Vérifier que la routine appartient à l'utilisateur
+      // Vérifier que l'utilisateur est admin (les routines sont globales)
+      if (req.session.user!.role !== 'admin') {
+        return res.status(403).json({ message: 'Seuls les admins peuvent modifier les routines d\'urgence' });
+      }
+      
       const existingRoutine = await storage.getEmergencyRoutineById(id);
-      if (!existingRoutine || existingRoutine.userId !== userId) {
-        return res.status(403).json({ message: 'Routine non trouvée ou accès refusé' });
+      if (!existingRoutine) {
+        return res.status(404).json({ message: 'Routine non trouvée' });
       }
       
       const routine = await storage.updateEmergencyRoutine(id, req.body);
@@ -853,12 +857,15 @@ export function registerRoutes(app: Application) {
   app.delete('/api/emergency-routines/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user!.id;
       
-      // Vérifier que la routine appartient à l'utilisateur
+      // Vérifier que l'utilisateur est admin (les routines sont globales)
+      if (req.session.user!.role !== 'admin') {
+        return res.status(403).json({ message: 'Seuls les admins peuvent supprimer les routines d\'urgence' });
+      }
+      
       const existingRoutine = await storage.getEmergencyRoutineById(id);
-      if (!existingRoutine || existingRoutine.userId !== userId) {
-        return res.status(403).json({ message: 'Routine non trouvée ou accès refusé' });
+      if (!existingRoutine) {
+        return res.status(404).json({ message: 'Routine non trouvée' });
       }
       
       const success = await storage.deleteEmergencyRoutine(id);

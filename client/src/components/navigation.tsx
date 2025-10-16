@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuthQuery } from "@/hooks/use-auth";
 import { ThemeSettingsMenu } from "@/components/theme-settings-menu";
+import { GlobalSearch } from "@/components/ui/global-search";
 import logoImage from "@/assets/apaddicto-logo.png";
 
 export function Navigation() {
@@ -29,6 +30,11 @@ export function Navigation() {
                 <p className="text-sm text-muted-foreground">Gestion des craving par l'AP</p>
               </div>
             </Link>
+            
+            {/* Global Search - hidden on mobile */}
+            <div className="hidden md:block flex-1 max-w-md mx-8">
+              {user && <GlobalSearch />}
+            </div>
             
             {/* Desktop navigation - hidden on mobile */}
             <nav className="hidden md:flex items-center space-x-6">

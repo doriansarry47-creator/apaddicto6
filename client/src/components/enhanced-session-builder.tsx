@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Play, Pause, RotateCcw, Clock, Settings, Target, Activity, Send, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EnhancedButton, useEnhancedButtonState } from "@/components/ui/enhanced-button";
+import { enhancedToast } from "@/components/ui/enhanced-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -99,6 +101,10 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [selectedPatients, setSelectedPatients] = useState<string[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
+  
+  // États pour les boutons améliorés
+  const saveButtonState = useEnhancedButtonState();
+  const publishButtonState = useEnhancedButtonState();
 
   useEffect(() => {
     if (existingSession) {
@@ -242,39 +248,59 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
 
   const saveSession = async () => {
     if (!session.title.trim()) {
-      toast({
-        title: "Erreur",
+      enhancedToast.error({
+        title: "Erreur de validation",
         description: "Veuillez donner un titre à la séance",
-        variant: "destructive"
+        animation: 'shake',
+        haptic: true
       });
       return;
     }
 
     if (session.exercises.length === 0) {
-      toast({
-        title: "Erreur",
+      enhancedToast.error({
+        title: "Erreur de validation", 
         description: "Ajoutez au moins un exercice à la séance",
-        variant: "destructive"
+        animation: 'shake',
+        haptic: true
       });
       return;
     }
 
+    saveButtonState.setLoading();
+    
     try {
       const savedSession = await onSave(session);
+      
       // Mettre à jour l'état de la séance avec l'ID retourné par le serveur
       if (savedSession && savedSession.id) {
         setSession(prev => ({ ...prev, id: savedSession.id }));
       }
-      toast({
-        title: "Séance sauvegardée",
-        description: `"${session.title}" a été sauvegardée avec succès`
+      
+      saveButtonState.setSuccess();
+      
+      enhancedToast.celebrate({
+        title: "Séance sauvegardée !",
+        description: `"${session.title}" a été sauvegardée avec succès`,
+        confetti: true,
+        haptic: true,
+        duration: 3000
       });
+      
     } catch (error) {
       console.error('Error saving session:', error);
-      toast({
-        title: "Erreur",
-        description: "Erreur lors de la sauvegarde de la séance",
-        variant: "destructive"
+      
+      saveButtonState.setError();
+      
+      enhancedToast.error({
+        title: "Erreur de sauvegarde",
+        description: "Impossible de sauvegarder la séance. Veuillez réessayer.",
+        animation: 'bounce',
+        haptic: true,
+        action: {
+          label: "Réessayer",
+          onClick: () => saveSession()
+        }
       });
     }
   };
@@ -856,10 +882,18 @@ export function EnhancedSessionBuilder({ exercises, onSave, onPublish, existingS
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button onClick={saveSession} className="flex-1">
+                <EnhancedButton 
+                  onClick={saveSession} 
+                  className="flex-1"
+                  state={saveButtonState.state}
+                  celebrateOnSuccess={true}
+                  hapticFeedback={true}
+                  ripple={true}
+                  pulse={true}
+                >
                   <Target className="h-4 w-4 mr-2" />
                   Sauvegarder la Séance
-                </Button>
+                </EnhancedButton>
                 
                 {onPublish && (
                   <Dialog open={showPublishModal} onOpenChange={setShowPublishModal}>

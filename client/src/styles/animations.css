@@ -1,0 +1,272 @@
+/* Animations améliorées pour Apaddicto */
+
+/* Animation shake pour les erreurs */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Animation fade-in fluide */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Animation scale-in pour les mises à jour */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+/* Animation slide-in depuis la droite */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+/* Animation pour les confettis */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10px) rotateX(0deg) rotateY(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotateX(720deg) rotateY(360deg);
+    opacity: 0;
+  }
+}
+
+/* Animation de pulsation pour les éléments importants */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Animation de survol pour les cartes */
+@keyframes lift {
+  from {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  to {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  animation: lift 0.3s ease-out forwards;
+}
+
+/* Animation de chargement élégante */
+@keyframes loading-dots {
+  0%, 20% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.loading-dots span:nth-child(1) { animation-delay: 0s; }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+.loading-dots span {
+  display: inline-block;
+  animation: loading-dots 1.5s infinite;
+}
+
+/* Animation de succès avec check */
+@keyframes success-check {
+  0% {
+    stroke-dasharray: 0 100;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+  }
+}
+
+.animate-success-check {
+  animation: success-check 0.6s ease-in-out;
+}
+
+/* Animation de focus améliorée pour les inputs */
+.enhanced-focus {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.enhanced-focus:focus-within {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.enhanced-focus:focus-within::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.1;
+}
+
+/* Animation de progression fluide */
+@keyframes progress-bar {
+  0% {
+    width: 0%;
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-progress {
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06d6a0);
+  background-size: 200% 200%;
+  animation: progress-bar 2s ease-in-out;
+}
+
+/* Animation de notification slide-up */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Animation de badge avec bounce */
+@keyframes badge-bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+.animate-badge-bounce {
+  animation: badge-bounce 1s ease-in-out;
+}
+
+/* Transition fluide pour les changements d'état */
+.state-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.state-transition-fast {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Animation de particules pour celebration */
+@keyframes particle-float {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-50px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.animate-particle {
+  animation: particle-float 2s ease-out infinite;
+}
+
+/* Classe utilitaire pour désactiver les animations si l'utilisateur préfère */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shake,
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-slide-in-right,
+  .animate-pulse-glow,
+  .hover-lift,
+  .animate-success-check,
+  .animate-progress,
+  .animate-slide-up,
+  .animate-badge-bounce,
+  .animate-particle {
+    animation: none !important;
+  }
+  
+  .state-transition,
+  .state-transition-fast,
+  .enhanced-focus {
+    transition: none !important;
+  }
+}
+
+/* Variables CSS pour faciliter la personnalisation */
+:root {
+  --animation-duration-fast: 0.15s;
+  --animation-duration-normal: 0.3s;
+  --animation-duration-slow: 0.5s;
+  --animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-elevation-2: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-elevation-3: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
