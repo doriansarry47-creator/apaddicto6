@@ -9,15 +9,32 @@ export function registerRoutes(app: Application) {
   app.post('/api/auth/register', async (req, res) => {
     try {
       const { email, password, firstName, lastName, role } = req.body;
-      
+
       console.log('📝 Registration attempt for:', email);
-      
+
+      // Validation des entrées
       if (!email || !password) {
         return res.status(400).json({ message: "Email et mot de passe requis" });
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({ message: "Le mot de passe doit contenir au moins 6 caractères" });
+      // Validation email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Format d'email invalide" });
+      }
+
+      // Validation mot de passe renforcée
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Le mot de passe doit contenir au moins 8 caractères" });
+      }
+
+      // Validation des noms (pas de caractères spéciaux dangereux)
+      const nameRegex = /^[a-zA-ZÀ-ÿ\s'-]+$/;
+      if (firstName && !nameRegex.test(firstName)) {
+        return res.status(400).json({ message: "Prénom contient des caractères invalides" });
+      }
+      if (lastName && !nameRegex.test(lastName)) {
+        return res.status(400).json({ message: "Nom contient des caractères invalides" });
       }
 
       const user = await AuthService.register({
@@ -49,11 +66,18 @@ export function registerRoutes(app: Application) {
   app.post('/api/auth/login', async (req, res) => {
     try {
       const { email, password } = req.body;
-      
+
       console.log('🔐 Login attempt for:', email);
-      
+
+      // Validation des entrées
       if (!email || !password) {
         return res.status(400).json({ message: "Email et mot de passe requis" });
+      }
+
+      // Validation email basique
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Format d'email invalide" });
       }
 
       const user = await AuthService.login(email, password);

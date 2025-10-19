@@ -1224,7 +1224,7 @@ var Storage = class {
   // === USER EMERGENCY ROUTINES ===
   async getEmergencyRoutines(userId) {
     try {
-      const result = await this.db.select().from(userEmergencyRoutines).where(eq(userEmergencyRoutines.userId, userId)).orderBy(desc(userEmergencyRoutines.updatedAt));
+      const result = await this.db.select().from(emergencyRoutines).where(eq(emergencyRoutines.isActive, true)).orderBy(desc(emergencyRoutines.updatedAt));
       return result;
     } catch (error) {
       console.error("Error fetching emergency routines:", error);
@@ -1233,7 +1233,7 @@ var Storage = class {
   }
   async getEmergencyRoutineById(routineId) {
     try {
-      const result = await this.db.select().from(userEmergencyRoutines).where(eq(userEmergencyRoutines.id, routineId)).limit(1);
+      const result = await this.db.select().from(emergencyRoutines).where(eq(emergencyRoutines.id, routineId)).limit(1);
       return result[0] || null;
     } catch (error) {
       console.error("Error fetching emergency routine by ID:", error);
@@ -1242,10 +1242,9 @@ var Storage = class {
   }
   async createEmergencyRoutine(routineData) {
     try {
-      const result = await this.db.insert(userEmergencyRoutines).values({
+      const result = await this.db.insert(emergencyRoutines).values({
         ...routineData,
-        updatedAt: /* @__PURE__ */ new Date(),
-        exercises: routineData.exercises ? JSON.parse(JSON.stringify(routineData.exercises)) : []
+        updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       return result[0];
     } catch (error) {
@@ -1255,10 +1254,10 @@ var Storage = class {
   }
   async updateEmergencyRoutine(routineId, updateData) {
     try {
-      const result = await this.db.update(userEmergencyRoutines).set({
+      const result = await this.db.update(emergencyRoutines).set({
         ...updateData,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(userEmergencyRoutines.id, routineId)).returning();
+      }).where(eq(emergencyRoutines.id, routineId)).returning();
       return result[0];
     } catch (error) {
       console.error("Error updating emergency routine:", error);
@@ -1267,7 +1266,7 @@ var Storage = class {
   }
   async deleteEmergencyRoutine(routineId) {
     try {
-      const result = await this.db.delete(userEmergencyRoutines).where(eq(userEmergencyRoutines.id, routineId)).returning();
+      const result = await this.db.delete(emergencyRoutines).where(eq(emergencyRoutines.id, routineId)).returning();
       return result.length > 0;
     } catch (error) {
       console.error("Error deleting emergency routine:", error);
@@ -1437,7 +1436,22 @@ var Storage = class {
         completedAt: patientSessions.completedAt,
         session: customSessions
       }).from(patientSessions).leftJoin(customSessions, eq(patientSessions.sessionId, customSessions.id)).where(eq(patientSessions.patientId, patientId)).orderBy(desc(patientSessions.assignedAt));
-      return sessions;
+      const sessionsWithElements = await Promise.all(
+        sessions.map(async (session2) => {
+          if (session2.sessionId) {
+            const elements = await this.db.select().from(sessionElements).where(eq(sessionElements.sessionId, session2.sessionId)).orderBy(sessionElements.order);
+            return {
+              ...session2,
+              session: session2.session ? {
+                ...session2.session,
+                elements
+              } : null
+            };
+          }
+          return session2;
+        })
+      );
+      return sessionsWithElements;
     } catch (error) {
       console.error("Error fetching patient sessions:", error);
       throw error;
@@ -1774,7 +1788,17 @@ var AuthService = class {
     return bcrypt.compare(password, hashedPassword);
   }
   static async register(userData) {
-    const existingUser = await storage.getUserByEmail(userData.email);
+    if (!userData.email || !userData.password) {
+      throw new Error("Email et mot de passe requis");
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userData.email)) {
+      throw new Error("Format d'email invalide");
+    }
+    if (userData.password.length < 8) {
+      throw new Error("Le mot de passe doit contenir au moins 8 caract\xE8res");
+    }
+    const existingUser = await storage.getUserByEmail(userData.email.toLowerCase().trim());
     if (existingUser) {
       throw new Error("Un utilisateur avec cet email existe d\xE9j\xE0");
     }
@@ -1785,10 +1809,10 @@ var AuthService = class {
     }
     const hashedPassword = await this.hashPassword(userData.password);
     const newUser = {
-      email: userData.email,
+      email: userData.email.toLowerCase().trim(),
       password: hashedPassword,
-      firstName: userData.firstName || null,
-      lastName: userData.lastName || null,
+      firstName: userData.firstName?.trim() || null,
+      lastName: userData.lastName?.trim() || null,
       role: requestedRole
     };
     const user = await storage.createUser(newUser);
@@ -1801,7 +1825,11 @@ var AuthService = class {
     };
   }
   static async login(email, password) {
-    const user = await storage.getUserByEmail(email);
+    if (!email || !password) {
+      throw new Error("Email et mot de passe requis");
+    }
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await storage.getUserByEmail(normalizedEmail);
     if (!user) {
       throw new Error("Email ou mot de passe incorrect");
     }
@@ -1902,8 +1930,19 @@ function registerRoutes(app2) {
       if (!email || !password) {
         return res.status(400).json({ message: "Email et mot de passe requis" });
       }
-      if (password.length < 6) {
-        return res.status(400).json({ message: "Le mot de passe doit contenir au moins 6 caract\xE8res" });
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Format d'email invalide" });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Le mot de passe doit contenir au moins 8 caract\xE8res" });
+      }
+      const nameRegex = /^[a-zA-ZÀ-ÿ\s'-]+$/;
+      if (firstName && !nameRegex.test(firstName)) {
+        return res.status(400).json({ message: "Pr\xE9nom contient des caract\xE8res invalides" });
+      }
+      if (lastName && !nameRegex.test(lastName)) {
+        return res.status(400).json({ message: "Nom contient des caract\xE8res invalides" });
       }
       const user = await AuthService.register({
         email,
@@ -1931,6 +1970,10 @@ function registerRoutes(app2) {
       console.log("\u{1F510} Login attempt for:", email);
       if (!email || !password) {
         return res.status(400).json({ message: "Email et mot de passe requis" });
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Format d'email invalide" });
       }
       const user = await AuthService.login(email, password);
       req.session.user = user;
@@ -2511,11 +2554,10 @@ function registerRoutes(app2) {
   });
   app2.post("/api/emergency-routines", requireAuth, async (req, res) => {
     try {
-      const routineData = {
-        ...req.body,
-        userId: req.session.user.id
-      };
-      const routine = await storage.createEmergencyRoutine(routineData);
+      if (req.session.user.role !== "admin") {
+        return res.status(403).json({ message: "Seuls les admins peuvent cr\xE9er des routines d'urgence" });
+      }
+      const routine = await storage.createEmergencyRoutine(req.body);
       res.json(routine);
     } catch (error) {
       console.error("Error creating emergency routine:", error);
@@ -2525,10 +2567,12 @@ function registerRoutes(app2) {
   app2.put("/api/emergency-routines/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user.id;
+      if (req.session.user.role !== "admin") {
+        return res.status(403).json({ message: "Seuls les admins peuvent modifier les routines d'urgence" });
+      }
       const existingRoutine = await storage.getEmergencyRoutineById(id);
-      if (!existingRoutine || existingRoutine.userId !== userId) {
-        return res.status(403).json({ message: "Routine non trouv\xE9e ou acc\xE8s refus\xE9" });
+      if (!existingRoutine) {
+        return res.status(404).json({ message: "Routine non trouv\xE9e" });
       }
       const routine = await storage.updateEmergencyRoutine(id, req.body);
       res.json(routine);
@@ -2540,10 +2584,12 @@ function registerRoutes(app2) {
   app2.delete("/api/emergency-routines/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.session.user.id;
+      if (req.session.user.role !== "admin") {
+        return res.status(403).json({ message: "Seuls les admins peuvent supprimer les routines d'urgence" });
+      }
       const existingRoutine = await storage.getEmergencyRoutineById(id);
-      if (!existingRoutine || existingRoutine.userId !== userId) {
-        return res.status(403).json({ message: "Routine non trouv\xE9e ou acc\xE8s refus\xE9" });
+      if (!existingRoutine) {
+        return res.status(404).json({ message: "Routine non trouv\xE9e" });
       }
       const success = await storage.deleteEmergencyRoutine(id);
       if (success) {
@@ -3221,6 +3267,20 @@ debugTablesRouter.delete("/debug/tables/purge", async (_req, res) => {
 
 // server/index.ts
 import { Pool as Pool4 } from "pg";
+var logger = {
+  info: (message, meta) => {
+    const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
+    console.log(`[${timestamp2}] INFO: ${message}`, meta ? JSON.stringify(meta) : "");
+  },
+  error: (message, error) => {
+    const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
+    console.error(`[${timestamp2}] ERROR: ${message}`, error?.stack || error);
+  },
+  warn: (message, meta) => {
+    const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
+    console.warn(`[${timestamp2}] WARN: ${message}`, meta ? JSON.stringify(meta) : "");
+  }
+};
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path.dirname(__filename);
 var app = express();
@@ -3292,9 +3352,22 @@ app.get("/api/data", async (_req, res) => {
     res.status(500).json({ message: "Erreur serveur" });
   }
 });
-app.use((err, _req, res, _next) => {
-  console.error("\u274C Erreur serveur:", err);
-  res.status(500).json({ message: "Erreur interne" });
+app.use((err, req, res, _next) => {
+  logger.error("Erreur serveur non g\xE9r\xE9e", {
+    error: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    userId: req.session?.user?.id,
+    userAgent: req.get("User-Agent"),
+    ip: req.ip
+  });
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const errorResponse = {
+    message: isDevelopment ? err.message : "Erreur interne du serveur",
+    ...isDevelopment && { stack: err.stack }
+  };
+  res.status(err.status || 500).json(errorResponse);
 });
 app.get("*", (_req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
@@ -3305,7 +3378,11 @@ app._router.stack.forEach((r) => {
     console.log(r.route.path);
   }
 });
-var port = process.env.PORT || 3e3;
+var port = parseInt(process.env.PORT || "3000", 10);
 app.listen(port, "0.0.0.0", () => {
-  console.log(`\u{1F680} Server running at http://localhost:${port}`);
+  logger.info(`\u{1F680} Server running at http://localhost:${port}`, {
+    port,
+    env: process.env.NODE_ENV,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  });
 });

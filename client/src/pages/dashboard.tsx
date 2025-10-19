@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Navigation } from "@/components/navigation";
@@ -20,7 +20,7 @@ interface CravingStats {
   trend: number;
 }
 
-export default function Dashboard() {
+const Dashboard = memo(function Dashboard() {
   const [showEmergencyStrategies, setShowEmergencyStrategies] = useState(false);
   const { toast } = useToast();
   
@@ -40,12 +40,12 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: !!authenticatedUser,
-    initialData: { 
-      exercisesCompleted: 0, 
-      totalDuration: 0, 
-      currentStreak: 0, 
-      longestStreak: 0, 
-      averageCraving: 0, 
+    initialData: {
+      exercisesCompleted: 0,
+      totalDuration: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      averageCraving: 0,
       todayCravingLevel: 0,
       todayCravingCount: 0,
       cravingTrend: 0,
@@ -105,17 +105,18 @@ export default function Dashboard() {
   // Pas besoin de requête séparée pour user, nous avons déjà authenticatedUser
   const user = authenticatedUser;
 
-  const startEmergencyRoutine = () => {
+  const startEmergencyRoutine = useCallback(() => {
     const emergencyExercises = getEmergencyExercises();
     if (emergencyExercises.length > 0) {
       // Navigate to the first emergency exercise
       window.location.href = `/exercise/${emergencyExercises[0].id}`;
     }
-  };
+  }, []);
 
-  const todayCravingLevel = dashboardStats?.todayCravingLevel || 0;
-  const cravingTrend = dashboardStats?.cravingTrend || 0;
-  const exercisesCompleted = dashboardStats?.weeklyProgress?.totalActivities || 0;
+  // Optimisation des calculs avec useMemo
+  const todayCravingLevel = useMemo(() => dashboardStats?.todayCravingLevel || 0, [dashboardStats?.todayCravingLevel]);
+  const cravingTrend = useMemo(() => dashboardStats?.cravingTrend || 0, [dashboardStats?.cravingTrend]);
+  const exercisesCompleted = useMemo(() => dashboardStats?.weeklyProgress?.totalActivities || 0, [dashboardStats?.weeklyProgress?.totalActivities]);
   const userLevel = 1; // Par défaut niveau 1, peut être étendu avec la gamification
 
   // Loading state
@@ -330,7 +331,7 @@ export default function Dashboard() {
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between mb-2">
                               <span className="text-xs font-medium text-muted-foreground capitalize">
-                                {strategy.context === 'leisure' ? 'Loisirs' : 
+                                {strategy.context === 'leisure' ? 'Loisirs' :
                                  strategy.context === 'home' ? 'Domicile' : 'Travail'}
                               </span>
                               <div className="flex items-center text-xs text-success">
@@ -359,7 +360,7 @@ export default function Dashboard() {
                     <span className="material-icons text-6xl mb-4">psychology</span>
                     <h3 className="text-lg font-medium mb-2">Aucune stratégie enregistrée</h3>
                     <p className="text-sm mb-4">Utilisez la Boîte à Stratégies pour commencer à tester vos techniques.</p>
-                    <Button 
+                    <Button
                       onClick={() => window.location.href = "/strategies"}
                       size="sm"
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -483,4 +484,6 @@ export default function Dashboard() {
       </Button>
     </>
   );
-}
+});
+
+export default Dashboard;

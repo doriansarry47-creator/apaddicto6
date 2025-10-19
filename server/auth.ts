@@ -27,8 +27,24 @@ export class AuthService {
     lastName?: string;
     role?: string;
   }): Promise<AuthUser> {
+    // Validation des entrées
+    if (!userData.email || !userData.password) {
+      throw new Error('Email et mot de passe requis');
+    }
+
+    // Validation email basique
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userData.email)) {
+      throw new Error('Format d\'email invalide');
+    }
+
+    // Validation mot de passe
+    if (userData.password.length < 8) {
+      throw new Error('Le mot de passe doit contenir au moins 8 caractères');
+    }
+
     // Vérifier si l'utilisateur existe déjà
-    const existingUser = await storage.getUserByEmail(userData.email);
+    const existingUser = await storage.getUserByEmail(userData.email.toLowerCase().trim());
     if (existingUser) {
       throw new Error('Un utilisateur avec cet email existe déjà');
     }
@@ -36,7 +52,7 @@ export class AuthService {
     // SÉCURITÉ: Empêcher l'inscription en tant qu'admin sauf pour l'email autorisé
     const authorizedAdminEmail = 'doriansarry@yahoo.fr';
     const requestedRole = userData.role || 'patient';
-    
+
     if (requestedRole === 'admin' && userData.email.toLowerCase() !== authorizedAdminEmail.toLowerCase()) {
       throw new Error('Accès administrateur non autorisé pour cet email');
     }
@@ -46,10 +62,10 @@ export class AuthService {
 
     // Créer l'utilisateur
     const newUser: InsertUser = {
-      email: userData.email,
+      email: userData.email.toLowerCase().trim(),
       password: hashedPassword,
-      firstName: userData.firstName || null,
-      lastName: userData.lastName || null,
+      firstName: userData.firstName?.trim() || null,
+      lastName: userData.lastName?.trim() || null,
       role: requestedRole,
     };
 
@@ -65,8 +81,16 @@ export class AuthService {
   }
 
   static async login(email: string, password: string): Promise<AuthUser> {
+    // Validation des entrées
+    if (!email || !password) {
+      throw new Error('Email et mot de passe requis');
+    }
+
+    // Normalisation de l'email
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Trouver l'utilisateur par email
-    const user = await storage.getUserByEmail(email);
+    const user = await storage.getUserByEmail(normalizedEmail);
     if (!user) {
       throw new Error('Email ou mot de passe incorrect');
     }

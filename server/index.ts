@@ -9,6 +9,22 @@ import './migrate.js';
 import { debugTablesRouter } from './debugTables.js';
 import { Pool } from 'pg';
 
+// Logger amélioré pour la production
+const logger = {
+  info: (message: string, meta?: any) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] INFO: ${message}`, meta ? JSON.stringify(meta) : '');
+  },
+  error: (message: string, error?: any) => {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] ERROR: ${message}`, error?.stack || error);
+  },
+  warn: (message: string, meta?: any) => {
+    const timestamp = new Date().toISOString();
+    console.warn(`[${timestamp}] WARN: ${message}`, meta ? JSON.stringify(meta) : '');
+  }
+};
+
 // Pour obtenir __dirname dans ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,9 +122,25 @@ app.get('/api/data', async (_req, res) => {
 });
 
 // === MIDDLEWARE DE GESTION D'ERREURS ===
-app.use((err: any, _req: any, res: any, _next: any) => {
-  console.error('❌ Erreur serveur:', err);
-  res.status(500).json({ message: 'Erreur interne' });
+app.use((err: any, req: any, res: any, _next: any) => {
+  logger.error('Erreur serveur non gérée', {
+    error: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    userId: req.session?.user?.id,
+    userAgent: req.get('User-Agent'),
+    ip: req.ip
+  });
+
+  // Ne pas exposer les détails d'erreur en production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const errorResponse = {
+    message: isDevelopment ? err.message : 'Erreur interne du serveur',
+    ...(isDevelopment && { stack: err.stack })
+  };
+
+  res.status(err.status || 500).json(errorResponse);
 });
 
 // === FALLBACK POUR SPA (Single Page Application) ===
@@ -126,7 +158,11 @@ app._router.stack.forEach((r: any) => {
 });
 
 // === LANCEMENT DU SERVEUR ===
-const port = process.env.PORT || 3000;
+const port = parseInt(process.env.PORT || '3000', 10);
 app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Server running at http://localhost:${port}`);
+  logger.info(`🚀 Server running at http://localhost:${port}`, {
+    port,
+    env: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
 });

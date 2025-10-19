@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +8,36 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AdminRoute } from "@/components/admin-route";
 import { ThemeProvider } from "@/hooks/use-theme";
+
+// Lazy loading pour améliorer les performances de chargement
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const Exercises = lazy(() => import("@/pages/exercises"));
+const LibraryExercises = lazy(() => import("@/pages/library-exercises"));
+const ExerciseDetail = lazy(() => import("@/pages/exercise-detail"));
+const Tracking = lazy(() => import("@/pages/tracking"));
+const Education = lazy(() => import("@/pages/education"));
+const Library = lazy(() => import("@/pages/library"));
+const ContentReader = lazy(() => import("@/pages/content-reader"));
+const SessionDetail = lazy(() => import("@/pages/session-detail"));
+const Profile = lazy(() => import("@/pages/profile"));
+const Login = lazy(() => import("@/pages/login"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+
+// Pages légères chargées normalement
+import CravingEntryPage from "@/pages/craving-entry-page";
+import BeckAnalysisPage from "@/pages/beck-analysis-page";
+import StrategiesPage from "@/pages/strategies-page";
+import EmergencyRoutinePage from "@/pages/emergency-routine-page";
+import BreathingExercisePage from "@/pages/breathing-exercise-page";
+
+// Admin pages avec lazy loading
+const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
+const ManageExercisesSessions = lazy(() => import("@/pages/admin/manage-exercises-sessions"));
+const ManageContent = lazy(() => import("@/pages/admin/manage-content"));
+const ManageUsers = lazy(() => import("@/pages/admin/manage-users"));
+const ManageMedia = lazy(() => import("@/pages/admin/manage-media"));
+const ProfessionalReports = lazy(() => import("@/pages/admin/professional-reports"));
+const AdminDebug = lazy(() => import("@/pages/admin/debug"));
 
 // Page Imports
 import Dashboard from "@/pages/dashboard";
@@ -189,17 +220,23 @@ function App() {
         <TooltipProvider>
           <div className="min-h-screen bg-background text-foreground font-roboto">
             <Toaster />
-            <SonnerToaster 
-              position="top-right" 
-              richColors 
-              closeButton 
+            <SonnerToaster
+              position="top-right"
+              richColors
+              closeButton
               visibleToasts={5}
               toastOptions={{
                 className: 'animate-slide-in-right',
                 duration: 4000,
               }}
             />
-            <AppContent />
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
+              </div>
+            }>
+              <AppContent />
+            </Suspense>
           </div>
         </TooltipProvider>
       </ThemeProvider>

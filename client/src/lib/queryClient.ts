@@ -58,7 +58,7 @@ export const getQueryFn: <T>(options: {
   };
 
 // Debug info pour le développement
-const isDevelopment = import.meta.env.MODE === 'development';
+const isDevelopment = import.meta.env?.MODE === 'development';
 
 // Logger pour les requêtes en développement
 const logApiRequest = (method: string, url: string, data?: unknown) => {
@@ -100,6 +100,7 @@ export const queryClient = new QueryClient({
         return failureCount < 2; // Retry max 2 fois
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      networkMode: 'online', // Évite les requêtes en mode offline
     },
     mutations: {
       retry: false,
@@ -108,6 +109,7 @@ export const queryClient = new QueryClient({
           console.error('🚫 Mutation Error:', error, variables);
         }
       },
+      networkMode: 'online', // Évite les mutations en mode offline
     },
   },
 });
