@@ -39,38 +39,6 @@ const ManageMedia = lazy(() => import("@/pages/admin/manage-media"));
 const ProfessionalReports = lazy(() => import("@/pages/admin/professional-reports"));
 const AdminDebug = lazy(() => import("@/pages/admin/debug"));
 
-// Page Imports
-import Dashboard from "@/pages/dashboard";
-import Exercises from "@/pages/exercises";
-import LibraryExercises from "@/pages/library-exercises";
-import ExerciseDetail from "@/pages/exercise-detail";
-// Note: Pages supprimées - fonctionnalités intégrées dans /exercises
-// import TherapeuticExercises from "@/pages/therapeutic-exercises";
-// import RelaxationExercises from "@/pages/relaxation-exercises";
-import Tracking from "@/pages/tracking";
-import Education from "@/pages/education";
-import Library from "@/pages/library";
-import ContentReader from "@/pages/content-reader";
-import SessionDetail from "@/pages/session-detail";
-import Profile from "@/pages/profile";
-import Login from "@/pages/login";
-import NotFound from "@/pages/not-found";
-
-// New Dedicated Pages
-import CravingEntryPage from "@/pages/craving-entry-page";
-import BeckAnalysisPage from "@/pages/beck-analysis-page";
-import StrategiesPage from "@/pages/strategies-page";
-import EmergencyRoutinePage from "@/pages/emergency-routine-page";
-import BreathingExercisePage from "@/pages/breathing-exercise-page";
-
-// Admin Page Imports
-import AdminDashboard from "@/pages/admin/dashboard";
-import ManageExercisesSessions from "@/pages/admin/manage-exercises-sessions";
-import ManageContent from "@/pages/admin/manage-content";
-import ManageUsers from "@/pages/admin/manage-users";
-import ManageMedia from "@/pages/admin/manage-media";
-import ProfessionalReports from "@/pages/admin/professional-reports";
-import AdminDebug from "@/pages/admin/debug";
 
 
 function AppContent() {

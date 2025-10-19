@@ -130,11 +130,6 @@ export function registerRoutes(app: Application) {
 
       // Récupérer l'utilisateur de la base de données
       const user = await storage.getUserByEmail(email);
-      
-      if (!user) {
-        // Ne pas révéler si l'email existe ou non pour des raisons de sécurité
-        return res.json({ message: "Si cet email existe, le mot de passe sera envoyé par email." });
-      }
 
       // Pour cette implémentation simple, on renvoie directement le mot de passe
       // Dans un environnement de production, il faudrait:
@@ -142,13 +137,15 @@ export function registerRoutes(app: Application) {
       // 2. Envoyer un email avec un lien de réinitialisation
       // 3. Permettre à l'utilisateur de définir un nouveau mot de passe
       
-      // Simulation d'envoi d'email (affichage console pour démonstration)
-      console.log('📧 Simulated email sent to:', email);
-      console.log('📧 Password would be sent to user email:', user.email);
+      if (user) {
+        // Simulation d'envoi d'email (affichage console pour démonstration)
+        console.log('📧 Simulated email sent to:', email);
+        console.log('📧 Password would be sent to user email:', user.email);
+      }
       
       // Pour les besoins de démonstration, on suppose que le mot de passe est envoyé
       res.json({ 
-        message: "Un email contenant votre mot de passe a été envoyé à votre adresse email.",
+        message: "Si un compte avec cet email existe, un email de réinitialisation de mot de passe a été envoyé.",
         // En production, ne jamais renvoyer le mot de passe dans la réponse
         demo_note: "Dans cette démo, votre mot de passe a été envoyé par email."
       });
