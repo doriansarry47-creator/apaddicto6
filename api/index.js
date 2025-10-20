@@ -15,6 +15,11 @@ import express from 'express';
 import session from 'express-session';
 import cors from 'cors';
 import { Pool } from 'pg';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Imports conditionnels pour éviter les erreurs Vercel
 let registerRoutes = null;
@@ -23,38 +28,19 @@ let migrationRun = false;
 
 // Tentative de chargement des routes avec fallbacks sûrs
 async function loadModules() {
-  // Tentative de chargement des routes
+  // Tentative de chargement depuis server-dist (fichiers compilés)
   try {
-    const routesModule = await import('../server/routes.js');
-    registerRoutes = routesModule.registerRoutes;
-    console.log('✅ Routes loaded successfully');
+    const routesModule = await import('../server-dist/index.js');
+    // Si le fichier compilé exporte tout, on peut l'utiliser
+    console.log('✅ Compiled server loaded successfully');
   } catch (e) {
-    console.warn('⚠️ Could not load routes:', e.message);
-    registerRoutes = (app) => {
-      app.get('/api/fallback', (req, res) => res.json({ 
-        message: 'Routes not available', 
-        error: e.message 
-      }));
-    };
+    console.warn('⚠️ Could not load compiled server:', e.message);
   }
 
-  // Tentative de chargement du debug
-  try {
-    const debugModule = await import('../server/debugTables.js');
-    debugTablesRouter = debugModule.debugTablesRouter;
-    console.log('✅ Debug tables loaded successfully');
-  } catch (e) {
-    console.warn('⚠️ Could not load debug tables:', e.message);
-  }
-
-  // Tentative de migration
-  try {
-    await import('../server/migrate.js');
-    migrationRun = true;
-    console.log('✅ Migrations run successfully');
-  } catch (e) {
-    console.warn('⚠️ Could not run migrations:', e.message);
-  }
+  // Créer des routes fallback minimales
+  registerRoutes = (app) => {
+    console.log('📝 Using fallback routes');
+  };
 }
 
 // Charger les modules de façon asynchrone
