@@ -2011,13 +2011,12 @@ function registerRoutes(app2) {
       }
       console.log("\u{1F511} Forgot password request for:", email);
       const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.json({ message: "Si cet email existe, le mot de passe sera envoy\xE9 par email." });
+      if (user) {
+        console.log("\u{1F4E7} Simulated email sent to:", email);
+        console.log("\u{1F4E7} Password would be sent to user email:", user.email);
       }
-      console.log("\u{1F4E7} Simulated email sent to:", email);
-      console.log("\u{1F4E7} Password would be sent to user email:", user.email);
       res.json({
-        message: "Un email contenant votre mot de passe a \xE9t\xE9 envoy\xE9 \xE0 votre adresse email.",
+        message: "Si un compte avec cet email existe, un email de r\xE9initialisation de mot de passe a \xE9t\xE9 envoy\xE9.",
         // En production, ne jamais renvoyer le mot de passe dans la réponse
         demo_note: "Dans cette d\xE9mo, votre mot de passe a \xE9t\xE9 envoy\xE9 par email."
       });
